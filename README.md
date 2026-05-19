@@ -1,98 +1,174 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 Getting Started
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Prerequisites
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Make sure you have the following installed:
 
-## Description
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
+- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/) (only if running the API locally for development)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+> PostgreSQL runs inside Docker — no need to install it locally.
 
-## Project setup
+---
+
+## First-time Setup (do this once)
+
+### Step 1 — Clone the repository
 
 ```bash
-$ npm install
+git clone https://github.com/Su26-SEP490-G57/Su26_SEP490_G57_BE.git
+cd Su26_SEP490_G57_BE
 ```
 
-## Compile and run the project
+### Step 2 — Create your `.env` file
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
+> The `.env` file contains your local database credentials. Never commit this file to git.
+
+### Step 3 — Start the project
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+docker compose up --build -d
 ```
 
-## Deployment
+This will automatically:
+- Start a PostgreSQL database
+- Run all migrations (tables will be created automatically)
+- Start the NestJS API
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Step 4 — Verify it's running
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker compose logs -f api
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+If you see `Application is running on: http://localhost:3000` — you're good to go ✅
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## Everyday Usage (after pulling new changes)
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+git pull
+docker compose up --build -d
+```
 
-## Support
+> Use `--build` to rebuild the image when there are code changes. You can skip it if nothing in the Dockerfile changed.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+## Common Commands
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| Command | Description |
+|---------|-------------|
+| `docker compose up -d` | Start the project (background) |
+| `docker compose up --build -d` | Rebuild and start |
+| `docker compose down` | Stop the project |
+| `docker compose down -v` | Stop and **delete all DB data** |
+| `docker compose logs -f api` | View API logs |
+| `docker compose logs -f postgres` | View database logs |
+| `docker compose ps` | Check service status |
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Database Connection (pgAdmin / DBeaver / TablePlus)
+
+| Field | Value |
+|-------|-------|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `SEP490_G57` |
+| Username | `postgres` |
+| Password | `postgres` |
+
+---
+
+## When a Teammate Changes the DB Structure
+
+When someone adds or modifies an **entity**, they will generate a new migration and push it to git. When you pull their changes, just run:
+
+```bash
+docker compose up --build -d
+```
+
+Migrations will be applied automatically on startup.
+
+> ⚠️ If you run into migration errors, reset your local DB with `docker compose down -v` then `docker compose up --build -d`.
+
+---
+
+## Project Structure
+
+```
+.
+├── src/
+│   ├── migrations/        # DB migration history
+│   ├── data-source.ts     # TypeORM CLI config
+│   └── app.module.ts      # DB connection config
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example           # Environment variable template (committed to git)
+├── .env                   # Your local env file (NOT committed)
+└── .dockerignore
+```
+
+---
+
+## Local Development (recommended)
+
+When actively developing, run only the database in Docker and start the API manually — this gives you hot reload and easier debugging.
+
+**Make sure your `.env` has:**
+```env
+DB_HOST=localhost
+```
+
+```bash
+# Start only the database
+docker compose up postgres -d
+
+# Install dependencies (first time only)
+npm install
+
+# Run NestJS with hot reload
+npm run start:dev
+```
+
+> NestJS CLI (`nest start --watch`) handles hot reload out of the box — no need to install nodemon.
+
+To stop:
+```bash
+# Stop the API: Ctrl + C in the terminal
+
+# Stop the database
+docker compose down
+```
+
+---
+
+## Troubleshooting
+
+**Port 5432 already in use**
+```bash
+# You may have a local PostgreSQL running on your machine.
+# Stop it, or change the port mapping in docker-compose.yml to "5433:5432"
+```
+
+**API can't connect to the database**
+```bash
+# Check the logs for details
+docker compose logs api
+
+# Try restarting the API
+docker compose restart api
+```
+
+**Want to reset the database completely**
+```bash
+docker compose down -v
+docker compose up --build -d
+```
