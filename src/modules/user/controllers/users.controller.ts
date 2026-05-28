@@ -3,11 +3,11 @@ import {
   ParseIntPipe, Patch, Post, Query
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { UsersService } from './users.service';
-import { CreateUserDto } from './dtos/create-user.dto';
-import { QueryUserDto } from './dtos/query-user.dto';
-import { UpdateUserDto } from './dtos/update-user.dto';
-import { UserResponseDto } from './dtos/user-response.dto';
+import { CreateUserDto } from '../dtos/create-user.dto';
+import { QueryUserDto } from '../dtos/query-user.dto';
+import { UpdateUserDto } from '../dtos/update-user.dto';
+import { UserResponseDto } from '../dtos/user-response.dto';
+import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
 @Controller('users')

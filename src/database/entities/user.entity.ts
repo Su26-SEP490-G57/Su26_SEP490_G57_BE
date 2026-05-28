@@ -5,7 +5,7 @@ import { UserStatus } from '../../common/enums/user-status.enum';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ name: 'user_id', type: 'int' })
   id!: number;
 
   @Column({ type: 'varchar', length: 50, unique: true })

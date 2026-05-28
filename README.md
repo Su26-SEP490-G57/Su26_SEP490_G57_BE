@@ -127,6 +127,8 @@ When actively developing, run only the database in Docker and start the API manu
 DB_HOST=localhost
 ```
 
+When you run the app inside Docker Compose, the API container overrides `DB_HOST` to `postgres` automatically.
+
 ```bash
 # Start only the database
 docker compose up postgres -d
