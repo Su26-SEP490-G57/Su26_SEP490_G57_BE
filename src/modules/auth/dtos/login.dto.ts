@@ -6,6 +6,15 @@ export class LoginDto {
     description: 'Firebase ID token obtained after Firebase Authentication',
     example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
+  
+
+
+
+
+
+  //aaa
+
+
   @IsString()
   @IsNotEmpty()
   idToken!: string;
