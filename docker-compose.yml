@@ -8,30 +8,19 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    command: >
+      sh -c "docker-entrypoint.sh postgres & 
+             until pg_isready -U ${DB_USER} -d ${DB_NAME}; do sleep 1; done; 
+             psql -U ${DB_USER} -d ${DB_NAME} -c 'CREATE SCHEMA IF NOT EXISTS \"${DB_SCHEMA}\";'; 
+             wait"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
       interval: 10s
       timeout: 5s
       retries: 5
-
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: capstone-backend
-    restart: always
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      DB_HOST: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   postgres_data:

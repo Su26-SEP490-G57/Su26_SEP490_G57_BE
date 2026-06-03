@@ -4,8 +4,8 @@ import { CreateUserDto } from '../dtos/create-user.dto';
 import { QueryUserDto } from '../dtos/query-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
-import { User } from '../../../database/entities/user.entity';
-import { UserStatus } from '../../../common/enums/user-status.enum';
+import { User } from '../entities/user.entity';
+import { UserStatus } from '../enums/user-status.enum';
 import { UsersRepository } from '../repositories/users.repository';
 
 const SALT_ROUNDS = 10;
@@ -15,8 +15,14 @@ export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
   private toResponse(user: User): UserResponseDto {
-    let { password_hash, ...safe } = user;
-    return safe as UserResponseDto;
+    return {
+      id: user.id,
+      username: user.username,
+      fullName: user.full_name,
+      role: user.role,  
+      status: user.status,
+      createdAt: user.created_at,
+    };
   }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -44,7 +50,7 @@ export class UsersService {
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
     if (dto.password) user.password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    if (dto.full_name) user.full_name = dto.full_name;
+    if (dto.fullName) user.full_name = dto.fullName;
     if (dto.role) user.role = dto.role;
     if (dto.status) user.status = dto.status;
 

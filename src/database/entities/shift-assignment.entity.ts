@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from './user.entity';
+import { User } from '../../modules/user/entities/user.entity';
 
 const SHIFT_TYPES = ['Day', 'Night'] as const;
 

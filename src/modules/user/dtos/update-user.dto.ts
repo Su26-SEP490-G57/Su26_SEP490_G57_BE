@@ -1,14 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { UserRole } from '../../../common/enums/user-role.enum';
-import { UserStatus } from '../../../common/enums/user-status.enum';
+import { UserRole } from '../enums/user-role.enum';
+import { UserStatus } from '../enums/user-status.enum';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({ example: 'Nguyễn Thị Hoa Mới', maxLength: 100 })
   @IsString()
   @MaxLength(100)
   @IsOptional()
-  full_name?: string;
+  fullName?: string;
 
   @ApiPropertyOptional({ example: 'NewPass@99' })
   @IsString()

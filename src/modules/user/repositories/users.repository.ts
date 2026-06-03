@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { QueryUserDto } from '../dtos/query-user.dto';
-import { User } from '../../../database/entities/user.entity';
-import { UserRole } from '../../../common/enums/user-role.enum';
-import { UserStatus } from '../../../common/enums/user-status.enum';
+import { User } from '../entities/user.entity';
+import { UserRole } from '../enums/user-role.enum';
+import { UserStatus } from '../enums/user-status.enum';
 
 @Injectable()
 export class UsersRepository {
@@ -18,7 +18,7 @@ export class UsersRepository {
     return this.userRepo.create({
       username: userData.username,
       password_hash: userData.password_hash,
-      full_name: userData.full_name,
+      full_name: userData.fullName,
       role: userData.role ?? UserRole.NURSE,
       status: UserStatus.ACTIVE,
     });

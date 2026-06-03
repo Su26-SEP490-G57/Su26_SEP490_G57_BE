@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Patient } from './patient.entity';
-import { User } from './user.entity';
+import { User } from '../../modules/user/entities/user.entity';
 
 const POD_STATUSES = ['Active', 'Paused', 'Rolled_Back', 'Completed'] as const;
 const ACTION_TYPES = ['System_Auto', 'Nurse_Acknowledge', 'Nurse_Pause', 'Nurse_Rollback', 'Nurse_Resume', 'Manual_Close'] as const;

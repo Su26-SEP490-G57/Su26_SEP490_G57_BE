@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Patient } from './patient.entity';
 import { SymptomSurvey } from './symptom-survey.entity';
-import { User } from './user.entity';
+import { User } from '../../modules/user/entities/user.entity';
 
 const ALERT_LEVELS = ['YELLOW', 'RED'] as const;
 const ALERT_STATUSES = ['Pending', 'Acknowledged', 'Paused_POD', 'Rolled_Back', 'Escalated', 'Closed'] as const;
