@@ -127,21 +127,66 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 ---
 
-## Migration Commands
+## 🗄️ Making Changes to the Database Structure
 
-| Command | Description |
-|---------|-------------|
-| `npm run migration:generate -- src/database/migrations/<Name>` | Generate migration from entity changes |
-| `npm run migration:run` | Apply all pending migrations |
-| `npm run migration:revert` | Revert the last migration |
+Whenever you add a new field, rename a column, create a new table, or make any other schema change, follow these steps:
 
-**Example — after modifying an entity:**
+### Step 1 — Modify the entity file
+
+Edit the relevant entity in `src/modules/<feature>/entities/<name>.entity.ts`.
+
+For example, adding a `date_of_birth` field to the User entity:
+
+```typescript
+@Column({ type: 'date', nullable: true })
+date_of_birth!: Date | null;
+```
+
+### Step 2 — Generate the migration
+
 ```bash
-npm run migration:generate -- src/database/migrations/AddPhoneToUsers
+npm run migration:generate -- src/database/migrations/DescribeYourChange
+```
+
+Use a short descriptive name, for example:
+```bash
+npm run migration:generate -- src/database/migrations/AddDateOfBirthToUsers
+npm run migration:generate -- src/database/migrations/CreatePatientNotesTable
+npm run migration:generate -- src/database/migrations/RenameRoomBedColumn
+```
+
+TypeORM will diff your entities against the current database and generate the exact SQL needed. A new file will appear in `src/database/migrations/`.
+
+> ⚠️ Always review the generated file before running it — make sure the SQL looks correct.
+
+### Step 3 — Apply the migration
+
+```bash
 npm run migration:run
 ```
 
-**Required scripts in `package.json`:**
+### Step 4 — Commit the migration file
+
+```bash
+git add src/database/migrations/
+git commit -m "migration: AddDateOfBirthToUsers"
+git push
+```
+
+> ⚠️ **Never edit an existing migration file.** Once committed and run, a migration is permanent. Always create a new one for each change.
+
+### Reverting a migration
+
+If something went wrong, revert the last migration:
+```bash
+npm run migration:revert
+```
+Then fix the entity, regenerate, and run again.
+
+---
+
+## Required scripts in `package.json`
+
 ```json
 "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
 "migration:run":      "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
