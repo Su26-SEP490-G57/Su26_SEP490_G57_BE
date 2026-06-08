@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
 
 export class CreateUserDto {
@@ -26,8 +35,20 @@ export class CreateUserDto {
   @MaxLength(100)
   fullName!: string;
 
-  @ApiPropertyOptional({ enum: UserRole, example: UserRole.NURSE, default: UserRole.NURSE })
-  @IsEnum(UserRole)
+  @ApiPropertyOptional({ example: '0912345678', maxLength: 20 })
+  @IsString()
+  @MaxLength(20)
   @IsOptional()
-  role?: UserRole;
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({
+    enum: UserRole,
+    isArray: true,
+    example: [UserRole.NURSE],
+    default: [UserRole.NURSE],
+  })
+  @IsArray()
+  @IsEnum(UserRole, { each: true })
+  @IsOptional()
+  roles?: UserRole[];
 }

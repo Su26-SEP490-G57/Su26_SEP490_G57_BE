@@ -1,7 +1,14 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinTable,
+  ManyToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { UserRole } from '../enums/user-role.enum';
-import { UserStatus } from '../enums/user-status.enum';
+import { Role } from './role.entity';
 
 @Entity('users')
 export class User {
@@ -18,12 +25,24 @@ export class User {
   @Column({ type: 'varchar', length: 100 })
   full_name!: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.NURSE })
-  role!: UserRole;
+  @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
+  phone_number!: string | null;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
-  status!: UserStatus;
+  @Column({ type: 'boolean', default: true })
+  is_active!: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updated_at!: Date;
+
+  /** Eagerly loaded so JwtStrategy & guards can read role names without extra queries */
+  @ManyToMany(() => Role, (role) => role.users, { eager: true })
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles!: Role[];
 }

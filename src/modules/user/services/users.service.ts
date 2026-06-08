@@ -5,7 +5,7 @@ import { QueryUserDto } from '../dtos/query-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
 import { User } from '../entities/user.entity';
-import { UserStatus } from '../enums/user-status.enum';
+import { UserRole } from '../enums/user-role.enum';
 import { UsersRepository } from '../repositories/users.repository';
 
 const SALT_ROUNDS = 10;
@@ -19,19 +19,31 @@ export class UsersService {
       id: user.id,
       username: user.username,
       fullName: user.full_name,
-      role: user.role,  
-      status: user.status,
+      phoneNumber: user.phone_number,
+      roles: (user.roles ?? []).map((r) => r.roleName),
+      isActive: user.is_active,
       createdAt: user.created_at,
+      updatedAt: user.updated_at,
     };
   }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
-    let exists = await this.usersRepository.findByUsername(dto.username);
-    if (exists) throw new ConflictException(`Username "${dto.username}" is already taken`);
+    const exists = await this.usersRepository.findByUsername(dto.username);
+    if (exists) throw new ConflictException(`Email "${dto.username}" is already registered`);
 
-    let password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    let user = this.usersRepository.create({ ...dto, password_hash });
-    let saved = await this.usersRepository.save(user);
+    const roleNames = dto.roles?.length ? dto.roles : [UserRole.NURSE];
+    const roles = await this.usersRepository.resolveRoles(roleNames);
+    const password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+
+    const user = this.usersRepository.createEntity({
+      username: dto.username,
+      password_hash,
+      full_name: dto.fullName,
+      phone_number: dto.phoneNumber ?? null,
+      roles,
+    });
+
+    const saved = await this.usersRepository.save(user);
     return this.toResponse(saved);
   }
 
@@ -40,30 +52,38 @@ export class UsersService {
   }
 
   async findOne(id: number): Promise<UserResponseDto> {
-    let user = await this.usersRepository.findById(id);
+    const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundException(`User #${id} not found`);
     return this.toResponse(user);
   }
 
   async update(id: number, dto: UpdateUserDto): Promise<UserResponseDto> {
-    let user = await this.usersRepository.findById(id);
+    const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
-    if (dto.password) user.password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    if (dto.username && dto.username !== user.username) {
+      const conflict = await this.usersRepository.findByUsername(dto.username);
+      if (conflict) throw new ConflictException(`Email "${dto.username}" is already registered`);
+      user.username = dto.username;
+    }
     if (dto.fullName) user.full_name = dto.fullName;
-    if (dto.role) user.role = dto.role;
-    if (dto.status) user.status = dto.status;
+    if (dto.phoneNumber !== undefined) user.phone_number = dto.phoneNumber ?? null;
+    if (dto.password) user.password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    if (dto.isActive !== undefined) user.is_active = dto.isActive;
+    if (dto.roles?.length) {
+      user.roles = await this.usersRepository.resolveRoles(dto.roles);
+    }
 
-    let saved = await this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
     return this.toResponse(saved);
   }
 
   async deactivate(id: number): Promise<UserResponseDto> {
-    let user = await this.usersRepository.findById(id);
+    const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
-    user.status = UserStatus.INACTIVE;
-    let saved = await this.usersRepository.save(user);
+    user.is_active = false;
+    const saved = await this.usersRepository.save(user);
     return this.toResponse(saved);
   }
 

@@ -11,11 +11,7 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    command: >
-      sh -c "docker-entrypoint.sh postgres & 
-             until pg_isready -U ${DB_USER} -d ${DB_NAME}; do sleep 1; done; 
-             psql -U ${DB_USER} -d ${DB_NAME} -c 'CREATE SCHEMA IF NOT EXISTS \"${DB_SCHEMA}\";'; 
-             wait"
+      - ./docker/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
       interval: 10s

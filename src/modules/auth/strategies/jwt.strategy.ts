@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../../user/services/users.service';
 import { UserStatus } from '../../user/enums/user-status.enum';
+import { UserResponseDto } from 'src/modules/user/dtos/user-response.dto';
 
 export interface JwtPayload {
   sub: number;   // user id
@@ -20,11 +21,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(payload.sub);
-    if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('Account is inactive or not found');
-    }
-    return user; // attached to request as req.user
+    if (!user) throw new UnauthorizedException();
+    if (!user.isActive) throw new UnauthorizedException('Account is disabled');
+    return user;
   }
 }

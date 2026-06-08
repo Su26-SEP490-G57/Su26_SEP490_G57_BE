@@ -1,9 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../../user/services/users.service';
-import { UserStatus } from '../../user/enums/user-status.enum';
+import { RefreshToken } from '../entities/refresh-token.entity';
 import { LoginDto } from '../dtos/login.dto';
 import { JwtPayload } from '../interface/jwt-payload.interface';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
@@ -14,11 +16,18 @@ export interface LoginResponse {
   user: UserResponseDto;
 }
 
+const JWT_SECRET         = process.env.JWT_SECRET          ?? 'change-me';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET  ?? 'refresh-change-me';
+const ACCESS_EXPIRES     = '8h';
+const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepo: Repository<RefreshToken>,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResponse> {
@@ -27,48 +36,79 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    if (user.status !== UserStatus.ACTIVE) {
+    if (!user.is_active) {
       throw new UnauthorizedException('Account is disabled');
     }
 
     const passwordMatch = await bcrypt.compare(dto.password, user.password_hash);
-
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const roleNames = (user.roles ?? []).map((r) => r.roleName);
+
     const payload: JwtPayload = {
       sub: user.id,
       username: user.username,
-      role: user.role,
+      roles: roleNames,
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET ?? 'change-me',
-      expiresIn: '8h',
+      secret: JWT_SECRET,
+      expiresIn: ACCESS_EXPIRES,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET ?? 'refresh-change-me',
+      secret: JWT_REFRESH_SECRET,
       expiresIn: '7d',
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        fullName: user.full_name,
-        role: user.role,
-        status: user.status,
-        createdAt: user.created_at,
-      },
+    // Persist refresh token
+    const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_MS);
+    await this.refreshTokenRepo.save(
+      this.refreshTokenRepo.create({ user_id: user.id, token: refreshToken, expires_at: expiresAt }),
+    );
+
+    const userDto: UserResponseDto = {
+      id: user.id,
+      username: user.username,
+      fullName: user.full_name,
+      phoneNumber: user.phone_number,
+      roles: roleNames,
+      isActive: user.is_active,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
     };
+
+    return { accessToken, refreshToken, user: userDto };
   }
 
-  async getMe(userId: number): Promise<UserResponseDto> {
-    return this.usersService.findOne(userId);
+  async refresh(token: string): Promise<{ accessToken: string }> {
+    // 1. Verify signature & expiry
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify<JwtPayload>(token, { secret: JWT_REFRESH_SECRET });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // 2. Check token exists in DB (rotation / revocation support)
+    const stored = await this.refreshTokenRepo.findOne({ where: { token } });
+    if (!stored || stored.expires_at < new Date()) {
+      throw new UnauthorizedException('Refresh token not found or expired');
+    }
+
+    // 3. Issue new access token
+    const newPayload: JwtPayload = { sub: payload.sub, username: payload.username, roles: payload.roles };
+    const accessToken = this.jwtService.sign(newPayload, {
+      secret: JWT_SECRET,
+      expiresIn: ACCESS_EXPIRES,
+    });
+
+    return { accessToken };
+  }
+
+  async logout(token: string): Promise<void> {
+    await this.refreshTokenRepo.delete({ token });
   }
 }

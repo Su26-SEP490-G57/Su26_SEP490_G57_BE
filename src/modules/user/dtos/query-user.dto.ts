@@ -1,27 +1,37 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
-import { UserStatus } from '../enums/user-status.enum';
 
 export class QueryUserDto {
   @ApiPropertyOptional({ example: 1 })
-  @Type(() => Number) @IsInt() @Min(1) @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
   page?: number = 1;
 
   @ApiPropertyOptional({ example: 10 })
-  @Type(() => Number) @IsInt() @Min(1) @Max(50) @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  @IsOptional()
   limit?: number = 10;
 
   @ApiPropertyOptional({ enum: UserRole, example: UserRole.NURSE })
-  @IsEnum(UserRole) @IsOptional()
+  @IsEnum(UserRole)
+  @IsOptional()
   role?: UserRole;
 
-  @ApiPropertyOptional({ enum: UserStatus, example: UserStatus.ACTIVE })
-  @IsEnum(UserStatus) @IsOptional()
-  status?: UserStatus;
+  @ApiPropertyOptional({ example: true })
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 
   @ApiPropertyOptional({ example: 'Hoa', description: 'Search by full_name (partial match)' })
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   search?: string;
 }

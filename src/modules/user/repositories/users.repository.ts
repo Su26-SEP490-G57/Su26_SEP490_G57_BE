@@ -1,57 +1,96 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateUserDto } from '../dtos/create-user.dto';
-import { QueryUserDto } from '../dtos/query-user.dto';
 import { User } from '../entities/user.entity';
-import { UserRole } from '../enums/user-role.enum';
-import { UserStatus } from '../enums/user-status.enum';
+import { Role } from '../entities/role.entity';
+import { QueryUserDto } from '../dtos/query-user.dto';
 
 @Injectable()
 export class UsersRepository {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    @InjectRepository(Role)
+    private readonly roleRepo: Repository<Role>,
   ) {}
 
-  create(userData: CreateUserDto & { password_hash: string }) {
+  /** Resolve role name strings to Role entities (creates row if absent — useful for seeding) */
+  async resolveRoles(roleNames: string[]): Promise<Role[]> {
+    return Promise.all(
+      roleNames.map(async (name) => {
+        let role = await this.roleRepo.findOne({ where: { roleName: name } });
+        if (!role) {
+          role = this.roleRepo.create({ roleName: name });
+          await this.roleRepo.save(role);
+        }
+        return role;
+      }),
+    );
+  }
+
+  createEntity(data: {
+    username: string;
+    password_hash: string;
+    full_name: string;
+    phone_number?: string | null;
+    roles: Role[];
+  }): User {
     return this.userRepo.create({
-      username: userData.username,
-      password_hash: userData.password_hash,
-      full_name: userData.fullName,
-      role: userData.role ?? UserRole.NURSE,
-      status: UserStatus.ACTIVE,
+      username: data.username,
+      password_hash: data.password_hash,
+      full_name: data.full_name,
+      phone_number: data.phone_number ?? null,
+      is_active: true,
+      roles: data.roles,
     });
   }
 
-  save(user: User) {
+  save(user: User): Promise<User> {
     return this.userRepo.save(user);
   }
 
-  findByUsername(username: string) {
+  findByUsername(username: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { username } });
   }
 
-  findById(id: number) {
+  findById(id: number): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
   }
 
   async findAll(query: QueryUserDto) {
-    const { page = 1, limit = 10, role, status, search } = query;
-    const qb = this.userRepo.createQueryBuilder('u')
+    const { page = 1, limit = 10, role, isActive, search } = query;
+
+    const qb = this.userRepo
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.roles', 'role')
       .select([
-        'u.id', 'u.username', 'u.full_name',
-        'u.role', 'u.status', 'u.created_at',
+        'u.id',
+        'u.username',
+        'u.full_name',
+        'u.phone_number',
+        'u.is_active',
+        'u.created_at',
+        'u.updated_at',
+        'role.id',
+        'role.roleName',
       ]);
 
-    if (role) qb.andWhere('u.role = :role', { role });
-    if (status) qb.andWhere('u.status = :status', { status });
-    if (search) qb.andWhere('u.full_name ILIKE :search', { search: `%${search}%` });
+    if (role) {
+      qb.andWhere('role.roleName = :role', { role });
+    }
+    if (isActive !== undefined) {
+      qb.andWhere('u.is_active = :isActive', { isActive });
+    }
+    if (search) {
+      qb.andWhere('u.full_name ILIKE :search', { search: `%${search}%` });
+    }
 
     qb.orderBy('u.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
-    return qb.getManyAndCount().then(([data, total]) => ({ data, total, page, limit }));
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, page, limit };
   }
 }

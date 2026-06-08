@@ -2,13 +2,9 @@
 
 ## Prerequisites
 
-Make sure you have the following installed:
-
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
 - [Git](https://git-scm.com/)
-- [Node.js](https://nodejs.org/) (only if running the API locally for development)
-
-> PostgreSQL runs inside Docker — no need to install it locally.
+- [Node.js](https://nodejs.org/) — only needed for local development
 
 ---
 
@@ -27,37 +23,80 @@ cd Su26_SEP490_G57_BE
 cp .env.example .env
 ```
 
-> The `.env` file contains your local database credentials. Never commit this file to git.
+> Never commit `.env` to git.
 
-### Step 3 — Start the project
+---
 
-```bash
-docker compose up --build -d
-```
+## 👨‍💻 Local Development
 
-This will automatically:
-- Start a PostgreSQL database
-- Run all migrations (tables will be created automatically)
-- Start the NestJS API
+Run only the database in Docker and the API locally — gives you hot reload and easier debugging.
 
-### Step 4 — Verify it's running
+### Start
 
 ```bash
-docker compose logs -f api
+# 1. Start the database (schema is created automatically on first run)
+docker compose up -d
+
+# 2. Install dependencies (first time only)
+npm install
+
+# 3. Run pending migrations
+npm run migration:run
+
+# 4. Start the API with hot reload
+npm run start:dev
 ```
 
 If you see `Application is running on: http://localhost:3000` — you're good to go ✅
 
----
+### Stop
 
-## Everyday Usage (after pulling new changes)
+```bash
+# Stop the API: Ctrl + C in the terminal
+docker compose down
+```
+
+### After pulling new changes
 
 ```bash
 git pull
-docker compose up --build -d
+npm run migration:run
+npm run start:dev
 ```
 
-> Use `--build` to rebuild the image when there are code changes. You can skip it if nothing in the Dockerfile changed.
+---
+
+## 🚀 Production
+
+Uses `docker-compose.prod.yml` which runs both the database and the app container together.
+
+### Start
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+This will:
+- Start PostgreSQL and create the `${DB_SCHEMA}` schema automatically
+- Wait for the database to be healthy
+- Start the app container
+
+### Stop
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+### After deploying new changes
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+> ⚠️ Run migrations manually after deploying if the app doesn't auto-run them on startup:
+> ```bash
+> docker compose -f docker-compose.prod.yml exec app npm run migration:run
+> ```
 
 ---
 
@@ -65,13 +104,13 @@ docker compose up --build -d
 
 | Command | Description |
 |---------|-------------|
-| `docker compose up -d` | Start the project (background) |
-| `docker compose up --build -d` | Rebuild and start |
-| `docker compose down` | Stop the project |
+| `docker compose up -d` | Start the database (dev) |
+| `docker compose down` | Stop the database (dev) |
 | `docker compose down -v` | Stop and **delete all DB data** |
-| `docker compose logs -f api` | View API logs |
 | `docker compose logs -f postgres` | View database logs |
-| `docker compose ps` | Check service status |
+| `npm run start:dev` | Start API with hot reload |
+| `npm run migration:run` | Apply pending migrations |
+| `npm run migration:revert` | Revert last migration |
 
 ---
 
@@ -82,22 +121,48 @@ docker compose up --build -d
 | Host | `localhost` |
 | Port | `5432` |
 | Database | `SEP490_G57` |
+| Schema | `SEP490_G57` |
 | Username | `postgres` |
 | Password | `postgres` |
 
 ---
 
-## When a Teammate Changes the DB Structure
+## Migration Commands
 
-When someone adds or modifies an **entity**, they will generate a new migration and push it to git. When you pull their changes, just run:
+| Command | Description |
+|---------|-------------|
+| `npm run migration:generate -- src/database/migrations/<Name>` | Generate migration from entity changes |
+| `npm run migration:run` | Apply all pending migrations |
+| `npm run migration:revert` | Revert the last migration |
 
+**Example — after modifying an entity:**
 ```bash
-docker compose up --build -d
+npm run migration:generate -- src/database/migrations/AddPhoneToUsers
+npm run migration:run
 ```
 
-Migrations will be applied automatically on startup.
+**Required scripts in `package.json`:**
+```json
+"migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
+"migration:run":      "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
+"migration:revert":   "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts"
+```
 
-> ⚠️ If you run into migration errors, reset your local DB with `docker compose down -v` then `docker compose up --build -d`.
+---
+
+## When a Teammate Changes the DB Structure
+
+```bash
+git pull
+npm run migration:run
+```
+
+> ⚠️ If you hit migration errors, reset your local DB:
+> ```bash
+> docker compose down -v
+> docker compose up -d
+> npm run migration:run
+> ```
 
 ---
 
@@ -106,48 +171,22 @@ Migrations will be applied automatically on startup.
 ```
 .
 ├── src/
-│   ├── migrations/        # DB migration history
-│   ├── data-source.ts     # TypeORM CLI config
-│   └── app.module.ts      # DB connection config
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example           # Environment variable template (committed to git)
-├── .env                   # Your local env file (NOT committed)
-└── .dockerignore
-```
-
----
-
-## Local Development (recommended)
-
-When actively developing, run only the database in Docker and start the API manually — this gives you hot reload and easier debugging.
-
-**Make sure your `.env` has:**
-```env
-DB_HOST=localhost
-```
-
-When you run the app inside Docker Compose, the API container overrides `DB_HOST` to `postgres` automatically.
-
-```bash
-# Start only the database
-docker compose up postgres -d
-
-# Install dependencies (first time only)
-npm install
-
-# Run NestJS with hot reload
-npm run start:dev
-```
-
-> NestJS CLI (`nest start --watch`) handles hot reload out of the box — no need to install nodemon.
-
-To stop:
-```bash
-# Stop the API: Ctrl + C in the terminal
-
-# Stop the database
-docker compose down
+│   ├── config/                     # App configuration
+│   ├── database/
+│   │   ├── migrations/             # DB migration history
+│   │   └── seeds/                  # Seed scripts
+│   ├── modules/                    # Feature modules (auth, user, …)
+│   ├── shared/                     # Guards, decorators, pipes
+│   ├── app.module.ts
+│   ├── data-source.ts              # TypeORM CLI config
+│   └── main.ts
+├── docker/
+│   └── init/
+│       └── 01-create-schema.sql    # Auto-runs on first DB startup
+├── docker-compose.yml              # Local dev (DB only)
+├── docker-compose.prod.yml         # Production (DB + app)
+├── .env.example
+└── .env                            # NOT committed to git
 ```
 
 ---
@@ -156,21 +195,20 @@ docker compose down
 
 **Port 5432 already in use**
 ```bash
-# You may have a local PostgreSQL running on your machine.
-# Stop it, or change the port mapping in docker-compose.yml to "5433:5432"
+# Stop your local PostgreSQL, or change the port in docker-compose.yml to "5433:5432"
 ```
 
-**API can't connect to the database**
+**Schema does not exist error**
 ```bash
-# Check the logs for details
-docker compose logs api
-
-# Try restarting the API
-docker compose restart api
+# The init script only runs on a fresh volume — reset the DB:
+docker compose down -v
+docker compose up -d
+npm run migration:run
 ```
 
 **Want to reset the database completely**
 ```bash
 docker compose down -v
-docker compose up --build -d
+docker compose up -d
+npm run migration:run
 ```
