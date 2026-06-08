@@ -22,7 +22,7 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE ${schema}."users" (
         "user_id"        SERIAL                        NOT NULL,
-        "username"       character varying(50)         NOT NULL,
+        "username"       character varying(255)        NOT NULL,
         "password_hash"  character varying(255)        NOT NULL,
         "full_name"      character varying(100)        NOT NULL,
         "phone_number"   character varying(20),
@@ -52,6 +52,25 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
         "description"     character varying(255),
         CONSTRAINT "PK_permissions_permission_id"       PRIMARY KEY ("permission_id"),
         CONSTRAINT "UQ_permissions_permission_code"     UNIQUE ("permission_code")
+      )
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE ${schema}."survey_questions" (
+        "question_id"   SERIAL                  NOT NULL,
+        "question_text" TEXT                    NOT NULL,
+        "order_number"  integer,
+        CONSTRAINT "PK_survey_questions_question_id" PRIMARY KEY ("question_id")
+      )
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE ${schema}."question_options" (
+        "option_id"    SERIAL                   NOT NULL,
+        "question_id"  integer                  NOT NULL,
+        "option_text"  character varying(255)   NOT NULL,
+        "score_value"  integer                  NOT NULL,
+        CONSTRAINT "PK_question_options_option_id" PRIMARY KEY ("option_id")
       )
     `);
 
@@ -94,19 +113,17 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
         "name_initials"          character varying(50),
         "age"                    integer,
         "gender"                 character varying(10),
-        "token"                  character varying(20),
-        "is_active"              BOOLEAN                  NOT NULL DEFAULT TRUE,
         "height"                 FLOAT,
         "weight"                 FLOAT,
         "bmi"                    FLOAT,
         "diagnosis"              TEXT,
         "operation_type"         character varying(100),
-        "surgery_date"           DATE,
         "method"                 character varying(100),
         "has_gi_anastomosis"     BOOLEAN,
-        "assigned_nurse_id"      integer,
+        "surgery_date"           DATE,
         "room_bed"               character varying(50),
         "current_pod"            integer,
+        "assigned_nurse_id"      integer,
         "time_to_redrink"        integer,
         "time_to_reeat"          integer,
         "pod_soft_diet_reached"  integer,
@@ -115,7 +132,6 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
         "gi_complications"       TEXT,
         "length_of_stay"         integer,
         "protocol_final_status"  character varying(50),
-        "created_at"             TIMESTAMP                NOT NULL DEFAULT now(),
         CONSTRAINT "PK_patient_cases_case_id" PRIMARY KEY ("case_id")
       )
     `);
@@ -138,14 +154,20 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
         "evaluation_datetime" TIMESTAMP                 NOT NULL,
         "pod_context"         integer,
         "shift_period"        character varying(20),
-        "nausea_score"        integer                   NOT NULL DEFAULT 0,
-        "vomiting_score"      integer                   NOT NULL DEFAULT 0,
-        "bloating_score"      integer                   NOT NULL DEFAULT 0,
-        "intake_volume"       FLOAT,
-        "is_flatus"           BOOLEAN,
         "total_score"         integer                   NOT NULL DEFAULT 0,
         "triage_color"        character varying(20),
         CONSTRAINT "PK_patient_assessments_assessment_id" PRIMARY KEY ("assessment_id")
+      )
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE ${schema}."patient_assessment_details" (
+        "detail_id"          SERIAL            NOT NULL,
+        "assessment_id"      integer           NOT NULL,
+        "question_id"        integer           NOT NULL,
+        "selected_option_id" integer           NOT NULL,
+        "score_earned"       integer           NOT NULL,
+        CONSTRAINT "PK_patient_assessment_details_detail_id" PRIMARY KEY ("detail_id")
       )
     `);
 
@@ -166,13 +188,13 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE ${schema}."app_engagement_logs" (
-        "log_id"                SERIAL              NOT NULL,
-        "case_id"               character varying   NOT NULL,
-        "viewed_guidance"       BOOLEAN,
-        "viewed_education"      BOOLEAN,
-        "app_access_count"      integer,
-        "reminder_count"        integer,
-        "call_nurse_clicks"     integer,
+        "log_id"                 SERIAL              NOT NULL,
+        "case_id"                character varying   NOT NULL,
+        "viewed_guidance"        BOOLEAN,
+        "viewed_education"       BOOLEAN,
+        "app_access_count"       integer,
+        "reminder_count"         integer,
+        "call_nurse_clicks"      integer,
         "survey_completion_rate" FLOAT,
         CONSTRAINT "PK_app_engagement_logs_log_id" PRIMARY KEY ("log_id")
       )
@@ -180,22 +202,59 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE ${schema}."monitoring_alerts" (
-        "alert_id"           SERIAL                                  NOT NULL,
-        "case_id"            character varying                       NOT NULL,
-        "assessment_id"      integer                                 NOT NULL,
-        "survey_score"       integer,
-        "alert_type"         ${schema}."alerts_alert_type_enum"      NOT NULL,
-        "status"             character varying(50)                   NOT NULL DEFAULT 'Pending',
-        "is_auto_progression" BOOLEAN,
-        "triggered_at"       TIMESTAMP,
-        "assigned_nurse_id"  integer,
-        "acknowledged_at"    TIMESTAMP,
-        "nurse_action"       character varying(100),
-        "is_doctor_notified" BOOLEAN,
-        "nursing_note"       TEXT,
-        "closed_at"          TIMESTAMP,
+        "alert_id"            SERIAL                                  NOT NULL,
+        "case_id"             character varying                       NOT NULL,
+        "assessment_id"       integer                                 NOT NULL,
+        "survey_score"        integer,
+        "alert_type"          ${schema}."alerts_alert_type_enum"      NOT NULL,
+        "status"              character varying(50)                   NOT NULL DEFAULT 'Pending',
+        "is_auto_progression"  BOOLEAN,
+        "triggered_at"        TIMESTAMP,
+        "assigned_nurse_id"   integer,
+        "acknowledged_at"     TIMESTAMP,
+        "nurse_action"        character varying(100),
+        "is_doctor_notified"  BOOLEAN,
+        "nursing_note"        TEXT,
+        "closed_at"           TIMESTAMP,
         CONSTRAINT "PK_monitoring_alerts_alert_id" PRIMARY KEY ("alert_id")
       )
+    `);
+
+
+    // ── Seed: Module B survey questions/options ───────────────────────────────
+
+    await queryRunner.query(`
+      INSERT INTO ${schema}."survey_questions" ("question_text", "order_number")
+      VALUES
+        ('Bạn có buồn nôn không?', 1),
+        ('Bạn có nôn nhiều không?', 2),
+        ('Bạn có chướng bụng không?', 3),
+        ('Bạn ăn được bao nhiêu?', 4),
+        ('Bạn đã trung tiện chưa?', 5)
+    `);
+
+    await queryRunner.query(`
+      INSERT INTO ${schema}."question_options" ("question_id", "option_text", "score_value")
+      SELECT q."question_id", v."option_text", v."score_value"
+      FROM ${schema}."survey_questions" q
+      JOIN (
+        VALUES
+          (1, 'Không', 0),
+          (1, 'Nhẹ', 1),
+          (1, 'Nhiều', 2),
+          (2, 'Không', 0),
+          (2, '1 lần', 2),
+          (2, '≥2 lần', 3),
+          (3, 'Không', 0),
+          (3, 'Nhẹ', 1),
+          (3, 'Nặng', 2),
+          (4, 'Bình thường', 0),
+          (4, 'Ít', 1),
+          (4, 'Không ăn', 2),
+          (5, 'Có', 0),
+          (5, 'Chưa', 1)
+      ) AS v("order_number", "option_text", "score_value")
+        ON q."order_number" = v."order_number"
     `);
 
     // ── Foreign keys ───────────────────────────────────────────────────────────
@@ -245,11 +304,35 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
       FOREIGN KEY ("user_id") REFERENCES ${schema}."users"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION
     `);
 
+    // survey questions/options
+    await queryRunner.query(`
+      ALTER TABLE ${schema}."question_options"
+      ADD CONSTRAINT "FK_question_options_question_id"
+      FOREIGN KEY ("question_id") REFERENCES ${schema}."survey_questions"("question_id") ON DELETE CASCADE ON UPDATE NO ACTION
+    `);
+
     // patient_assessments
     await queryRunner.query(`
       ALTER TABLE ${schema}."patient_assessments"
       ADD CONSTRAINT "FK_patient_assessments_case_id"
       FOREIGN KEY ("case_id") REFERENCES ${schema}."patient_cases"("case_id") ON DELETE CASCADE ON UPDATE NO ACTION
+    `);
+
+    // patient_assessment_details
+    await queryRunner.query(`
+      ALTER TABLE ${schema}."patient_assessment_details"
+      ADD CONSTRAINT "FK_patient_assessment_details_assessment_id"
+      FOREIGN KEY ("assessment_id") REFERENCES ${schema}."patient_assessments"("assessment_id") ON DELETE CASCADE ON UPDATE NO ACTION
+    `);
+    await queryRunner.query(`
+      ALTER TABLE ${schema}."patient_assessment_details"
+      ADD CONSTRAINT "FK_patient_assessment_details_question_id"
+      FOREIGN KEY ("question_id") REFERENCES ${schema}."survey_questions"("question_id") ON DELETE RESTRICT ON UPDATE NO ACTION
+    `);
+    await queryRunner.query(`
+      ALTER TABLE ${schema}."patient_assessment_details"
+      ADD CONSTRAINT "FK_patient_assessment_details_selected_option_id"
+      FOREIGN KEY ("selected_option_id") REFERENCES ${schema}."question_options"("option_id") ON DELETE RESTRICT ON UPDATE NO ACTION
     `);
 
     // pod_protocol_tracking_logs
@@ -294,26 +377,33 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
     const schema = `"${schemaName}"`;
 
     // Drop FKs
-    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"         DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_assigned_nurse_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"         DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_assessment_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"         DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_case_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs"       DROP CONSTRAINT IF EXISTS "FK_app_engagement_logs_case_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."pod_protocol_tracking_logs" DROP CONSTRAINT IF EXISTS "FK_pod_tracking_logs_changed_by"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."pod_protocol_tracking_logs" DROP CONSTRAINT IF EXISTS "FK_pod_tracking_logs_case_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."patient_assessments"       DROP CONSTRAINT IF EXISTS "FK_patient_assessments_case_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."shift_assignments"         DROP CONSTRAINT IF EXISTS "FK_shift_assignments_user_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases"             DROP CONSTRAINT IF EXISTS "FK_patient_cases_assigned_nurse_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."refresh_tokens"            DROP CONSTRAINT IF EXISTS "FK_refresh_tokens_user_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."role_permissions"          DROP CONSTRAINT IF EXISTS "FK_role_permissions_permission_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."role_permissions"          DROP CONSTRAINT IF EXISTS "FK_role_permissions_role_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."user_roles"                DROP CONSTRAINT IF EXISTS "FK_user_roles_role_id"`);
-    await queryRunner.query(`ALTER TABLE ${schema}."user_roles"                DROP CONSTRAINT IF EXISTS "FK_user_roles_user_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"           DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_assigned_nurse_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"           DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_assessment_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."monitoring_alerts"           DROP CONSTRAINT IF EXISTS "FK_monitoring_alerts_case_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs"         DROP CONSTRAINT IF EXISTS "FK_app_engagement_logs_case_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."pod_protocol_tracking_logs"  DROP CONSTRAINT IF EXISTS "FK_pod_tracking_logs_changed_by"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."pod_protocol_tracking_logs"  DROP CONSTRAINT IF EXISTS "FK_pod_tracking_logs_case_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_assessment_details"  DROP CONSTRAINT IF EXISTS "FK_patient_assessment_details_selected_option_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_assessment_details"  DROP CONSTRAINT IF EXISTS "FK_patient_assessment_details_question_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_assessment_details"  DROP CONSTRAINT IF EXISTS "FK_patient_assessment_details_assessment_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_assessments"         DROP CONSTRAINT IF EXISTS "FK_patient_assessments_case_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."question_options"            DROP CONSTRAINT IF EXISTS "FK_question_options_question_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."shift_assignments"           DROP CONSTRAINT IF EXISTS "FK_shift_assignments_user_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases"               DROP CONSTRAINT IF EXISTS "FK_patient_cases_assigned_nurse_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."refresh_tokens"              DROP CONSTRAINT IF EXISTS "FK_refresh_tokens_user_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."role_permissions"            DROP CONSTRAINT IF EXISTS "FK_role_permissions_permission_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."role_permissions"            DROP CONSTRAINT IF EXISTS "FK_role_permissions_role_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."user_roles"                  DROP CONSTRAINT IF EXISTS "FK_user_roles_role_id"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."user_roles"                  DROP CONSTRAINT IF EXISTS "FK_user_roles_user_id"`);
 
     // Drop tables (dependents first)
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."monitoring_alerts"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."app_engagement_logs"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."pod_protocol_tracking_logs"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."patient_assessment_details"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."patient_assessments"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."question_options"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."survey_questions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."shift_assignments"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."patient_cases"`);
     await queryRunner.query(`DROP TABLE IF EXISTS ${schema}."refresh_tokens"`);
