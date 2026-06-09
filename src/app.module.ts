@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './modules/user/users.module';
+import { AlertModule } from './modules/alert/alert.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { PatientModule } from './modules/patient/patient.module';
+import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
+import { UsersModule } from './modules/user/users.module';
 
 @Module({
   imports: [
@@ -22,6 +25,9 @@ import { AuthModule } from './modules/auth/auth.module';
     }),
     UsersModule,
     AuthModule,
+    PatientModule,
+    SymptomSurveyModule,
+    AlertModule,
   ],
 })
 export class AppModule {}
