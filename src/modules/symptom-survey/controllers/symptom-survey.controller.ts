@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@ne
 import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
-import { SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
+import { SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../services/symptom-survey.service';
 
 @ApiTags('Symptom Surveys')
@@ -12,14 +12,21 @@ import { SymptomSurveyService } from '../services/symptom-survey.service';
 export class SymptomSurveyController {
   constructor(private readonly symptomSurveyService: SymptomSurveyService) {}
 
+  @Get('questions')
+  @ApiOperation({ summary: 'Get all survey questions with options' })
+  @ApiResponse({ status: 200, type: [SurveyQuestionDto] })
+  getQuestions(): Promise<SurveyQuestionDto[]> {
+    return this.symptomSurveyService.getQuestions();
+  }
+
   @Post()
   @ApiOperation({
     summary: 'Submit a daily symptom survey',
     description:
-      'Submit symptom scores for a patient. Auto-calculates total_score and triage_color (GREEN ≤5, YELLOW 6-9, RED ≥10). Auto-generates an alert if triage is YELLOW or RED.',
+      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN ≤5, YELLOW 6-9, RED ≥10). Auto-generates alert if YELLOW or RED.',
   })
   @ApiResponse({ status: 201, type: SymptomSurveyResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 400, description: 'Validation error or invalid option ID' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   submit(@Body() dto: CreateSymptomSurveyDto): Promise<SymptomSurveyResponseDto> {
     return this.symptomSurveyService.submitSurvey(dto);
@@ -35,8 +42,8 @@ export class SymptomSurveyController {
 
   @Get(':surveyId')
   @ApiOperation({
-    summary: 'Get survey by ID',
-    description: 'Returns full survey detail including triage recommendation text.',
+    summary: 'Get survey detail by ID',
+    description: 'Returns full answer breakdown and triage recommendation text.',
   })
   @ApiResponse({ status: 200, type: SymptomSurveyResponseDto })
   @ApiNotFoundResponse({ description: 'Survey not found' })
