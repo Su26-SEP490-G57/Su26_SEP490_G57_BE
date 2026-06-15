@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { ALERT_STATUSES, ALERT_TYPES, AlertStatus, AlertType } from '../entities/alert.entity';
+import type { AlertStatus, AlertType } from '../entities/alert.entity';
+import { ALERT_STATUSES, ALERT_TYPES } from '../entities/alert.entity';
 
 export class QueryAlertDto {
   @ApiPropertyOptional({ example: 'CASE-001', description: 'Filter by patient case ID' })
