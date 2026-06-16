@@ -1,13 +1,13 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinTable,
-  ManyToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
 import { Exclude } from 'class-transformer';
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    JoinTable,
+    ManyToMany,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from 'typeorm';
 import { Role } from './role.entity';
 
 @Entity('users')
@@ -27,6 +27,9 @@ export class User {
 
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phone_number!: string | null;
+
+  @Column({ name: 'case_id', type: 'varchar', nullable: true })
+  case_id!: string | null;
 
   @Column({ type: 'boolean', default: true })
   is_active!: boolean;
