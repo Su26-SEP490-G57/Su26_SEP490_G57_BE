@@ -44,12 +44,12 @@ async function seed() {
     const result = await AppDataSource.query(`
       INSERT INTO ${schema}."users" ("username", "password_hash", "full_name", "is_active", "case_id")
       VALUES ($1, $2, $3, TRUE, $4)
-      ON CONFLICT ("username") DO NOTHING
+      ON CONFLICT ("username") DO UPDATE SET "case_id" = EXCLUDED."case_id"
       RETURNING "user_id"
     `, [u.username, hash, u.fullName, u.caseId]);
 
     if (result.length === 0) {
-      console.log(`⏭️  User "${u.username}" already exists, skipping`);
+      console.log(`⏭️  User "${u.username}" skipped`);
       continue;
     }
 
