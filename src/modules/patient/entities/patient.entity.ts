@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('patient_cases')
@@ -14,12 +14,6 @@ export class Patient {
 
   @Column({ type: 'varchar', length: 10, nullable: true })
   gender!: string | null;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  token!: string | null;
-
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  is_active!: boolean;
 
   @Column({ type: 'float', nullable: true })
   height!: number | null;
@@ -79,6 +73,9 @@ export class Patient {
   @Column({ name: 'protocol_final_status', type: 'varchar', length: 50, nullable: true })
   protocol_final_status!: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
-  created_at!: Date;
+  /**
+   * The patient's user account (users.case_id -> patient_cases.case_id).
+   * Not a real column — populated via leftJoinAndMapOne in the repository.
+   */
+  account?: User | null;
 }
