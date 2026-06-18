@@ -1,14 +1,14 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Repository } from 'typeorm';
 
-import { UsersService } from '../../user/services/users.service';
-import { RefreshToken } from '../entities/refresh-token.entity';
-import { LoginDto } from '../dtos/login.dto';
-import { JwtPayload } from '../interface/jwt-payload.interface';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UsersService } from '../../user/services/users.service';
+import { LoginDto } from '../dtos/login.dto';
+import { RefreshToken } from '../entities/refresh-token.entity';
+import { JwtPayload } from '../interface/jwt-payload.interface';
 
 export interface LoginResponse {
   accessToken: string;
@@ -74,6 +74,7 @@ export class AuthService {
       username: user.username,
       fullName: user.full_name,
       phoneNumber: user.phone_number,
+      caseId: user.case_id ?? null,
       roles: roleNames,
       isActive: user.is_active,
       createdAt: user.created_at,

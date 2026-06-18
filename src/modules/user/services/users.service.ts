@@ -20,6 +20,7 @@ export class UsersService {
       username: user.username,
       fullName: user.full_name,
       phoneNumber: user.phone_number,
+      caseId: user.case_id ?? null,
       roles: (user.roles ?? []).map((r) => r.roleName),
       isActive: user.is_active,
       createdAt: user.created_at,

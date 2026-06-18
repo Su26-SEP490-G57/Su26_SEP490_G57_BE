@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from './modules/alert/alert.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -12,16 +12,20 @@ import { UsersModule } from './modules/user/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST ?? 'localhost',
-      port: Number(process.env.DB_PORT ?? 5432),
-      username: process.env.DB_USER ?? 'postgres',
-      password: process.env.DB_PASSWORD ?? 'postgres',
-      database: process.env.DB_NAME ?? 'SEP490_G57',
-      schema: process.env.DB_SCHEMA ?? 'public',
-      autoLoadEntities: true,
-      synchronize: false,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get('DB_HOST') ?? 'localhost',
+        port: Number(config.get('DB_PORT') ?? 5432),
+        username: config.get('DB_USER') ?? 'postgres',
+        password: config.get('DB_PASSWORD') ?? 'postgres',
+        database: config.get('DB_NAME') ?? 'SEP490_G57',
+        schema: config.get('DB_SCHEMA') ?? 'public',
+        autoLoadEntities: true,
+        synchronize: false,
+      }),
+      inject: [ConfigService],
     }),
     UsersModule,
     AuthModule,
