@@ -1,7 +1,9 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { CurrentPodResponse, PatientService } from '../services/patient.service';
+import { PaginatedPatientsDto } from '../dtos/patient-response.dto';
+import { QueryPatientDto } from '../dtos/query-patient.dto';
+import { CurrentPodResponse, PaginatedPatients, PatientService } from '../services/patient.service';
 
 class CurrentPodResponseDto implements CurrentPodResponse {
   @ApiProperty({ example: 'CASE-001' })
@@ -17,6 +19,18 @@ class CurrentPodResponseDto implements CurrentPodResponse {
 @Controller('patients')
 export class PatientController {
   constructor(private readonly patientService: PatientService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get the priority patient list',
+    description:
+      'Paginated patient list. Supports search by case_id/full name, filter by level and operation type, ' +
+      'and sort by POD. Default ordering: level (Red→Yellow→Green) then oldest case to the newest.',
+  })
+  @ApiResponse({ status: 200, type: PaginatedPatientsDto })
+  getAllPatients(@Query() query: QueryPatientDto): Promise<PaginatedPatients> {
+    return this.patientService.getAllPatients(query);
+  }
 
   @Get(':id/current-pod')
   @ApiOperation({ summary: 'Get current POD day for a patient' })

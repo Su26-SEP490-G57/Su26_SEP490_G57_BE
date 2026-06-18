@@ -1,8 +1,9 @@
 import {
   Body, Controller, Delete, Get, Param,
-  ParseIntPipe, Patch, Post, Query
+  ParseIntPipe, Patch, Post, Query, UseGuards
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { QueryUserDto } from '../dtos/query-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
@@ -10,6 +11,8 @@ import { UserResponseDto } from '../dtos/user-response.dto';
 import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

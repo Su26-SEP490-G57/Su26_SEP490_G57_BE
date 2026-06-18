@@ -1,5 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+import { Level } from './level.entity';
+import { OperationType } from './operation-type.entity';
 
 @Entity('patient_cases')
 export class Patient {
@@ -15,12 +17,6 @@ export class Patient {
   @Column({ type: 'varchar', length: 10, nullable: true })
   gender!: string | null;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  token!: string | null;
-
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  is_active!: boolean;
-
   @Column({ type: 'float', nullable: true })
   height!: number | null;
 
@@ -33,8 +29,12 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   diagnosis!: string | null;
 
-  @Column({ name: 'operation_type', type: 'varchar', length: 100, nullable: true })
-  operation_type!: string | null;
+  @Column({ name: 'operation_type_id', type: 'int', nullable: true })
+  operation_type_id!: number | null;
+
+  @ManyToOne(() => OperationType, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @JoinColumn({ name: 'operation_type_id' })
+  operationType!: OperationType | null;
 
   @Column({ name: 'surgery_date', type: 'date', nullable: true })
   surgery_date!: string | null;
@@ -79,6 +79,16 @@ export class Patient {
   @Column({ name: 'protocol_final_status', type: 'varchar', length: 50, nullable: true })
   protocol_final_status!: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
-  created_at!: Date;
+  @Column({ name: 'level_id', type: 'int', nullable: true })
+  level_id!: number | null;
+
+  @ManyToOne(() => Level, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @JoinColumn({ name: 'level_id' })
+  level!: Level | null;
+
+  /**
+   * The patient's user account (users.case_id -> patient_cases.case_id).
+   * Not a real column — populated via leftJoinAndMapOne in the repository.
+   */
+  account?: User | null;
 }

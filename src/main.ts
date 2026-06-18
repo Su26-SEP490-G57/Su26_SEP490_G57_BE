@@ -19,6 +19,7 @@ async function bootstrap() {
     .setTitle('Capstone API')
     .setDescription('Ride Sharing API')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

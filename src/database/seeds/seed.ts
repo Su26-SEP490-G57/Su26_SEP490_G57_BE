@@ -77,10 +77,24 @@ async function seed() {
   `);
   const nurseId = nurseResult[0]?.user_id ?? null;
 
+  const operationResult = await AppDataSource.query(`
+    INSERT INTO ${schema}."operation_types" ("operation_name")
+    VALUES ($1), ($2)
+    ON CONFLICT ("operation_name") DO UPDATE SET "operation_name" = EXCLUDED."operation_name"
+    RETURNING "operation_type_id", "operation_name"
+  `, ['Phẫu thuật dạ dày', 'Phẫu thuật đại trực tràng']);
+  const operationTypeByName: Record<string, number> = Object.fromEntries(
+    operationResult.map((o: { operation_type_id: number; operation_name: string }) => [
+      o.operation_name,
+      o.operation_type_id,
+    ]),
+  );
+  console.log('✅ Operation types seeded: Phẫu thuật dạ dày, Phẫu thuật đại trực tràng');
+
   await AppDataSource.query(`
     INSERT INTO ${schema}."patient_cases" (
       "case_id", "name_initials", "age", "gender",
-      "diagnosis", "operation_type", "method",
+      "diagnosis", "operation_type_id", "method",
       "surgery_date", "room_bed", "current_pod",
       "assigned_nurse_id"
     )
@@ -88,7 +102,7 @@ async function seed() {
     ON CONFLICT ("case_id") DO NOTHING
   `, [
     'CASE-001', 'N.V.A', 55, 'Nam',
-    'Ung thư đại tràng giai đoạn II', 'Phẫu thuật cắt đại tràng', 'Nội soi',
+    'Ung thư đại tràng giai đoạn II', operationTypeByName['Phẫu thuật đại trực tràng'], 'Nội soi',
     '2026-06-10', 'P101-B1', 2,
     nurseId,
   ]);
