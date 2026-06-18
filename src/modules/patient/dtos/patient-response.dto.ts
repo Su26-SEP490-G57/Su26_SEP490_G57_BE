@@ -1,0 +1,84 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LEVEL_NAMES } from '../entities/level.entity';
+
+class PatientAccountDto {
+  @ApiProperty({ example: 5 })
+  id!: number;
+
+  @ApiProperty({ example: 'patient01' })
+  username!: string;
+
+  @ApiProperty({ example: 'Nguyễn Văn A' })
+  fullName!: string;
+
+  @ApiPropertyOptional({ example: '0901234567' })
+  phoneNumber!: string | null;
+
+  @ApiProperty({ example: true })
+  isActive!: boolean;
+
+  @ApiProperty({ example: ['Patient'], type: [String] })
+  roles!: string[];
+
+  @ApiProperty({ example: '2026-06-09T10:00:00.000Z' })
+  createdAt!: Date;
+}
+
+class PatientLevelDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'Red', enum: LEVEL_NAMES })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'High risk - immediate attention required' })
+  description!: string | null;
+}
+
+class PatientOperationTypeDto {
+  @ApiProperty({ example: 3 })
+  id!: number;
+
+  @ApiProperty({ example: 'Phẫu thuật đại trực tràng' })
+  name!: string;
+}
+
+export class PatientListItemDto {
+  @ApiProperty({ example: 'CASE-001' })
+  case_id!: string;
+
+  @ApiPropertyOptional({ example: 'N.V.A' })
+  name_initials!: string | null;
+
+  @ApiPropertyOptional({ example: 55 })
+  age!: number | null;
+
+  @ApiPropertyOptional({ example: 'Nam' })
+  gender!: string | null;
+
+  @ApiPropertyOptional({ example: 2 })
+  current_pod!: number | null;
+
+  @ApiPropertyOptional({ type: PatientLevelDto })
+  level!: PatientLevelDto | null;
+
+  @ApiPropertyOptional({ type: PatientOperationTypeDto })
+  operationType!: PatientOperationTypeDto | null;
+
+  @ApiPropertyOptional({ type: PatientAccountDto })
+  account!: PatientAccountDto | null;
+}
+
+export class PaginatedPatientsDto {
+  @ApiProperty({ type: [PatientListItemDto] })
+  data!: PatientListItemDto[];
+
+  @ApiProperty({ example: 25 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 10 })
+  limit!: number;
+}
