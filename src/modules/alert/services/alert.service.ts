@@ -4,11 +4,15 @@ import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { Alert } from '../entities/alert.entity';
+import { AlertGateway } from '../gateways/alert.gateway';
 import { AlertRepository } from '../repositories/alert.repository';
 
 @Injectable()
 export class AlertService {
-  constructor(private readonly repository: AlertRepository) {}
+  constructor(
+    private readonly repository: AlertRepository,
+    private readonly alertGateway: AlertGateway,
+  ) {}
 
   private toResponse(alert: Alert): AlertResponseDto {
     return {
@@ -40,7 +44,13 @@ export class AlertService {
       is_auto_progression: true,
       triggered_at: new Date(),
     });
-    return this.toResponse(saved);
+
+    const response = this.toResponse(saved);
+
+    // Emit real-time alert to all connected nurses
+    this.alertGateway.emitNewAlert(response);
+
+    return response;
   }
 
   async getAlerts(query: QueryAlertDto): Promise<PaginatedAlertsDto> {
@@ -59,7 +69,6 @@ export class AlertService {
 
     alert.status = 'Acknowledged';
     alert.acknowledged_at = new Date();
-    // Set the relation by id — assign a partial User object so TypeORM resolves the FK
     alert.assigned_nurse = { id: userId } as any;
     if (dto.nurse_action !== undefined) alert.nurse_action = dto.nurse_action;
     if (dto.nursing_note !== undefined) alert.nursing_note = dto.nursing_note;
