@@ -1,8 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
+import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { LevelName } from '../entities/level.entity';
 import { Patient } from '../entities/patient.entity';
-import { PatientRepository } from '../repositories/patient.repository';
+import {
+  PatientAccountInput,
+  PatientCaseInput,
+  PatientRepository,
+} from '../repositories/patient.repository';
+
+/** bcrypt cost factor — keep in sync with UsersService. */
+const SALT_ROUNDS = 10;
+
+/** Default password for an auto-provisioned patient account (changeable via PATCH /users/:id). */
+const DEFAULT_PATIENT_PASSWORD = 'Patient@123';
 
 export interface CurrentPodResponse {
   caseId: string;
@@ -91,5 +109,122 @@ export class PatientService {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
     return { caseId: patient.case_id, currentPod: patient.current_pod };
+  }
+
+  /** Operation types for the surgery-type dropdown. */
+  async getOperationTypes(): Promise<PatientOperationType[]> {
+    const types = await this.repository.listOperationTypes();
+    return types.map((t) => ({ id: t.operation_type_id, name: t.operation_name }));
+  }
+
+  /**
+   * Create a patient: the clinical `patient_cases` row plus the linked
+   * Patient-role login account (users.case_id = patient_cases.case_id).
+   */
+  async createPatient(dto: CreatePatientDto): Promise<PatientWithAccount> {
+    if (await this.repository.caseIdExists(dto.caseId)) {
+      throw new ConflictException(`Patient case "${dto.caseId}" already exists`);
+    }
+
+    const username = dto.username ?? dto.caseId;
+    if (await this.repository.findUserByUsername(username)) {
+      throw new ConflictException(`Username "${username}" is already taken`);
+    }
+
+    await this.assertReferencesExist(dto.operationTypeId, dto.assignedNurseId);
+
+    const passwordHash = await bcrypt.hash(dto.password ?? DEFAULT_PATIENT_PASSWORD, SALT_ROUNDS);
+
+    const created = await this.repository.createWithAccount({
+      caseId: dto.caseId,
+      ...this.toCaseFields(dto),
+      account: {
+        username,
+        passwordHash,
+        fullName: dto.fullName,
+        phoneNumber: dto.phoneNumber ?? null,
+      },
+    });
+
+    return this.toResponse(created);
+  }
+
+  /** Update a patient case and its linked login account. */
+  async updatePatient(caseId: string, dto: UpdatePatientDto): Promise<PatientWithAccount> {
+    const existing = await this.repository.findById(caseId);
+    if (!existing) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    if (dto.username !== undefined) {
+      const owner = await this.repository.findUserByUsername(dto.username);
+      if (owner && owner.case_id !== caseId) {
+        throw new ConflictException(`Username "${dto.username}" is already taken`);
+      }
+    }
+
+    await this.assertReferencesExist(dto.operationTypeId, dto.assignedNurseId);
+
+    const account: PatientAccountInput = {
+      username: dto.username,
+      fullName: dto.fullName,
+      phoneNumber: dto.phoneNumber,
+      isActive: dto.isActive,
+    };
+    if (dto.password !== undefined) {
+      account.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    }
+
+    const updated = await this.repository.updateWithAccount(caseId, this.toCaseFields(dto), account);
+    if (!updated) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    return this.toResponse(updated);
+  }
+
+  /**
+   * Soft-delete a patient by the account's user id: marks both the linked
+   * login account and its patient_cases row as deleted (deleted_at). Clinical
+   * history is preserved.
+   */
+  async deletePatient(
+    userId: number,
+  ): Promise<{ userId: number; caseId: string | null; deleted: true }> {
+    const user = await this.repository.findUserById(userId);
+    if (!user) throw new NotFoundException(`User #${userId} not found`);
+
+    await this.repository.softDeletePatient(user.id, user.case_id);
+    return { userId: user.id, caseId: user.case_id, deleted: true };
+  }
+
+  /** Validate optional foreign keys before a write. */
+  private async assertReferencesExist(
+    operationTypeId?: number,
+    assignedNurseId?: number,
+  ): Promise<void> {
+    if (operationTypeId != null && !(await this.repository.operationTypeExists(operationTypeId))) {
+      throw new BadRequestException(`Operation type ${operationTypeId} does not exist`);
+    }
+    if (assignedNurseId != null && !(await this.repository.nurseExists(assignedNurseId))) {
+      throw new BadRequestException(`Assigned nurse ${assignedNurseId} does not exist`);
+    }
+  }
+
+  /** Map the (camelCase) DTO clinical fields to the repository's case-field shape. */
+  private toCaseFields(dto: CreatePatientDto | UpdatePatientDto): PatientCaseInput {
+    return {
+      nameInitials: dto.nameInitials,
+      age: dto.age,
+      gender: dto.gender,
+      height: dto.height,
+      weight: dto.weight,
+      bmi: dto.bmi,
+      diagnosis: dto.diagnosis,
+      operationTypeId: dto.operationTypeId,
+      method: dto.method,
+      hasGiAnastomosis: dto.hasGiAnastomosis,
+      surgeryDate: dto.surgeryDate,
+      roomBed: dto.roomBed,
+      currentPod: dto.currentPod,
+      assignedNurseId: dto.assignedNurseId,
+      levelId: dto.levelId,
+    };
   }
 }

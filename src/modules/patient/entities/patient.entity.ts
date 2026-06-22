@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Level } from './level.entity';
 import { OperationType } from './operation-type.entity';
@@ -85,6 +85,10 @@ export class Patient {
   @ManyToOne(() => Level, { onDelete: 'SET NULL', nullable: true, eager: false })
   @JoinColumn({ name: 'level_id' })
   level!: Level | null;
+
+  /** Soft-delete marker. NULL = active; set to a timestamp when the patient is deleted. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deleted_at!: Date | null;
 
   /**
    * The patient's user account (users.case_id -> patient_cases.case_id).
