@@ -30,7 +30,6 @@ export class AlertService {
       is_doctor_notified: alert.is_doctor_notified,
       nursing_note: alert.nursing_note,
       closed_at: alert.closed_at,
-      created_at: alert.created_at,
     };
   }
 

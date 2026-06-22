@@ -31,7 +31,7 @@ export class AlertRepository {
 
     return this.repo.findAndCount({
       where,
-      order: { created_at: 'DESC' },
+      order: { triggered_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
