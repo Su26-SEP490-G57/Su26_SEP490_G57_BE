@@ -20,8 +20,8 @@ export class SymptomSurveyService {
   ) {}
 
   private calculateTriageColor(totalScore: number): 'GREEN' | 'YELLOW' | 'RED' {
-    if (totalScore <= 5) return 'GREEN';
-    if (totalScore <= 9) return 'YELLOW';
+    if (totalScore <= 1) return 'GREEN';
+    if (totalScore <= 3) return 'YELLOW';
     return 'RED';
   }
 

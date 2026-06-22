@@ -23,7 +23,7 @@ export class SymptomSurveyController {
   @ApiOperation({
     summary: 'Submit a daily symptom survey',
     description:
-      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN ≤5, YELLOW 6-9, RED ≥10). Auto-generates alert if YELLOW or RED.',
+      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN 0-1, YELLOW 2-3, RED ≥4). Auto-generates alert if YELLOW or RED.',
   })
   @ApiResponse({ status: 201, type: SymptomSurveyResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error or invalid option ID' })
