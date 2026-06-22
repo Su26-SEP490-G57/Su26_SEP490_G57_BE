@@ -2,6 +2,7 @@ import { Exclude } from 'class-transformer';
 import {
     Column,
     CreateDateColumn,
+    DeleteDateColumn,
     Entity,
     JoinTable,
     ManyToMany,
@@ -39,6 +40,10 @@ export class User {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at!: Date;
+
+  /** Soft-delete marker. NULL = active; set to a timestamp when the account is deleted. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deleted_at!: Date | null;
 
   /** Eagerly loaded so JwtStrategy & guards can read role names without extra queries */
   @ManyToMany(() => Role, (role) => role.users, { eager: true })
