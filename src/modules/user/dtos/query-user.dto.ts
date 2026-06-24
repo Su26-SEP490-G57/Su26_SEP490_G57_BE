@@ -34,4 +34,10 @@ export class QueryUserDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({ example: 3, description: 'Filter by exact user_id' })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  userId?: number;
 }
