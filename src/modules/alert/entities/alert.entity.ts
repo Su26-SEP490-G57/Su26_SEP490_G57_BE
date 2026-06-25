@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
 
@@ -50,7 +50,4 @@ export class Alert {
 
   @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
   closed_at!: Date | null;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
-  created_at!: Date;
 }

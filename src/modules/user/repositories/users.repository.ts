@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../entities/user.entity';
-import { Role } from '../entities/role.entity';
 import { QueryUserDto } from '../dtos/query-user.dto';
+import { Role } from '../entities/role.entity';
+import { User } from '../entities/user.entity';
 
 @Injectable()
 export class UsersRepository {
@@ -59,7 +59,7 @@ export class UsersRepository {
   }
 
   async findAll(query: QueryUserDto) {
-    const { page = 1, limit = 10, role, isActive, search } = query;
+    const { page = 1, limit = 10, role, isActive, search, userId } = query;
 
     const qb = this.userRepo
       .createQueryBuilder('u')
@@ -84,6 +84,9 @@ export class UsersRepository {
     }
     if (search) {
       qb.andWhere('u.full_name ILIKE :search', { search: `%${search}%` });
+    }
+    if (userId) {
+      qb.andWhere('u.id = :userId', { userId });
     }
 
     qb.orderBy('u.created_at', 'DESC')

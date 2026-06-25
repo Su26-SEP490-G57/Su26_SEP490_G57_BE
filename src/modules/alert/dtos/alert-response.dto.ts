@@ -33,9 +33,6 @@ export class AlertResponseDto {
 
   @ApiPropertyOptional({ example: null })
   closed_at!: Date | null;
-
-  @ApiProperty({ example: '2026-06-09T10:00:00.000Z' })
-  created_at!: Date;
 }
 
 export class PaginatedAlertsDto {
