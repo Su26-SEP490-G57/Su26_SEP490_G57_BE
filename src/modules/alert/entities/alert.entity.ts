@@ -1,7 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
-import { User } from '../../user/entities/user.entity';
 
 export const ALERT_TYPES = ['YELLOW', 'RED'] as const;
 export const ALERT_STATUSES = ['Pending', 'Acknowledged', 'Paused_POD', 'Rolled_Back', 'Escalated', 'Closed'] as const;
@@ -43,18 +42,8 @@ export class Alert {
   @Column({ name: 'triggered_at', type: 'timestamp', nullable: true })
   triggered_at!: Date | null;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true, eager: false })
-  @JoinColumn({ name: 'assigned_nurse_id' })
-  assigned_nurse!: User | null;
-
-  @Column({ name: 'acknowledged_at', type: 'timestamp', nullable: true })
-  acknowledged_at!: Date | null;
-
   @Column({ name: 'nurse_action', type: 'varchar', length: 100, nullable: true })
   nurse_action!: string | null;
-
-  @Column({ name: 'is_doctor_notified', type: 'boolean', nullable: true })
-  is_doctor_notified!: boolean | null;
 
   @Column({ name: 'nursing_note', type: 'text', nullable: true })
   nursing_note!: string | null;

@@ -79,6 +79,17 @@ export class Patient {
   @Column({ name: 'protocol_final_status', type: 'varchar', length: 50, nullable: true })
   protocol_final_status!: string | null;
 
+  /** When true, the case's POD progression is held/locked from auto-advancing. */
+  @Column({ name: 'is_locked', type: 'boolean', default: false })
+  is_locked!: boolean;
+
+  @Column({ name: 'guardian_phone', type: 'varchar', length: 20, nullable: true })
+  guardian_phone!: string | null;
+
+  /** Free-text reason recorded when a case's POD progression is put on hold. */
+  @Column({ name: 'reason_hold_pod', type: 'text', nullable: true })
+  reason_hold_pod!: string | null;
+
   @Column({ name: 'level_id', type: 'int', nullable: true })
   level_id!: number | null;
 

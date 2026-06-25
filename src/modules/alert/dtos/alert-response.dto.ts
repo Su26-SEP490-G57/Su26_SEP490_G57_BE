@@ -25,17 +25,8 @@ export class AlertResponseDto {
   @ApiPropertyOptional({ example: '2026-06-09T10:00:00.000Z' })
   triggered_at!: Date | null;
 
-  @ApiPropertyOptional({ example: 1 })
-  assigned_nurse_id!: number | null;
-
-  @ApiPropertyOptional({ example: '2026-06-09T10:30:00.000Z' })
-  acknowledged_at!: Date | null;
-
   @ApiPropertyOptional({ example: 'Administered antiemetic' })
   nurse_action!: string | null;
-
-  @ApiPropertyOptional({ example: false })
-  is_doctor_notified!: boolean | null;
 
   @ApiPropertyOptional({ example: 'Patient responded well.' })
   nursing_note!: string | null;
