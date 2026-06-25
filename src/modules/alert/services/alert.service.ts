@@ -24,10 +24,7 @@ export class AlertService {
       status: alert.status,
       is_auto_progression: alert.is_auto_progression,
       triggered_at: alert.triggered_at,
-      assigned_nurse_id: alert.assigned_nurse?.id ?? null,
-      acknowledged_at: alert.acknowledged_at,
       nurse_action: alert.nurse_action,
-      is_doctor_notified: alert.is_doctor_notified,
       nursing_note: alert.nursing_note,
       closed_at: alert.closed_at,
     };
@@ -62,7 +59,7 @@ export class AlertService {
     };
   }
 
-  async acknowledgeAlert(alertId: number, userId: number, dto: AcknowledgeAlertDto): Promise<AlertResponseDto> {
+  async acknowledgeAlert(alertId: number, dto: AcknowledgeAlertDto): Promise<AlertResponseDto> {
     const alert = await this.repository.findById(alertId);
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
 
