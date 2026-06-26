@@ -20,12 +20,18 @@ export class AddPatientCaseHoldFields1781625200000 implements MigrationInterface
       ALTER TABLE ${schema}."patient_cases"
       ADD COLUMN IF NOT EXISTS "reason_hold_pod" TEXT
     `);
+
+    // ── POD progression window ──────────────────────────────────────────────────
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" ADD COLUMN IF NOT EXISTS "pod_start_date" DATE`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" ADD COLUMN IF NOT EXISTS "pod_end_date" DATE`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const schemaName = process.env.DB_SCHEMA ?? 'public';
     const schema = `"${schemaName}"`;
 
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" DROP COLUMN IF EXISTS "pod_end_date"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" DROP COLUMN IF EXISTS "pod_start_date"`);
     await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" DROP COLUMN IF EXISTS "reason_hold_pod"`);
     await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" DROP COLUMN IF EXISTS "guardian_phone"`);
     await queryRunner.query(`ALTER TABLE ${schema}."patient_cases" DROP COLUMN IF EXISTS "is_locked"`);

@@ -11,6 +11,7 @@ export class UpdateAppEngagementLogColumns1781625400000 implements MigrationInte
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" DROP COLUMN IF EXISTS "reminder_count"`);
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" DROP COLUMN IF EXISTS "app_access_count"`);
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" DROP COLUMN IF EXISTS "call_nurse_clicks"`);
+    await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" DROP COLUMN IF EXISTS "survey_completion_rate"`);
 
     // ── Track how many self-assessments the patient has completed ───────────────
     await queryRunner.query(`
@@ -25,6 +26,7 @@ export class UpdateAppEngagementLogColumns1781625400000 implements MigrationInte
 
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" DROP COLUMN IF EXISTS "assessment_completed_count"`);
 
+    await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" ADD COLUMN IF NOT EXISTS "survey_completion_rate" FLOAT`);
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" ADD COLUMN IF NOT EXISTS "call_nurse_clicks" integer`);
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" ADD COLUMN IF NOT EXISTS "app_access_count" integer`);
     await queryRunner.query(`ALTER TABLE ${schema}."app_engagement_logs" ADD COLUMN IF NOT EXISTS "reminder_count" integer`);
