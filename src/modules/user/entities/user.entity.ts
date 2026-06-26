@@ -39,8 +39,8 @@ export class User {
   @Column({ name: 'city_province', type: 'varchar', length: 100, nullable: true })
   city_province!: string | null;
 
-  @Column({ name: 'district', type: 'varchar', length: 100, nullable: true })
-  district!: string | null;
+  @Column({ name: 'ward', type: 'varchar', length: 100, nullable: true })
+  ward!: string | null;
 
   @Column({ name: 'detailed_address', type: 'varchar', length: 255, nullable: true })
   detailed_address!: string | null;

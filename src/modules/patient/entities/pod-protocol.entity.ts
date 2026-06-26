@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { OperationType } from './operation-type.entity';
 
@@ -54,4 +54,7 @@ export class PodProtocol {
 
   @Column({ name: 'updated_at', type: 'timestamp', nullable: true })
   updated_at!: Date | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+  created_at!: Date;
 }

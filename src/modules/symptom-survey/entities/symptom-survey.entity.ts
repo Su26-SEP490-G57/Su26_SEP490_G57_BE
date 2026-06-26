@@ -20,9 +20,6 @@ export class SymptomSurvey {
   @Column({ name: 'pod_context', type: 'int', nullable: true })
   pod_context!: number | null;
 
-  @Column({ name: 'shift_period', type: 'varchar', length: 20, nullable: true })
-  shift_period!: string | null;
-
   @Column({ name: 'total_score', type: 'int', default: 0 })
   total_score!: number;
 

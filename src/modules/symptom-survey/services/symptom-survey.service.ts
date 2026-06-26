@@ -35,7 +35,6 @@ export class SymptomSurveyService {
       case_id: survey.case_id,
       evaluation_datetime: survey.evaluation_datetime,
       pod_context: survey.pod_context,
-      shift_period: survey.shift_period,
       total_score: survey.total_score,
       triage_color: survey.triage_color,
     };
@@ -95,7 +94,6 @@ export class SymptomSurveyService {
       case_id: dto.case_id,
       evaluation_datetime: new Date(),
       pod_context: dto.pod_context ?? null,
-      shift_period: dto.shift_period ?? null,
       total_score: totalScore,
       triage_color,
     });

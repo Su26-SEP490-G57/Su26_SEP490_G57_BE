@@ -90,6 +90,12 @@ export class Patient {
   @Column({ name: 'reason_hold_pod', type: 'text', nullable: true })
   reason_hold_pod!: string | null;
 
+  @Column({ name: 'pod_start_date', type: 'date', nullable: true })
+  pod_start_date!: string | null;
+
+  @Column({ name: 'pod_end_date', type: 'date', nullable: true })
+  pod_end_date!: string | null;
+
   @Column({ name: 'level_id', type: 'int', nullable: true })
   level_id!: number | null;
 
