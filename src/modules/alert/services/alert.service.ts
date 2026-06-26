@@ -64,8 +64,6 @@ export class AlertService {
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
 
     alert.status = 'Acknowledged';
-    alert.acknowledged_at = new Date();
-    alert.assigned_nurse = { id: userId } as any;
     if (dto.nurse_action !== undefined) alert.nurse_action = dto.nurse_action;
     if (dto.nursing_note !== undefined) alert.nursing_note = dto.nursing_note;
 
