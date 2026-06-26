@@ -23,6 +23,7 @@ export class CreatePodProtocolsTable1781625600000 implements MigrationInterface 
         "recommended_drinks"   TEXT[]                   NOT NULL DEFAULT '{}',
         "updated_by"           integer,
         "updated_at"           TIMESTAMP,
+        "created_at"           TIMESTAMP                NOT NULL DEFAULT now(),
         CONSTRAINT "PK_pod_protocols_pod_id" PRIMARY KEY ("pod_id")
       )
     `);

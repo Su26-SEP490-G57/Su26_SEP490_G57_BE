@@ -30,9 +30,6 @@ export class SymptomSurveyResponseDto {
   @ApiPropertyOptional({ example: 3 })
   pod_context!: number | null;
 
-  @ApiPropertyOptional({ example: 'Day' })
-  shift_period!: string | null;
-
   @ApiProperty({ example: 4 })
   total_score!: number;
 

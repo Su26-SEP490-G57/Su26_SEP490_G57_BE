@@ -24,11 +24,6 @@ export class CreateSymptomSurveyDto {
   @Min(0)
   pod_context?: number;
 
-  @ApiPropertyOptional({ example: 'Day', description: 'Shift period (Day/Night)' })
-  @IsOptional()
-  @IsString()
-  shift_period?: string;
-
   @ApiProperty({ type: [AnswerDto], description: 'Answers for each survey question' })
   @IsArray()
   @ArrayMinSize(1)
