@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import { AnswerDetailDto, SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
@@ -120,15 +122,21 @@ export class SymptomSurveyService {
     return this.toResponse(saved);
   }
 
-  async getLatestByPatient(caseId: string): Promise<SymptomSurveyResponseDto> {
+  async getLatestByPatient(caseId: string, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== caseId) {
+      throw new ForbiddenException('You can only view your own survey results');
+    }
     const survey = await this.repository.findLatestByPatient(caseId);
     if (!survey) throw new NotFoundException(`No survey found for patient ${caseId}`);
     return this.toResponse(survey);
   }
 
-  async getSurveyById(assessmentId: number): Promise<SymptomSurveyResponseDto> {
+  async getSurveyById(assessmentId: number, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
     const survey = await this.repository.findById(assessmentId);
     if (!survey) throw new NotFoundException(`Survey #${assessmentId} not found`);
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== survey.case_id) {
+      throw new ForbiddenException('You can only view your own survey results');
+    }
     const details = await this.repository.findDetailsById(assessmentId);
     return this.toResponse(survey, details, true);
   }
