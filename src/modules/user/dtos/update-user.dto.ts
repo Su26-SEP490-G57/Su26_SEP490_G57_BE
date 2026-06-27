@@ -1,13 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsArray,
-  IsBoolean,
-  IsEnum,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
+    IsArray,
+    IsBoolean,
+    IsDateString,
+    IsEnum,
+    IsOptional,
+    IsString,
+    Matches,
+    MaxLength,
+    MinLength,
 } from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
 
@@ -38,6 +39,29 @@ export class UpdateUserDto {
   })
   @IsOptional()
   password?: string;
+
+  @ApiPropertyOptional({ example: '1996-06-02' })
+  @IsOptional()
+  @IsDateString()
+  dob?: string;
+
+  @ApiPropertyOptional({ example: 'Hà Nội' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  cityProvince?: string;
+
+  @ApiPropertyOptional({ example: 'Thanh Xuân' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  ward?: string;
+
+  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  detailedAddress?: string;
 
   @ApiPropertyOptional({ enum: UserRole, isArray: true, example: [UserRole.HEAD_NURSE] })
   @IsArray()
