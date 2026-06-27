@@ -70,16 +70,4 @@ export class NurseRepository {
 
     return { total, active, inactive: total - active };
   }
-
-  async getStats(): Promise<NurseStats> {
-    const qb = this.userRepo
-      .createQueryBuilder('u')
-      .leftJoin('u.roles', 'role')
-      .where('role.roleName IN (:...roles)', { roles: ['Nurse', 'Head_Nurse'] });
-
-    const total = await qb.getCount();
-    const active = await qb.clone().andWhere('u.is_active = true').getCount();
-
-    return { total, active, inactive: total - active };
-  }
 }
