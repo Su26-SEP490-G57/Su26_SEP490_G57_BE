@@ -15,6 +15,10 @@ export class NurseRepository {
     return this.userRepo.findOne({ where: { id } });
   }
 
+  findByUsername(username: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { username } });
+  }
+
   async findAll(query: QueryNurseDto): Promise<[User[], number]> {
     const { page = 1, limit = 10, userId, search } = query;
 

@@ -21,9 +21,14 @@ export class NurseService {
       username: user.username,
       fullName: user.full_name,
       phoneNumber: user.phone_number,
+      dob: user.dob,
+      cityProvince: user.city_province,
+      ward: user.ward,
+      detailedAddress: user.detailed_address,
       roles: (user.roles ?? []).map((r) => r.roleName),
       isActive: user.is_active,
       createdAt: user.created_at,
+      updatedAt: user.updated_at,
     };
   }
 
@@ -50,57 +55,39 @@ export class NurseService {
   }
 
   async createNurse(dto: CreateNurseDto): Promise<NurseResponseDto> {
-    const created = await this.usersService.create({
+    await this.usersService.create({
       username: dto.username,
       password: dto.password,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
       roles: [dto.role],
     });
-    return {
-      id: created.id,
-      username: created.username,
-      fullName: created.fullName,
-      phoneNumber: created.phoneNumber,
-      roles: created.roles,
-      isActive: created.isActive,
-      createdAt: created.createdAt,
-    };
+    // Fetch full user entity to get all fields
+    const user = await this.repository.findByUsername(dto.username);
+    return this.toResponse(user!);
   }
 
   async updateNurse(id: number, dto: UpdateNurseDto): Promise<NurseResponseDto> {
-    await this.getNurseById(id); // verify exists and is nurse
-
-    const updated = await this.usersService.update(id, {
+    await this.getNurseById(id);
+    await this.usersService.update(id, {
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
       password: dto.password,
       isActive: dto.isActive,
+      dob: dto.dob,
+      cityProvince: dto.cityProvince,
+      ward: dto.ward,
+      detailedAddress: dto.detailedAddress,
       roles: dto.role ? [dto.role] : undefined,
     });
-
-    return {
-      id: updated.id,
-      username: updated.username,
-      fullName: updated.fullName,
-      phoneNumber: updated.phoneNumber,
-      roles: updated.roles,
-      isActive: updated.isActive,
-      createdAt: updated.createdAt,
-    };
+    const user = await this.repository.findById(id);
+    return this.toResponse(user!);
   }
 
   async deleteNurse(id: number): Promise<NurseResponseDto> {
-    await this.getNurseById(id); // verify exists and is nurse
-    const deactivated = await this.usersService.deactivate(id);
-    return {
-      id: deactivated.id,
-      username: deactivated.username,
-      fullName: deactivated.fullName,
-      phoneNumber: deactivated.phoneNumber,
-      roles: deactivated.roles,
-      isActive: deactivated.isActive,
-      createdAt: deactivated.createdAt,
-    };
+    await this.getNurseById(id);
+    await this.usersService.deactivate(id);
+    const user = await this.repository.findById(id);
+    return this.toResponse(user!);
   }
 }

@@ -13,6 +13,18 @@ export class NurseResponseDto {
   @ApiPropertyOptional({ example: '0912345678', nullable: true })
   phoneNumber!: string | null;
 
+  @ApiPropertyOptional({ example: '1996-06-02', nullable: true })
+  dob!: string | null;
+
+  @ApiPropertyOptional({ example: 'Hà Nội', nullable: true })
+  cityProvince!: string | null;
+
+  @ApiPropertyOptional({ example: 'Thanh Xuân', nullable: true })
+  ward!: string | null;
+
+  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi', nullable: true })
+  detailedAddress!: string | null;
+
   @ApiProperty({ example: ['Nurse'] })
   roles!: string[];
 
@@ -21,6 +33,9 @@ export class NurseResponseDto {
 
   @ApiProperty({ example: '2026-06-01T00:00:00.000Z' })
   createdAt!: Date;
+
+  @ApiProperty({ example: '2026-06-20T00:00:00.000Z' })
+  updatedAt!: Date;
 }
 
 export class PaginatedNursesDto {
