@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class QueryNurseDto {
   @ApiPropertyOptional({ example: 1 })
@@ -25,7 +25,12 @@ export class QueryNurseDto {
   userId?: number;
 
   @ApiPropertyOptional({ example: true, description: 'Filter by active status' })
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 
