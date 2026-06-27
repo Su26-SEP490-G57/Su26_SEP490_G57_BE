@@ -71,6 +71,10 @@ export class UsersService {
     if (dto.phoneNumber !== undefined) user.phone_number = dto.phoneNumber ?? null;
     if (dto.password) user.password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     if (dto.isActive !== undefined) user.is_active = dto.isActive;
+    if (dto.dob !== undefined) user.dob = dto.dob ?? null;
+    if (dto.cityProvince !== undefined) user.city_province = dto.cityProvince ?? null;
+    if (dto.ward !== undefined) user.ward = dto.ward ?? null;
+    if (dto.detailedAddress !== undefined) user.detailed_address = dto.detailedAddress ?? null;
     if (dto.roles?.length) {
       user.roles = await this.usersRepository.resolveRoles(dto.roles);
     }
