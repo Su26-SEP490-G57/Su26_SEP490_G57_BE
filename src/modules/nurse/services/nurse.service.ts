@@ -6,7 +6,7 @@ import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
 import { QueryNurseDto } from '../dtos/query-nurse.dto';
 import { UpdateNurseDto } from '../dtos/update-nurse.dto';
-import { NurseRepository } from '../repositories/nurse.repository';
+import { NurseRepository, NurseStats } from '../repositories/nurse.repository';
 
 @Injectable()
 export class NurseService {
@@ -35,6 +35,10 @@ export class NurseService {
       page: query.page ?? 1,
       limit: query.limit ?? 10,
     };
+  }
+
+  async getStats(): Promise<NurseStats> {
+    return this.repository.getStats();
   }
 
   async getNurseById(id: number): Promise<NurseResponseDto> {
