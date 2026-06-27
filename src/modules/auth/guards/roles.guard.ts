@@ -14,6 +14,13 @@ export class RolesGuard implements CanActivate {
     const user = req.user as any;
     if (!user) throw new UnauthorizedException('No user available');
 
-    return requiredRoles.includes(user.role);
+    // Support both single role (string) and array of roles
+    const userRoles: string[] = Array.isArray(user.roles)
+      ? user.roles
+      : user.role
+        ? [user.role]
+        : [];
+
+    return requiredRoles.some((r) => userRoles.includes(r));
   }
 }
