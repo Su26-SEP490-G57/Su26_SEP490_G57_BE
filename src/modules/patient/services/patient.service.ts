@@ -1,19 +1,21 @@
 import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
+import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { LevelName } from '../entities/level.entity';
 import { Patient } from '../entities/patient.entity';
+import { PatientGateway } from '../gateways/patient.gateway';
 import {
-  PatientAccountInput,
-  PatientCaseInput,
-  PatientRepository,
+    PatientAccountInput,
+    PatientCaseInput,
+    PatientRepository,
 } from '../repositories/patient.repository';
 
 /** bcrypt cost factor — keep in sync with UsersService. */
@@ -63,7 +65,10 @@ export interface PaginatedPatients {
 
 @Injectable()
 export class PatientService {
-  constructor(private readonly repository: PatientRepository) {}
+  constructor(
+    private readonly repository: PatientRepository,
+    private readonly patientGateway: PatientGateway,
+  ) {}
 
   private toResponse({ account, level, operationType, ...patient }: Patient): PatientWithAccount {
     return {
@@ -109,6 +114,35 @@ export class PatientService {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
     return { caseId: patient.case_id, currentPod: patient.current_pod };
+  }
+
+  async lockPod(caseId: string, dto: PodLockDto): Promise<PodLockResponseDto> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+    if (patient.current_pod === null) {
+      throw new BadRequestException(`Patient ${caseId} has no active POD`);
+    }
+    if (dto.isLocked && !dto.holdReason) {
+      throw new BadRequestException('holdReason is required when locking POD');
+    }
+
+    await this.repository.updateLockStatus(caseId, dto.isLocked, dto.holdReason ?? null);
+
+    const response: PodLockResponseDto = {
+      caseId,
+      currentPod: patient.current_pod,
+      isLocked: dto.isLocked,
+      holdReason: dto.isLocked ? (dto.holdReason ?? null) : null,
+    };
+
+    // Real-time notification
+    if (dto.isLocked) {
+      this.patientGateway.emitPodLocked(response);
+    } else {
+      this.patientGateway.emitPodUnlocked(response);
+    }
+
+    return response;
   }
 
   /** Operation types for the surgery-type dropdown. */

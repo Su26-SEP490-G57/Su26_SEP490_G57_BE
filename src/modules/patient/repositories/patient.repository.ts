@@ -71,6 +71,13 @@ export class PatientRepository {
     return this.repo.findOne({ where: { case_id: caseId } });
   }
 
+  async updateLockStatus(caseId: string, isLocked: boolean, holdReason: string | null): Promise<void> {
+    await this.repo.update(
+      { case_id: caseId },
+      { is_locked: isLocked, reason_hold_pod: isLocked ? holdReason : null },
+    );
+  }
+
   /** A single patient with all relations joined (same shape as the list endpoint). */
   findByIdWithRelations(caseId: string, manager?: EntityManager): Promise<Patient | null> {
     return this.baseQuery(manager).where('patient.case_id = :caseId', { caseId }).getOne();

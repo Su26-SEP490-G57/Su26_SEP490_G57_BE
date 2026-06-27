@@ -1,34 +1,38 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    ParseIntPipe,
+    Patch,
+    Post,
+    Query,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiNotFoundResponse,
-  ApiOperation,
-  ApiProperty,
-  ApiResponse,
-  ApiTags,
+    ApiBearerAuth,
+    ApiNotFoundResponse,
+    ApiOperation,
+    ApiProperty,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserRole } from '../../user/enums/user-role.enum';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-response.dto';
+import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import {
-  CurrentPodResponse,
-  PaginatedPatients,
-  PatientOperationType,
-  PatientService,
-  PatientWithAccount,
+    CurrentPodResponse,
+    PaginatedPatients,
+    PatientOperationType,
+    PatientService,
+    PatientWithAccount,
 } from '../services/patient.service';
 
 class CurrentPodResponseDto implements CurrentPodResponse {
@@ -96,6 +100,23 @@ export class PatientController {
   @ApiNotFoundResponse({ description: 'Patient not found' })
   getCurrentPod(@Param('id') id: string): Promise<CurrentPodResponse> {
     return this.patientService.getCurrentPod(id);
+  }
+
+  @Patch(':id/pod-lock')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.NURSE, UserRole.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Lock or unlock POD progression for a patient',
+    description: 'Nurse/Head Nurse only. When locking, holdReason is required. Emits real-time WebSocket event pod.locked / pod.unlocked to /patients namespace.',
+  })
+  @ApiResponse({ status: 200, type: PodLockResponseDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiResponse({ status: 400, description: 'No active POD or holdReason missing' })
+  lockPod(
+    @Param('id') id: string,
+    @Body() dto: PodLockDto,
+  ): Promise<PodLockResponseDto> {
+    return this.patientService.lockPod(id, dto);
   }
 
   @Patch(':id')
