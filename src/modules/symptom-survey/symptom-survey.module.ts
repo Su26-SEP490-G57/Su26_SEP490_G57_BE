@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from '../alert/alert.module';
+import { Level } from '../patient/entities/level.entity';
 import { Patient } from '../patient/entities/patient.entity';
 import { SymptomSurveyController } from './controllers/symptom-survey.controller';
 import { AssessmentDetail } from './entities/assessment-detail.entity';
@@ -12,7 +13,7 @@ import { SymptomSurveyService } from './services/symptom-survey.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SymptomSurvey, AssessmentDetail, SurveyQuestion, QuestionOption, Patient]),
+    TypeOrmModule.forFeature([SymptomSurvey, AssessmentDetail, SurveyQuestion, QuestionOption, Patient, Level]),
     AlertModule,
   ],
   controllers: [SymptomSurveyController],

@@ -109,6 +109,9 @@ export class SymptomSurveyService {
     }));
     await this.repository.saveDetails(detailData);
 
+    // Sync patient level based on latest triage result
+    await this.repository.syncPatientLevel(saved.case_id, triage_color);
+
     // Auto-generate alert for YELLOW or RED
     if (triage_color === 'YELLOW' || triage_color === 'RED') {
       await this.alertService.createAlert({
