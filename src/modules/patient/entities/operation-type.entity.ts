@@ -7,4 +7,7 @@ export class OperationType {
 
   @Column({ name: 'operation_name', type: 'varchar', length: 100 })
   operation_name!: string;
+
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
 }
