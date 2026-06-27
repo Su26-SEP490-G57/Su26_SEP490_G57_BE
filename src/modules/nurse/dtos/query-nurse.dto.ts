@@ -24,6 +24,11 @@ export class QueryNurseDto {
   @IsOptional()
   userId?: number;
 
+  @ApiPropertyOptional({ example: true, description: 'Filter by active status' })
+  @Type(() => Boolean)
+  @IsOptional()
+  isActive?: boolean;
+
   @ApiPropertyOptional({ example: 'Hoa', description: 'Search by full_name (partial match)' })
   @IsString()
   @IsOptional()
