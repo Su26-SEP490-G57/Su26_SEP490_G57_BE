@@ -34,6 +34,9 @@ export interface PatientAccount {
   username: string;
   fullName: string;
   phoneNumber: string | null;
+  cityProvince: string | null;
+  ward: string | null;
+  detailedAddress: string | null;
   isActive: boolean;
   roles: string[];
   createdAt: Date;
@@ -79,6 +82,9 @@ export class PatientService {
             username: account.username,
             fullName: account.full_name,
             phoneNumber: account.phone_number,
+            cityProvince: account.city_province,
+            ward: account.ward,
+            detailedAddress: account.detailed_address,
             isActive: account.is_active,
             roles: (account.roles ?? []).map((r) => r.roleName),
             createdAt: account.created_at,
@@ -177,14 +183,21 @@ export class PatientService {
         passwordHash,
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber ?? null,
+        cityProvince: dto.cityProvince ?? null,
+        ward: dto.ward ?? null,
+        detailedAddress: dto.detailedAddress ?? null,
       },
     });
 
     return this.toResponse(created);
   }
 
-  /** Update a patient case and its linked login account. */
-  async updatePatient(caseId: string, dto: UpdatePatientDto): Promise<PatientWithAccount> {
+  /** Update a patient case and its linked login account, addressed by the account's user id. */
+  async updatePatient(userId: number, dto: UpdatePatientDto): Promise<PatientWithAccount> {
+    const user = await this.repository.findUserById(userId);
+    if (!user || !user.case_id) throw new NotFoundException(`Patient user #${userId} not found`);
+    const caseId = user.case_id;
+
     const existing = await this.repository.findById(caseId);
     if (!existing) throw new NotFoundException(`Patient ${caseId} not found`);
 
@@ -201,6 +214,9 @@ export class PatientService {
       username: dto.username,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
+      cityProvince: dto.cityProvince,
+      ward: dto.ward,
+      detailedAddress: dto.detailedAddress,
       isActive: dto.isActive,
     };
     if (dto.password !== undefined) {

@@ -122,14 +122,16 @@ export class PatientController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update a patient (case + linked login account)',
-    description: 'Updates the patient_cases row and the linked account. Only provided fields are changed.',
+    description:
+      'The :id is the users.user_id of the patient account. Updates the patient_cases row and the ' +
+      'linked account. Only provided fields are changed.',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @ApiResponse({ status: 409, description: 'Username already exists' })
   @ApiResponse({ status: 400, description: 'Invalid operation type or assigned nurse' })
   updatePatient(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePatientDto,
   ): Promise<PatientWithAccount> {
     return this.patientService.updatePatient(id, dto);

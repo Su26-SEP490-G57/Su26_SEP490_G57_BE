@@ -14,6 +14,15 @@ class PatientAccountDto {
   @ApiPropertyOptional({ example: '0901234567' })
   phoneNumber!: string | null;
 
+  @ApiPropertyOptional({ example: 'Hà Nội' })
+  cityProvince!: string | null;
+
+  @ApiPropertyOptional({ example: 'Phường Cầu Giấy' })
+  ward!: string | null;
+
+  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi' })
+  detailedAddress!: string | null;
+
   @ApiProperty({ example: true })
   isActive!: boolean;
 

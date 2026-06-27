@@ -14,6 +14,9 @@ export interface PatientAccountInput {
   passwordHash?: string;
   fullName?: string;
   phoneNumber?: string | null;
+  cityProvince?: string | null;
+  ward?: string | null;
+  detailedAddress?: string | null;
   isActive?: boolean;
 }
 
@@ -158,6 +161,9 @@ export class PatientRepository {
         password_hash: input.account.passwordHash,
         full_name: input.account.fullName,
         phone_number: input.account.phoneNumber ?? null,
+        city_province: input.account.cityProvince ?? null,
+        ward: input.account.ward ?? null,
+        detailed_address: input.account.detailedAddress ?? null,
         case_id: input.caseId,
         is_active: input.account.isActive ?? true,
         roles: [role],
@@ -210,6 +216,9 @@ export class PatientRepository {
         if (account.username !== undefined) linked.username = account.username;
         if (account.fullName !== undefined) linked.full_name = account.fullName;
         if (account.phoneNumber !== undefined) linked.phone_number = account.phoneNumber;
+        if (account.cityProvince !== undefined) linked.city_province = account.cityProvince;
+        if (account.ward !== undefined) linked.ward = account.ward;
+        if (account.detailedAddress !== undefined) linked.detailed_address = account.detailedAddress;
         if (account.passwordHash !== undefined) linked.password_hash = account.passwordHash;
         if (account.isActive !== undefined) linked.is_active = account.isActive;
         await manager.save(linked);

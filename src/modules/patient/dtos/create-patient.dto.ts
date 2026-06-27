@@ -63,6 +63,24 @@ export class CreatePatientDto {
   @IsOptional()
   phoneNumber?: string;
 
+  @ApiPropertyOptional({ example: 'Hà Nội', description: 'Tỉnh/Thành phố', maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  cityProvince?: string;
+
+  @ApiPropertyOptional({ example: 'Phường Cầu Giấy', description: 'Phường/Xã', maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  ward?: string;
+
+  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi', description: 'Địa chỉ chi tiết', maxLength: 255 })
+  @IsString()
+  @MaxLength(255)
+  @IsOptional()
+  detailedAddress?: string;
+
   // ── Clinical / patient_cases ───────────────────────────────────────────────
   @ApiPropertyOptional({ example: 'N.V.B', description: 'Name initials (privacy)', maxLength: 50 })
   @IsString()
