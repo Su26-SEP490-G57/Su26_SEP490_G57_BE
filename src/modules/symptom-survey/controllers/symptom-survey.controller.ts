@@ -25,13 +25,16 @@ export class SymptomSurveyController {
   @ApiOperation({
     summary: 'Submit a daily symptom survey',
     description:
-      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN 0-1, YELLOW 2-3, RED ≥4). Auto-generates alert if YELLOW or RED.',
+      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN 0-1, YELLOW 2-3, RED ≥4). Auto-generates alert if YELLOW or RED. Patient role can only submit for their own case_id.',
   })
   @ApiResponse({ status: 201, type: SymptomSurveyResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error or invalid option ID' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  submit(@Body() dto: CreateSymptomSurveyDto): Promise<SymptomSurveyResponseDto> {
-    return this.symptomSurveyService.submitSurvey(dto);
+  @ApiResponse({ status: 403, description: 'Patient attempting to submit for another case' })
+  submit(
+    @Body() dto: CreateSymptomSurveyDto,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
+    return this.symptomSurveyService.submitSurvey(dto, caller);
   }
 
   @Get(':patientId/latest')

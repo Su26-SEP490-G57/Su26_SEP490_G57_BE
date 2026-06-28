@@ -72,7 +72,11 @@ export class SymptomSurveyService {
     }));
   }
 
-  async submitSurvey(dto: CreateSymptomSurveyDto): Promise<SymptomSurveyResponseDto> {
+  async submitSurvey(dto: CreateSymptomSurveyDto, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== dto.case_id) {
+      throw new ForbiddenException('You can only submit surveys for your own case');
+    }
+
     // Load options to get score_value
     const optionIds = dto.answers.map((a) => a.selected_option_id);
     const options = await this.repository.findOptionsByIds(optionIds);
@@ -91,11 +95,14 @@ export class SymptomSurveyService {
 
     const triage_color = this.calculateTriageColor(totalScore);
 
+    // Resolve current POD from DB — not trusted from client
+    const currentPod = await this.repository.findCurrentPod(dto.case_id);
+
     // Save assessment header
     const saved = await this.repository.saveSurvey({
       case_id: dto.case_id,
       evaluation_datetime: new Date(),
-      pod_context: dto.pod_context ?? null,
+      pod_context: currentPod,
       total_score: totalScore,
       triage_color,
     });
