@@ -178,6 +178,7 @@ export class PatientService {
     const created = await this.repository.createWithAccount({
       caseId: dto.caseId,
       ...this.toCaseFields(dto),
+      currentPod: dto.currentPod ?? 0,
       account: {
         username,
         passwordHash,
