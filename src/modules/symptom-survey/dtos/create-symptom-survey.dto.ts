@@ -1,6 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
 
 export class AnswerDto {
   @ApiProperty({ example: 1, description: 'Question ID' })
@@ -17,12 +17,6 @@ export class CreateSymptomSurveyDto {
   @IsString()
   @IsNotEmpty()
   case_id!: string;
-
-  @ApiPropertyOptional({ example: 1, description: 'POD day context (Post-Operative Day)' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  pod_context?: number;
 
   @ApiProperty({ type: [AnswerDto], description: 'Answers for each survey question' })
   @IsArray()

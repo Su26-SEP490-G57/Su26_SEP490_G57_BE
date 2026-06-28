@@ -65,6 +65,11 @@ export class SymptomSurveyRepository {
     return this.questionRepo.find({ order: { order_number: 'ASC' } });
   }
 
+  async findCurrentPod(caseId: string): Promise<number | null> {
+    const patient = await this.patientRepo.findOne({ where: { case_id: caseId }, select: ['current_pod'] });
+    return patient?.current_pod ?? null;
+  }
+
   async syncPatientLevel(caseId: string, triageColor: 'GREEN' | 'YELLOW' | 'RED'): Promise<void> {
     const levelName = TRIAGE_TO_LEVEL_NAME[triageColor];
     const level = await this.levelRepo.findOne({ where: { level_name: levelName as Level['level_name'] } });
