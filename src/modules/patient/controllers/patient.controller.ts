@@ -1,22 +1,22 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    ParseIntPipe,
-    Patch,
-    Post,
-    Query,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
-    ApiBearerAuth,
-    ApiNotFoundResponse,
-    ApiOperation,
-    ApiProperty,
-    ApiResponse,
-    ApiTags,
+  ApiBearerAuth,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -28,11 +28,11 @@ import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import {
-    CurrentPodResponse,
-    PaginatedPatients,
-    PatientOperationType,
-    PatientService,
-    PatientWithAccount,
+  CurrentPodResponse,
+  PaginatedPatients,
+  PatientOperationType,
+  PatientService,
+  PatientWithAccount,
 } from '../services/patient.service';
 
 class CurrentPodResponseDto implements CurrentPodResponse {
@@ -100,6 +100,17 @@ export class PatientController {
   @ApiNotFoundResponse({ description: 'Patient not found' })
   getCurrentPod(@Param('id') id: string): Promise<CurrentPodResponse> {
     return this.patientService.getCurrentPod(id);
+  }
+
+  @Post(':id/start-eras')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse only)' })
+  @ApiResponse({ status: 201 })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiResponse({ status: 400, description: 'ERAS already started' })
+  startEras(@Param('id') id: string) {
+    return this.patientService.startEras(id);
   }
 
   @Patch(':id/pod-lock')

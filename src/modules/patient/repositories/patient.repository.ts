@@ -81,6 +81,13 @@ export class PatientRepository {
     );
   }
 
+  async startEras(caseId: string, startTime: Date): Promise<void> {
+    await this.repo.update(
+      { case_id: caseId },
+      { pod_start_date: startTime, current_pod: 0 },
+    );
+  }
+
   /** A single patient with all relations joined (same shape as the list endpoint). */
   findByIdWithRelations(caseId: string, manager?: EntityManager): Promise<Patient | null> {
     return this.baseQuery(manager).where('patient.case_id = :caseId', { caseId }).getOne();

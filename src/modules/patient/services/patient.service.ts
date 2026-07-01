@@ -122,6 +122,20 @@ export class PatientService {
     return { caseId: patient.case_id, currentPod: patient.current_pod };
   }
 
+  async startEras(caseId: string): Promise<{ caseId: string; currentPod: number; podStartDate: Date }> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+    if (patient.pod_start_date) {
+      throw new BadRequestException(`ERAS already started for patient ${caseId}`);
+    }
+
+    const now = new Date();
+    await this.repository.updateLockStatus(caseId, false, null);
+    await this.repository.startEras(caseId, now);
+
+    return { caseId, currentPod: 0, podStartDate: now };
+  }
+
   async lockPod(caseId: string, dto: PodLockDto): Promise<PodLockResponseDto> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
