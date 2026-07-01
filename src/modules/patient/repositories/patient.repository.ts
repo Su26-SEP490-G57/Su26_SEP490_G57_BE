@@ -81,6 +81,14 @@ export class PatientRepository {
     );
   }
 
+  async setLockedAt(caseId: string, lockedAt: Date | null): Promise<void> {
+    await this.repo.update({ case_id: caseId }, { locked_at: lockedAt });
+  }
+
+  async shiftPodStartDate(caseId: string, newPodStartDate: Date): Promise<void> {
+    await this.repo.update({ case_id: caseId }, { pod_start_date: newPodStartDate });
+  }
+
   async startEras(caseId: string, startTime: Date): Promise<void> {
     await this.repo.update(
       { case_id: caseId },
