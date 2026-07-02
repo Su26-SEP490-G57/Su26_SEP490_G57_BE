@@ -90,11 +90,19 @@ export class Patient {
   @Column({ name: 'reason_hold_pod', type: 'text', nullable: true })
   reason_hold_pod!: string | null;
 
-  @Column({ name: 'pod_start_date', type: 'date', nullable: true })
-  pod_start_date!: string | null;
+  @Column({ name: 'pod_start_date', type: 'timestamptz', nullable: true })
+  pod_start_date!: Date | null;
 
-  @Column({ name: 'pod_end_date', type: 'date', nullable: true })
-  pod_end_date!: string | null;
+  @Column({ name: 'pod_end_date', type: 'timestamptz', nullable: true })
+  pod_end_date!: Date | null;
+
+  /** Date/time the patient was discharged — separate from pod_end_date */
+  @Column({ name: 'discharge_date', type: 'timestamptz', nullable: true })
+  discharge_date!: Date | null;
+
+  /** Timestamp when POD was locked — null if not currently locked */
+  @Column({ name: 'locked_at', type: 'timestamptz', nullable: true })
+  locked_at!: Date | null;
 
   @Column({ name: 'level_id', type: 'int', nullable: true })
   level_id!: number | null;

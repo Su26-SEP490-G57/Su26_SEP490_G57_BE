@@ -122,6 +122,20 @@ export class PatientService {
     return { caseId: patient.case_id, currentPod: patient.current_pod };
   }
 
+  async startEras(caseId: string): Promise<{ caseId: string; currentPod: number; podStartDate: Date }> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+    if (patient.pod_start_date) {
+      throw new BadRequestException(`ERAS already started for patient ${caseId}`);
+    }
+
+    const now = new Date();
+    await this.repository.updateLockStatus(caseId, false, null);
+    await this.repository.startEras(caseId, now);
+
+    return { caseId, currentPod: 0, podStartDate: now };
+  }
+
   async lockPod(caseId: string, dto: PodLockDto): Promise<PodLockResponseDto> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
@@ -132,7 +146,22 @@ export class PatientService {
       throw new BadRequestException('holdReason is required when locking POD');
     }
 
-    await this.repository.updateLockStatus(caseId, dto.isLocked, dto.holdReason ?? null);
+    const now = new Date();
+
+    if (dto.isLocked) {
+      // Lock: record hold reason + timestamp when lock started
+      await this.repository.updateLockStatus(caseId, true, dto.holdReason ?? null);
+      await this.repository.setLockedAt(caseId, now);
+    } else {
+      // Unlock: shift pod_start_date forward by lock duration so POD stays the same
+      if (patient.locked_at && patient.pod_start_date) {
+        const lockDurationMs = now.getTime() - new Date(patient.locked_at).getTime();
+        const newPodStartDate = new Date(new Date(patient.pod_start_date).getTime() + lockDurationMs);
+        await this.repository.shiftPodStartDate(caseId, newPodStartDate);
+      }
+      await this.repository.updateLockStatus(caseId, false, null);
+      await this.repository.setLockedAt(caseId, null);
+    }
 
     const response: PodLockResponseDto = {
       caseId,
@@ -141,7 +170,6 @@ export class PatientService {
       holdReason: dto.isLocked ? (dto.holdReason ?? null) : null,
     };
 
-    // Real-time notification
     if (dto.isLocked) {
       this.patientGateway.emitPodLocked(response);
     } else {
