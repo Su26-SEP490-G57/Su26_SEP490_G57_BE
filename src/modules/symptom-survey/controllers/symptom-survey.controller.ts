@@ -1,7 +1,28 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
+import {
+  CreateQuestionOptionDto,
+  CreateSurveyQuestionDto,
+  QuestionOptionDto,
+  UpdateQuestionOptionDto,
+  UpdateSurveyQuestionDto,
+} from '../dtos/survey-question.dto';
 import { SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../services/symptom-survey.service';
 
@@ -17,6 +38,90 @@ export class SymptomSurveyController {
   @ApiResponse({ status: 200, type: [SurveyQuestionDto] })
   getQuestions(): Promise<SurveyQuestionDto[]> {
     return this.symptomSurveyService.getQuestions();
+  }
+
+  @Get('questions/:questionId')
+  @ApiOperation({ summary: 'Get a single survey question with its options' })
+  @ApiResponse({ status: 200, type: SurveyQuestionDto })
+  @ApiNotFoundResponse({ description: 'Question not found' })
+  getQuestion(@Param('questionId', ParseIntPipe) questionId: number): Promise<SurveyQuestionDto> {
+    return this.symptomSurveyService.getQuestionById(questionId);
+  }
+
+  @Post('questions')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @ApiOperation({ summary: 'Create a survey question with optional inline options (Head Nurse only)' })
+  @ApiResponse({ status: 201, type: SurveyQuestionDto })
+  createQuestion(@Body() dto: CreateSurveyQuestionDto): Promise<SurveyQuestionDto> {
+    return this.symptomSurveyService.createQuestion(dto);
+  }
+
+  @Patch('questions/:questionId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @ApiOperation({ summary: 'Update a survey question (Head Nurse only)' })
+  @ApiResponse({ status: 200, type: SurveyQuestionDto })
+  @ApiNotFoundResponse({ description: 'Question not found' })
+  updateQuestion(
+    @Param('questionId', ParseIntPipe) questionId: number,
+    @Body() dto: UpdateSurveyQuestionDto,
+  ): Promise<SurveyQuestionDto> {
+    return this.symptomSurveyService.updateQuestion(questionId, dto);
+  }
+
+  @Delete('questions/:questionId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a survey question and its options (Head Nurse only)' })
+  @ApiResponse({ status: 204 })
+  @ApiNotFoundResponse({ description: 'Question not found' })
+  @ApiResponse({ status: 409, description: 'Question already used in assessments' })
+  deleteQuestion(@Param('questionId', ParseIntPipe) questionId: number): Promise<void> {
+    return this.symptomSurveyService.deleteQuestion(questionId);
+  }
+
+  @Post('questions/:questionId/options')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @ApiOperation({ summary: 'Add an option to a question (Head Nurse only)' })
+  @ApiResponse({ status: 201, type: QuestionOptionDto })
+  @ApiNotFoundResponse({ description: 'Question not found' })
+  addOption(
+    @Param('questionId', ParseIntPipe) questionId: number,
+    @Body() dto: CreateQuestionOptionDto,
+  ): Promise<QuestionOptionDto> {
+    return this.symptomSurveyService.addOption(questionId, dto);
+  }
+
+  @Patch('questions/:questionId/options/:optionId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @ApiOperation({ summary: 'Update a question option (Head Nurse only)' })
+  @ApiResponse({ status: 200, type: QuestionOptionDto })
+  @ApiNotFoundResponse({ description: 'Option not found' })
+  updateOption(
+    @Param('questionId', ParseIntPipe) questionId: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
+    @Body() dto: UpdateQuestionOptionDto,
+  ): Promise<QuestionOptionDto> {
+    return this.symptomSurveyService.updateOption(questionId, optionId, dto);
+  }
+
+  @Delete('questions/:questionId/options/:optionId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE)
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a question option (Head Nurse only)' })
+  @ApiResponse({ status: 204 })
+  @ApiNotFoundResponse({ description: 'Option not found' })
+  @ApiResponse({ status: 409, description: 'Option already used in assessments' })
+  deleteOption(
+    @Param('questionId', ParseIntPipe) questionId: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
+  ): Promise<void> {
+    return this.symptomSurveyService.deleteOption(questionId, optionId);
   }
 
   @Post()

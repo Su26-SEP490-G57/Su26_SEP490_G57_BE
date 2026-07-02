@@ -53,6 +53,9 @@ export class SurveyQuestionDto {
   @ApiProperty({ example: 1 })
   order_number!: number | null;
 
+  @ApiProperty({ example: true, description: 'True for built-in default questions' })
+  is_default!: boolean;
+
   @ApiProperty({
     example: [{ option_id: 1, option_text: 'Không', score_value: 0 }],
   })

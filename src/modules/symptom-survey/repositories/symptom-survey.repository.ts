@@ -52,4 +52,40 @@ export class SymptomSurveyRepository {
   findAllQuestions(): Promise<SurveyQuestion[]> {
     return this.questionRepo.find({ order: { order_number: 'ASC' } });
   }
+
+  findQuestionById(questionId: number): Promise<SurveyQuestion | null> {
+    return this.questionRepo.findOne({ where: { question_id: questionId } });
+  }
+
+  saveQuestion(data: Partial<SurveyQuestion>): Promise<SurveyQuestion> {
+    return this.questionRepo.save(data as SurveyQuestion);
+  }
+
+  async deleteQuestion(questionId: number): Promise<void> {
+    await this.questionRepo.delete({ question_id: questionId });
+  }
+
+  countDetailsByQuestion(questionId: number): Promise<number> {
+    return this.detailRepo.count({ where: { question_id: questionId } });
+  }
+
+  findOptionById(optionId: number): Promise<QuestionOption | null> {
+    return this.optionRepo.findOne({ where: { option_id: optionId } });
+  }
+
+  saveOption(data: Partial<QuestionOption>): Promise<QuestionOption> {
+    return this.optionRepo.save(data as QuestionOption);
+  }
+
+  saveOptions(data: Partial<QuestionOption>[]): Promise<QuestionOption[]> {
+    return this.optionRepo.save(data as QuestionOption[]);
+  }
+
+  async deleteOption(optionId: number): Promise<void> {
+    await this.optionRepo.delete({ option_id: optionId });
+  }
+
+  countDetailsByOption(optionId: number): Promise<number> {
+    return this.detailRepo.count({ where: { selected_option_id: optionId } });
+  }
 }
