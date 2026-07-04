@@ -1,10 +1,19 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
+import {
+  CreateQuestionOptionDto,
+  CreateSurveyQuestionDto,
+  QuestionOptionDto,
+  UpdateQuestionOptionDto,
+  UpdateSurveyQuestionDto,
+} from '../dtos/survey-question.dto';
 import { AnswerDetailDto, SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
+import { QuestionOption } from '../entities/question-option.entity';
+import { SurveyQuestion } from '../entities/survey-question.entity';
 import { SymptomSurvey } from '../entities/symptom-survey.entity';
 import { SymptomSurveyRepository } from '../repositories/symptom-survey.repository';
 
@@ -58,18 +67,129 @@ export class SymptomSurveyService {
     return dto;
   }
 
+  private toQuestionResponse(question: SurveyQuestion): SurveyQuestionDto {
+    return {
+      question_id: question.question_id,
+      question_text: question.question_text,
+      order_number: question.order_number,
+      is_default: question.is_default,
+      options: (question.options ?? []).map((o) => this.toOptionResponse(o)),
+    };
+  }
+
+  private toOptionResponse(option: QuestionOption): QuestionOptionDto {
+    return {
+      option_id: option.option_id,
+      option_text: option.option_text,
+      score_value: option.score_value,
+    };
+  }
+
   async getQuestions(): Promise<SurveyQuestionDto[]> {
     const questions = await this.repository.findAllQuestions();
-    return questions.map((q) => ({
-      question_id: q.question_id,
-      question_text: q.question_text,
-      order_number: q.order_number,
-      options: q.options.map((o) => ({
-        option_id: o.option_id,
-        option_text: o.option_text,
-        score_value: o.score_value,
-      })),
-    }));
+    return questions.map((q) => this.toQuestionResponse(q));
+  }
+
+  async getQuestionById(questionId: number): Promise<SurveyQuestionDto> {
+    const question = await this.repository.findQuestionById(questionId);
+    if (!question) throw new NotFoundException(`Question #${questionId} not found`);
+    return this.toQuestionResponse(question);
+  }
+
+  async createQuestion(dto: CreateSurveyQuestionDto): Promise<SurveyQuestionDto> {
+    const saved = await this.repository.saveQuestion({
+      question_text: dto.question_text,
+      order_number: dto.order_number ?? null,
+      is_default: dto.is_default,
+    });
+
+    if (dto.options?.length) {
+      await this.repository.saveOptions(
+        dto.options.map((o) => ({
+          question_id: saved.question_id,
+          option_text: o.option_text,
+          score_value: o.score_value,
+        })),
+      );
+    }
+
+    return this.getQuestionById(saved.question_id);
+  }
+
+  async updateQuestion(questionId: number, dto: UpdateSurveyQuestionDto): Promise<SurveyQuestionDto> {
+    const question = await this.repository.findQuestionById(questionId);
+    if (!question) throw new NotFoundException(`Question #${questionId} not found`);
+
+    if (dto.question_text !== undefined) question.question_text = dto.question_text;
+    if (dto.order_number !== undefined) question.order_number = dto.order_number;
+    if (dto.is_default !== undefined) question.is_default = dto.is_default;
+
+    await this.repository.saveQuestion({
+      question_id: question.question_id,
+      question_text: question.question_text,
+      order_number: question.order_number,
+      is_default: question.is_default,
+    });
+    return this.getQuestionById(questionId);
+  }
+
+  async deleteQuestion(questionId: number): Promise<void> {
+    const question = await this.repository.findQuestionById(questionId);
+    if (!question) throw new NotFoundException(`Question #${questionId} not found`);
+
+    const usedCount = await this.repository.countDetailsByQuestion(questionId);
+    if (usedCount > 0) {
+      throw new ConflictException(
+        `Question #${questionId} has been used in ${usedCount} assessment(s) and cannot be deleted`,
+      );
+    }
+    await this.repository.deleteQuestion(questionId);
+  }
+
+  // ── Question Options ───────────────────────────────────────────────────────────
+
+  async addOption(questionId: number, dto: CreateQuestionOptionDto): Promise<QuestionOptionDto> {
+    const question = await this.repository.findQuestionById(questionId);
+    if (!question) throw new NotFoundException(`Question #${questionId} not found`);
+
+    const saved = await this.repository.saveOption({
+      question_id: questionId,
+      option_text: dto.option_text,
+      score_value: dto.score_value,
+    });
+    return this.toOptionResponse(saved);
+  }
+
+  async updateOption(
+    questionId: number,
+    optionId: number,
+    dto: UpdateQuestionOptionDto,
+  ): Promise<QuestionOptionDto> {
+    const option = await this.repository.findOptionById(optionId);
+    if (!option || option.question_id !== questionId) {
+      throw new NotFoundException(`Option #${optionId} not found`);
+    }
+
+    if (dto.option_text !== undefined) option.option_text = dto.option_text;
+    if (dto.score_value !== undefined) option.score_value = dto.score_value;
+
+    const saved = await this.repository.saveOption(option);
+    return this.toOptionResponse(saved);
+  }
+
+  async deleteOption(questionId: number, optionId: number): Promise<void> {
+    const option = await this.repository.findOptionById(optionId);
+    if (!option || option.question_id !== questionId) {
+      throw new NotFoundException(`Option #${optionId} not found`);
+    }
+
+    const usedCount = await this.repository.countDetailsByOption(optionId);
+    if (usedCount > 0) {
+      throw new ConflictException(
+        `Option #${optionId} has been selected in ${usedCount} assessment(s) and cannot be deleted`,
+      );
+    }
+    await this.repository.deleteOption(optionId);
   }
 
   async submitSurvey(dto: CreateSymptomSurveyDto, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {

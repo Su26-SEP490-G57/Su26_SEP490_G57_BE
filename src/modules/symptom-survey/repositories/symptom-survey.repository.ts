@@ -65,15 +65,39 @@ export class SymptomSurveyRepository {
     return this.questionRepo.find({ order: { order_number: 'ASC' } });
   }
 
-  async findCurrentPod(caseId: string): Promise<number | null> {
-    const patient = await this.patientRepo.findOne({ where: { case_id: caseId }, select: ['current_pod'] });
-    return patient?.current_pod ?? null;
+  findQuestionById(questionId: number): Promise<SurveyQuestion | null> {
+    return this.questionRepo.findOne({ where: { question_id: questionId } });
   }
 
-  async syncPatientLevel(caseId: string, triageColor: 'GREEN' | 'YELLOW' | 'RED'): Promise<void> {
-    const levelName = TRIAGE_TO_LEVEL_NAME[triageColor];
-    const level = await this.levelRepo.findOne({ where: { level_name: levelName as Level['level_name'] } });
-    if (!level) return;
-    await this.patientRepo.update({ case_id: caseId }, { level_id: level.level_id });
+  saveQuestion(data: Partial<SurveyQuestion>): Promise<SurveyQuestion> {
+    return this.questionRepo.save(data as SurveyQuestion);
+  }
+
+  async deleteQuestion(questionId: number): Promise<void> {
+    await this.questionRepo.delete({ question_id: questionId });
+  }
+
+  countDetailsByQuestion(questionId: number): Promise<number> {
+    return this.detailRepo.count({ where: { question_id: questionId } });
+  }
+
+  findOptionById(optionId: number): Promise<QuestionOption | null> {
+    return this.optionRepo.findOne({ where: { option_id: optionId } });
+  }
+
+  saveOption(data: Partial<QuestionOption>): Promise<QuestionOption> {
+    return this.optionRepo.save(data as QuestionOption);
+  }
+
+  saveOptions(data: Partial<QuestionOption>[]): Promise<QuestionOption[]> {
+    return this.optionRepo.save(data as QuestionOption[]);
+  }
+
+  async deleteOption(optionId: number): Promise<void> {
+    await this.optionRepo.delete({ option_id: optionId });
+  }
+
+  countDetailsByOption(optionId: number): Promise<number> {
+    return this.detailRepo.count({ where: { selected_option_id: optionId } });
   }
 }

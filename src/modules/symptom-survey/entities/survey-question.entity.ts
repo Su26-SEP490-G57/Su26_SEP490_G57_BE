@@ -12,6 +12,9 @@ export class SurveyQuestion {
   @Column({ name: 'order_number', type: 'int', nullable: true })
   order_number!: number | null;
 
+  @Column({ name: 'is_default', type: 'boolean', default: false })
+  is_default!: boolean;
+
   @OneToMany(() => QuestionOption, (option) => option.question, { eager: true })
   options!: QuestionOption[];
 }
