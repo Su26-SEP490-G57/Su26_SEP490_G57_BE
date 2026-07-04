@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRole } from '../../user/enums/user-role.enum';

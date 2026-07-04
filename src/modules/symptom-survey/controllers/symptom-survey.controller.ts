@@ -25,6 +25,8 @@ import {
 } from '../dtos/survey-question.dto';
 import { SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../services/symptom-survey.service';
+import { CurrentUser } from 'src/modules/user/decorators/current-user.decorator';
+import { UserResponseDto } from 'src/modules/user/dtos/user-response.dto';
 
 @ApiTags('Symptom Surveys')
 @ApiBearerAuth()
