@@ -16,6 +16,7 @@ const TRIAGE_TO_LEVEL_NAME: Record<string, string> = {
 
 @Injectable()
 export class SymptomSurveyRepository {
+  [x: string]: any;
   constructor(
     @InjectRepository(SymptomSurvey)
     private readonly surveyRepo: Repository<SymptomSurvey>,
