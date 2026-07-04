@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
   CreateQuestionOptionDto,
@@ -190,7 +192,11 @@ export class SymptomSurveyService {
     await this.repository.deleteOption(optionId);
   }
 
-  async submitSurvey(dto: CreateSymptomSurveyDto): Promise<SymptomSurveyResponseDto> {
+  async submitSurvey(dto: CreateSymptomSurveyDto, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== dto.case_id) {
+      throw new ForbiddenException('You can only submit surveys for your own case');
+    }
+
     // Load options to get score_value
     const optionIds = dto.answers.map((a) => a.selected_option_id);
     const options = await this.repository.findOptionsByIds(optionIds);
@@ -209,11 +215,14 @@ export class SymptomSurveyService {
 
     const triage_color = this.calculateTriageColor(totalScore);
 
+    // Resolve current POD from DB — not trusted from client
+    const currentPod = await this.repository.findCurrentPod(dto.case_id);
+
     // Save assessment header
     const saved = await this.repository.saveSurvey({
       case_id: dto.case_id,
       evaluation_datetime: new Date(),
-      pod_context: dto.pod_context ?? null,
+      pod_context: currentPod,
       total_score: totalScore,
       triage_color,
     });
@@ -226,6 +235,9 @@ export class SymptomSurveyService {
       score_earned: optionMap.get(answer.selected_option_id)?.score_value ?? 0,
     }));
     await this.repository.saveDetails(detailData);
+
+    // Sync patient level based on latest triage result
+    await this.repository.syncPatientLevel(saved.case_id, triage_color);
 
     // Auto-generate alert for YELLOW or RED
     if (triage_color === 'YELLOW' || triage_color === 'RED') {
@@ -240,15 +252,21 @@ export class SymptomSurveyService {
     return this.toResponse(saved);
   }
 
-  async getLatestByPatient(caseId: string): Promise<SymptomSurveyResponseDto> {
+  async getLatestByPatient(caseId: string, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== caseId) {
+      throw new ForbiddenException('You can only view your own survey results');
+    }
     const survey = await this.repository.findLatestByPatient(caseId);
     if (!survey) throw new NotFoundException(`No survey found for patient ${caseId}`);
     return this.toResponse(survey);
   }
 
-  async getSurveyById(assessmentId: number): Promise<SymptomSurveyResponseDto> {
+  async getSurveyById(assessmentId: number, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
     const survey = await this.repository.findById(assessmentId);
     if (!survey) throw new NotFoundException(`Survey #${assessmentId} not found`);
+    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== survey.case_id) {
+      throw new ForbiddenException('You can only view your own survey results');
+    }
     const details = await this.repository.findDetailsById(assessmentId);
     return this.toResponse(survey, details, true);
   }

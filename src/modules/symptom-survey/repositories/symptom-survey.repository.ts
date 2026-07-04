@@ -1,10 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Level } from '../../patient/entities/level.entity';
+import { Patient } from '../../patient/entities/patient.entity';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
 import { SurveyQuestion } from '../entities/survey-question.entity';
 import { SymptomSurvey } from '../entities/symptom-survey.entity';
+
+const TRIAGE_TO_LEVEL_NAME: Record<string, string> = {
+  GREEN: 'Green',
+  YELLOW: 'Yellow',
+  RED: 'Red',
+};
 
 @Injectable()
 export class SymptomSurveyRepository {
@@ -17,6 +25,10 @@ export class SymptomSurveyRepository {
     private readonly questionRepo: Repository<SurveyQuestion>,
     @InjectRepository(QuestionOption)
     private readonly optionRepo: Repository<QuestionOption>,
+    @InjectRepository(Level)
+    private readonly levelRepo: Repository<Level>,
+    @InjectRepository(Patient)
+    private readonly patientRepo: Repository<Patient>,
   ) {}
 
   saveSurvey(survey: Partial<SymptomSurvey>): Promise<SymptomSurvey> {

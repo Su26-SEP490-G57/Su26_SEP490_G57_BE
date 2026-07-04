@@ -128,31 +128,45 @@ export class SymptomSurveyController {
   @ApiOperation({
     summary: 'Submit a daily symptom survey',
     description:
-      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN 0-1, YELLOW 2-3, RED ≥4). Auto-generates alert if YELLOW or RED.',
+      'Submit answers for each question. BE calculates total_score from option score_values and assigns triage_color (GREEN 0-1, YELLOW 2-3, RED ≥4). Auto-generates alert if YELLOW or RED. Patient role can only submit for their own case_id.',
   })
   @ApiResponse({ status: 201, type: SymptomSurveyResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error or invalid option ID' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  submit(@Body() dto: CreateSymptomSurveyDto): Promise<SymptomSurveyResponseDto> {
-    return this.symptomSurveyService.submitSurvey(dto);
+  @ApiResponse({ status: 403, description: 'Patient attempting to submit for another case' })
+  submit(
+    @Body() dto: CreateSymptomSurveyDto,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
+    return this.symptomSurveyService.submitSurvey(dto, caller);
   }
 
   @Get(':patientId/latest')
-  @ApiOperation({ summary: 'Get latest survey for a patient' })
+  @ApiOperation({
+    summary: 'Get latest survey for a patient',
+    description: 'Nurse/Admin can view any patient. Patient role can only view their own.',
+  })
   @ApiResponse({ status: 200, type: SymptomSurveyResponseDto })
   @ApiNotFoundResponse({ description: 'No survey found for patient' })
-  getLatest(@Param('patientId') patientId: string): Promise<SymptomSurveyResponseDto> {
-    return this.symptomSurveyService.getLatestByPatient(patientId);
+  @ApiResponse({ status: 403, description: 'Patient attempting to view another patient survey' })
+  getLatest(
+    @Param('patientId') patientId: string,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
+    return this.symptomSurveyService.getLatestByPatient(patientId, caller);
   }
 
   @Get(':surveyId')
   @ApiOperation({
     summary: 'Get survey detail by ID',
-    description: 'Returns full answer breakdown and triage recommendation text.',
+    description: 'Returns full answer breakdown and triage recommendation text. Patient role can only view their own surveys.',
   })
   @ApiResponse({ status: 200, type: SymptomSurveyResponseDto })
   @ApiNotFoundResponse({ description: 'Survey not found' })
-  getById(@Param('surveyId', ParseIntPipe) surveyId: number): Promise<SymptomSurveyResponseDto> {
-    return this.symptomSurveyService.getSurveyById(surveyId);
+  @ApiResponse({ status: 403, description: 'Patient attempting to view another patient survey' })
+  getById(
+    @Param('surveyId', ParseIntPipe) surveyId: number,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
+    return this.symptomSurveyService.getSurveyById(surveyId, caller);
   }
 }
