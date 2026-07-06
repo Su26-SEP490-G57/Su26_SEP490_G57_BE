@@ -1,8 +1,8 @@
 import {
-    BadRequestException,
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
@@ -13,9 +13,9 @@ import { LevelName } from '../entities/level.entity';
 import { Patient } from '../entities/patient.entity';
 import { PatientGateway } from '../gateways/patient.gateway';
 import {
-    PatientAccountInput,
-    PatientCaseInput,
-    PatientRepository,
+  PatientAccountInput,
+  PatientCaseInput,
+  PatientRepository,
 } from '../repositories/patient.repository';
 
 /** bcrypt cost factor — keep in sync with UsersService. */
@@ -122,7 +122,9 @@ export class PatientService {
     return { caseId: patient.case_id, currentPod: patient.current_pod };
   }
 
-  async startEras(caseId: string): Promise<{ caseId: string; currentPod: number; podStartDate: Date }> {
+  async startEras(
+    caseId: string,
+  ): Promise<{ caseId: string; currentPod: number; podStartDate: Date }> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
     if (patient.pod_start_date) {
@@ -156,7 +158,9 @@ export class PatientService {
       // Unlock: shift pod_start_date forward by lock duration so POD stays the same
       if (patient.locked_at && patient.pod_start_date) {
         const lockDurationMs = now.getTime() - new Date(patient.locked_at).getTime();
-        const newPodStartDate = new Date(new Date(patient.pod_start_date).getTime() + lockDurationMs);
+        const newPodStartDate = new Date(
+          new Date(patient.pod_start_date).getTime() + lockDurationMs,
+        );
         await this.repository.shiftPodStartDate(caseId, newPodStartDate);
       }
       await this.repository.updateLockStatus(caseId, false, null);
@@ -252,7 +256,11 @@ export class PatientService {
       account.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
-    const updated = await this.repository.updateWithAccount(caseId, this.toCaseFields(dto), account);
+    const updated = await this.repository.updateWithAccount(
+      caseId,
+      this.toCaseFields(dto),
+      account,
+    );
     if (!updated) throw new NotFoundException(`Patient ${caseId} not found`);
 
     return this.toResponse(updated);

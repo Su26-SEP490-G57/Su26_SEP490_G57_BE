@@ -85,7 +85,10 @@ export class UpdateSurveyQuestionDto {
   @Min(0)
   order_number?: number;
 
-  @ApiPropertyOptional({ example: false, description: 'Whether this is a built-in default question' })
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Whether this is a built-in default question',
+  })
   @IsOptional()
   @IsBoolean()
   is_default?: boolean;

@@ -1,5 +1,20 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AcknowledgeAlertDto } from '../dtos/acknowledge-alert.dto';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
@@ -24,7 +39,10 @@ export class AlertController {
   }
 
   @Patch(':id/acknowledge')
-  @ApiOperation({ summary: 'Acknowledge an alert', description: 'Marks the alert as Acknowledged.' })
+  @ApiOperation({
+    summary: 'Acknowledge an alert',
+    description: 'Marks the alert as Acknowledged.',
+  })
   @ApiResponse({ status: 200, type: AlertResponseDto })
   @ApiNotFoundResponse({ description: 'Alert not found' })
   acknowledge(

@@ -39,7 +39,8 @@ export class QueryPatientDto {
 
   @ApiPropertyOptional({
     enum: PATIENT_SORT_FIELDS,
-    description: 'Column to sort by. When omitted, defaults to level (Red→Yellow→Green) then oldest case first.',
+    description:
+      'Column to sort by. When omitted, defaults to level (Red→Yellow→Green) then oldest case first.',
     example: 'pod',
   })
   @IsOptional()

@@ -118,15 +118,13 @@ export class PatientController {
   @Roles(UserRole.NURSE, UserRole.HEAD_NURSE)
   @ApiOperation({
     summary: 'Lock or unlock POD progression for a patient',
-    description: 'Nurse/Head Nurse only. When locking, holdReason is required. Emits real-time WebSocket event pod.locked / pod.unlocked to /patients namespace.',
+    description:
+      'Nurse/Head Nurse only. When locking, holdReason is required. Emits real-time WebSocket event pod.locked / pod.unlocked to /patients namespace.',
   })
   @ApiResponse({ status: 200, type: PodLockResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @ApiResponse({ status: 400, description: 'No active POD or holdReason missing' })
-  lockPod(
-    @Param('id') id: string,
-    @Body() dto: PodLockDto,
-  ): Promise<PodLockResponseDto> {
+  lockPod(@Param('id') id: string, @Body() dto: PodLockDto): Promise<PodLockResponseDto> {
     return this.patientService.lockPod(id, dto);
   }
 

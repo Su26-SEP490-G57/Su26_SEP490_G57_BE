@@ -1,7 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OperationType } from '../../patient/entities/operation-type.entity';
-import { CreateOperationTypeDto, OperationTypeResponseDto, UpdateOperationTypeDto } from '../dtos/operation-type.dto';
-import { CreatePodProtocolDto, PodProtocolResponseDto, UpdatePodProtocolDto } from '../dtos/pod-protocol.dto';
+import {
+  CreateOperationTypeDto,
+  OperationTypeResponseDto,
+  UpdateOperationTypeDto,
+} from '../dtos/operation-type.dto';
+import {
+  CreatePodProtocolDto,
+  PodProtocolResponseDto,
+  UpdatePodProtocolDto,
+} from '../dtos/pod-protocol.dto';
 import { PodProtocol } from '../entities/pod-protocol.entity';
 import { DietGuidanceRepository } from '../repositories/diet-guidance.repository';
 
@@ -58,7 +66,10 @@ export class DietGuidanceService {
     return this.toOpTypeResponse(saved, 0);
   }
 
-  async updateOperationType(id: number, dto: UpdateOperationTypeDto): Promise<OperationTypeResponseDto> {
+  async updateOperationType(
+    id: number,
+    dto: UpdateOperationTypeDto,
+  ): Promise<OperationTypeResponseDto> {
     const op = await this.repository.findOperationTypeById(id);
     if (!op) throw new NotFoundException(`Operation type #${id} not found`);
     if (dto.name) op.operation_name = dto.name;
@@ -91,7 +102,11 @@ export class DietGuidanceService {
     return this.toPodResponse(pod);
   }
 
-  async createPod(operationTypeId: number, dto: CreatePodProtocolDto, userId: number): Promise<PodProtocolResponseDto> {
+  async createPod(
+    operationTypeId: number,
+    dto: CreatePodProtocolDto,
+    userId: number,
+  ): Promise<PodProtocolResponseDto> {
     const op = await this.repository.findOperationTypeById(operationTypeId);
     if (!op) throw new NotFoundException(`Operation type #${operationTypeId} not found`);
 
@@ -111,7 +126,12 @@ export class DietGuidanceService {
     return this.toPodResponse(saved);
   }
 
-  async updatePod(operationTypeId: number, podId: number, dto: UpdatePodProtocolDto, userId: number): Promise<PodProtocolResponseDto> {
+  async updatePod(
+    operationTypeId: number,
+    podId: number,
+    dto: UpdatePodProtocolDto,
+    userId: number,
+  ): Promise<PodProtocolResponseDto> {
     const pod = await this.repository.findPodById(podId);
     if (!pod || pod.operation_type_id !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);

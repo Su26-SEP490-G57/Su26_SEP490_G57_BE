@@ -14,7 +14,7 @@ async function bootstrap() {
     origin: allowedOrigins.length > 0 ? allowedOrigins : false,
     credentials: true,
   });
-  
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

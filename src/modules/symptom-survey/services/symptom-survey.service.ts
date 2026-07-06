@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRole } from '../../user/enums/user-role.enum';
@@ -10,7 +16,11 @@ import {
   UpdateQuestionOptionDto,
   UpdateSurveyQuestionDto,
 } from '../dtos/survey-question.dto';
-import { AnswerDetailDto, SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
+import {
+  AnswerDetailDto,
+  SurveyQuestionDto,
+  SymptomSurveyResponseDto,
+} from '../dtos/symptom-survey-response.dto';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
 import { SurveyQuestion } from '../entities/survey-question.entity';
@@ -19,7 +29,8 @@ import { SymptomSurveyRepository } from '../repositories/symptom-survey.reposito
 
 const TRIAGE_RECOMMENDATIONS: Record<string, string> = {
   GREEN: 'Bệnh nhân ổn định. Tiếp tục theo dõi thường quy theo phác đồ ERAS.',
-  YELLOW: 'Bệnh nhân có triệu chứng mức độ trung bình. Điều dưỡng cần đánh giá lại và cân nhắc can thiệp.',
+  YELLOW:
+    'Bệnh nhân có triệu chứng mức độ trung bình. Điều dưỡng cần đánh giá lại và cân nhắc can thiệp.',
   RED: 'Bệnh nhân có triệu chứng nặng. Cần can thiệp y tế ngay lập tức. Thông báo bác sĩ phụ trách.',
 };
 
@@ -51,13 +62,15 @@ export class SymptomSurveyService {
     };
 
     if (details && details.length > 0) {
-      dto.details = details.map((d): AnswerDetailDto => ({
-        question_id: d.question_id,
-        question_text: d.question.question_text,
-        selected_option_id: d.selected_option_id,
-        option_text: d.selected_option.option_text,
-        score_earned: d.score_earned,
-      }));
+      dto.details = details.map(
+        (d): AnswerDetailDto => ({
+          question_id: d.question_id,
+          question_text: d.question.question_text,
+          selected_option_id: d.selected_option_id,
+          option_text: d.selected_option.option_text,
+          score_earned: d.score_earned,
+        }),
+      );
     }
 
     if (includeRecommendation && survey.triage_color) {
@@ -116,7 +129,10 @@ export class SymptomSurveyService {
     return this.getQuestionById(saved.question_id);
   }
 
-  async updateQuestion(questionId: number, dto: UpdateSurveyQuestionDto): Promise<SurveyQuestionDto> {
+  async updateQuestion(
+    questionId: number,
+    dto: UpdateSurveyQuestionDto,
+  ): Promise<SurveyQuestionDto> {
     const question = await this.repository.findQuestionById(questionId);
     if (!question) throw new NotFoundException(`Question #${questionId} not found`);
 
@@ -192,7 +208,10 @@ export class SymptomSurveyService {
     await this.repository.deleteOption(optionId);
   }
 
-  async submitSurvey(dto: CreateSymptomSurveyDto, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+  async submitSurvey(
+    dto: CreateSymptomSurveyDto,
+    caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
     if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== dto.case_id) {
       throw new ForbiddenException('You can only submit surveys for your own case');
     }
@@ -252,7 +271,10 @@ export class SymptomSurveyService {
     return this.toResponse(saved);
   }
 
-  async getLatestByPatient(caseId: string, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+  async getLatestByPatient(
+    caseId: string,
+    caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
     if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== caseId) {
       throw new ForbiddenException('You can only view your own survey results');
     }
@@ -261,7 +283,10 @@ export class SymptomSurveyService {
     return this.toResponse(survey);
   }
 
-  async getSurveyById(assessmentId: number, caller: UserResponseDto): Promise<SymptomSurveyResponseDto> {
+  async getSurveyById(
+    assessmentId: number,
+    caller: UserResponseDto,
+  ): Promise<SymptomSurveyResponseDto> {
     const survey = await this.repository.findById(assessmentId);
     if (!survey) throw new NotFoundException(`Survey #${assessmentId} not found`);
     if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== survey.case_id) {

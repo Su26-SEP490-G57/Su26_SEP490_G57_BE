@@ -7,10 +7,11 @@ import { CreatePatientDto } from './create-patient.dto';
  * Every other field is optional — only the provided fields are changed on both
  * the patient_cases row and the linked users account.
  */
-export class UpdatePatientDto extends PartialType(
-  OmitType(CreatePatientDto, ['caseId'] as const),
-) {
-  @ApiPropertyOptional({ example: true, description: 'Activate/deactivate the linked login account' })
+export class UpdatePatientDto extends PartialType(OmitType(CreatePatientDto, ['caseId'] as const)) {
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Activate/deactivate the linked login account',
+  })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

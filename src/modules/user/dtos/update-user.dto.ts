@@ -1,14 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-    IsArray,
-    IsBoolean,
-    IsDateString,
-    IsEnum,
-    IsOptional,
-    IsString,
-    Matches,
-    MaxLength,
-    MinLength,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
 } from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
 
