@@ -58,7 +58,6 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           envs: |
-            DEPLOY_ENV=${{ inputs.environment }}
             APP_IMAGE_TAG=${{ github.sha }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
@@ -67,12 +66,11 @@ jobs:
             TARGET_DIR="/var/www/poms-api"
             mkdir -p $TARGET_DIR && cd $TARGET_DIR
 
-            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/docker-compose.$DEPLOY_ENV.yml"
-            echo $RAW_URL
+            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/docker-compose.${{ inputs.environment }}.yml"
 
             echo "📥 [CI/CD] Downloading docker-compose file..."
-            curl -sSL $RAW_URL -o docker-compose.$DEPLOY_ENV.yml
+            curl -sSL $RAW_URL -o docker-compose.${{ inputs.environment }}.yml
 
             echo "🚀 [CI/CD] Updating containers..."
-            docker compose -f docker-compose.$DEPLOY_ENV.yml pull app-$DEPLOY_ENV
-            docker compose -f docker-compose.$DEPLOY_ENV.yml up -d --remove-orphans
+            docker compose -f docker-compose.${{ inputs.environment }}.yml pull app-${{ inputs.environment }}
+            docker compose -f docker-compose.${{ inputs.environment }}.yml up -d --remove-orphans
