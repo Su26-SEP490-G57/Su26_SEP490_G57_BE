@@ -29,8 +29,10 @@ jobs:
       - name: Create dummy certificates for syntax check
         run: |
           mkdir -p ${{ github.workspace }}/dummy_certs
-          touch ${{ github.workspace }}/dummy_certs/fullchain.pem
-          touch ${{ github.workspace }}/dummy_certs/privkey.pem
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout ${{ github.workspace }}/dummy_certs/privkey.pem \
+            -out ${{ github.workspace }}/dummy_certs/fullchain.pem \
+            -subj "/C=VN/ST=Hanoi/L=Hanoi/O=POMS/CN=example.com"
 
       - name: Check Nginx Syntax
         run: |
