@@ -16,9 +16,9 @@ export interface LoginResponse {
   user: UserResponseDto;
 }
 
-const JWT_SECRET         = process.env.JWT_SECRET          ?? 'change-me';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET  ?? 'refresh-change-me';
-const ACCESS_EXPIRES     = '8h';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? 'change-me';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'refresh-change-me';
+const ACCESS_EXPIRES = '8h';
 const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 
 @Injectable()
@@ -54,7 +54,7 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: JWT_SECRET,
+      secret: JWT_ACCESS_SECRET,
       expiresIn: ACCESS_EXPIRES,
     });
 
@@ -66,7 +66,11 @@ export class AuthService {
     // Persist refresh token
     const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_MS);
     await this.refreshTokenRepo.save(
-      this.refreshTokenRepo.create({ user_id: user.id, token: refreshToken, expires_at: expiresAt }),
+      this.refreshTokenRepo.create({
+        user_id: user.id,
+        token: refreshToken,
+        expires_at: expiresAt,
+      }),
     );
 
     const userDto: UserResponseDto = {
@@ -100,9 +104,13 @@ export class AuthService {
     }
 
     // 3. Issue new access token
-    const newPayload: JwtPayload = { sub: payload.sub, username: payload.username, roles: payload.roles };
+    const newPayload: JwtPayload = {
+      sub: payload.sub,
+      username: payload.username,
+      roles: payload.roles,
+    };
     const accessToken = this.jwtService.sign(newPayload, {
-      secret: JWT_SECRET,
+      secret: JWT_ACCESS_SECRET,
       expiresIn: ACCESS_EXPIRES,
     });
 

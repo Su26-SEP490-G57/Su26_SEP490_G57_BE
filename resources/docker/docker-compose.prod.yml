@@ -1,0 +1,34 @@
+services:
+  app-prod:
+    image: ${APP_IMAGE_NAME}:${APP_IMAGE_TAG:-prod-latest}
+    container_name: poms-api-prod
+    restart: always
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: poms_prod
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: poms_prod
+      DB_RETRY_ATTEMPTS: 15
+      DB_RETRY_DELAY: 3000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+    networks:
+      - poms-prod
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  poms-prod:
+    name: poms-prod
+    driver: bridge
