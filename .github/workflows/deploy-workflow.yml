@@ -68,6 +68,7 @@ jobs:
             mkdir -p $TARGET_DIR && cd $TARGET_DIR
 
             RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/docker-compose.$DEPLOY_ENV.yml"
+            echo $RAW_URL
 
             echo "📥 [CI/CD] Downloading docker-compose file..."
             curl -sSL $RAW_URL -o docker-compose.$DEPLOY_ENV.yml
