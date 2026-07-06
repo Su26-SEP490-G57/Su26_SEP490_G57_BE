@@ -1,0 +1,77 @@
+name: Deploy Workflow
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select the environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Select the environment to deploy to'
+        required: true
+        type: string
+
+jobs:
+  build_and_deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: resources/docker/Dockerfile
+          push: true
+          tags: |
+            ${{ vars.APP_IMAGE_NAME }}:${{ github.sha }}
+            ${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
+
+      - name: Deploy to Environment
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: |
+            DEPLOY_ENV=${{ inputs.environment }}
+            APP_IMAGE_TAG=${{ github.sha }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          script: |
+            TARGET_DIR="/var/www/poms-api"
+            mkdir -p $TARGET_DIR && cd $TARGET_DIR
+
+            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/docker-compose.$DEPLOY_ENV.yml"
+
+            echo "📥 [CI/CD] Downloading docker-compose file..."
+            curl -sSL $RAW_URL -o docker-compose.$DEPLOY_ENV.yml
+
+            echo "🚀 [CI/CD] Updating containers..."
+            docker-compose -f docker-compose.$DEPLOY_ENV.yml pull app-$DEPLOY_ENV
+            docker-compose -f docker-compose.$DEPLOY_ENV.yml up -d --remove-orphans

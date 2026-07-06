@@ -1,0 +1,125 @@
+name: Nginx Workflow
+description: Workflow to manage Nginx configuration and deployment
+
+on:
+  push:
+    branches:
+      - 'SEP490-*'
+      - main
+    paths:
+      - 'resources/nginx/**'
+      - '.github/workflows/nginx-workflow.yml'
+
+  workflow_dispatch:
+    inputs:
+      force_deploy_without_merge:
+        description: 'Set this to true to FORCE DEPLOY this without having to merge to main'
+        type: boolean
+        default: false
+
+jobs:
+  check_syntax:
+    name: Check Nginx Configuration Syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Create dummy certificates for syntax check
+        run: |
+          mkdir -p ${{ github.workspace }}/dummy_certs
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout ${{ github.workspace }}/dummy_certs/privkey.pem \
+            -out ${{ github.workspace }}/dummy_certs/fullchain.pem \
+            -subj "/C=VN/ST=Hanoi/L=Hanoi/O=POMS/CN=example.com"
+
+      - name: Check Nginx Syntax
+        run: |
+          echo "🌐 Initializing Nginx for syntax check..."
+
+          # Mock Nginx for syntax checking
+          docker run --rm \
+            -v ${{ github.workspace }}/resources/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
+            -v ${{ github.workspace }}/resources/nginx/templates:/etc/nginx/templates:ro \
+            -v ${{ github.workspace }}/dummy_certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro \
+            -v ${{ github.workspace }}/dummy_certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro \
+            --add-host=app-dev:127.0.0.1 \
+            --add-host=app-staging:127.0.0.1 \
+            --add-host=app-prod:127.0.0.1 \
+            -e DOMAIN_NAME="example.com" \
+            nginx:stable-alpine3.23-perl /bin/sh -c "
+              mkdir -p /etc/nginx/conf.d
+
+              echo '--------------------------------------------------'
+              for template_file in /etc/nginx/templates/*.template; do
+                  [ -e \"\$template_file\" ] || continue
+                  base_name=\$(basename \"\$template_file\" .template)
+                  
+                  echo \"👉 Rendering template: \$base_name.template ...\"
+                  envsubst '\$DOMAIN_NAME' < \"\$template_file\" > \"/etc/nginx/conf.d/\$base_name\"
+              done
+              echo '--------------------------------------------------'
+              
+              echo \"🔍 Validating configuration syntax...\"
+              nginx -t
+            "
+
+          echo "✅ Nginx configuration syntax is valid!"
+
+  deploy_nginx:
+    name: Hot Reload Nginx Configuration
+    needs: check_syntax
+    runs-on: ubuntu-latest
+    if: |
+      github.ref == 'refs/heads/main' ||
+      inputs.force_deploy_without_merge == true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Compress Nginx configuration directory
+        run: |
+          cd resources
+          tar -czf ../nginx.tar.gz nginx
+
+      - name: Upload Nginx Artifact via SSH
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: 'nginx.tar.gz'
+          target: '/var/www/poms-api/'
+
+      - name: Extract, Load Certs & Hot Reload Nginx
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: |
+            B64_FULLCHAIN=${{ secrets.B64_FULLCHAIN }}
+            B64_PRIVKEY=${{ secrets.B64_PRIVKEY }}
+          script: |
+            TARGET_DIR="/var/www/poms-api"
+            cd $TARGET_DIR
+
+            echo "📦 Extracting Nginx configuration..."
+            tar -xzf nginx.tar.gz --strip-components=1
+            rm nginx.tar.gz
+
+            echo "🔐 Loading SSL certificates..."
+            mkdir -p certs
+            echo -n "$B64_FULLCHAIN" | base64 --decode > certs/fullchain.pem
+            echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
+            chmod 600 certs/fullchain.pem certs/privkey.pem
+
+            if [ -z "$(docker ps -q -f name=nginx-gateway)" ]; then
+                echo "🚀 Starting new Nginx instance with new configuration..."
+                docker compose -f docker-compose.nginx.yml up -d --remove-orphans
+            else
+                echo "🔄 Reloading Nginx..."
+                docker exec nginx-gateway nginx -s reload
+            fi

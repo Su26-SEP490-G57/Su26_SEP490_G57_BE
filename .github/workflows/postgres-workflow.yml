@@ -1,0 +1,90 @@
+name: Postgres Workflow
+description: Workflow to manage PostgreSQL deployment and initialization
+
+on:
+  push:
+    branches:
+      - 'SEP490-*'
+      - main
+    paths:
+      - 'resources/postgres/**'
+      - '.github/workflows/postgres-workflow.yml'
+
+  workflow_dispatch:
+    inputs:
+      force_deploy_without_merge:
+        description: 'Set this to true to FORCE DEPLOY this without having to merge to main'
+        type: boolean
+        default: false
+
+jobs:
+  check_syntax:
+    name: Validate Initialization Script Syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Check Shell Script Syntax
+        run: |
+          echo "🔍 Validating bash script syntax..."
+          bash -n ${{ github.workspace }}/resources/postgres/init-db.sh
+          echo "✅ Script syntax is valid!"
+
+  deploy_postgres:
+    name: Deploy Shared Postgres Instance
+    needs: check_syntax
+    runs-on: ubuntu-latest
+    if: |
+      github.ref == 'refs/heads/main' ||
+      inputs.force_deploy_without_merge == true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Compress Postgres directory
+        run: |
+          cd resources
+          tar -czf ../postgres.tar.gz postgres
+
+      - name: Upload Postgres Artifact via SSH
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: 'postgres.tar.gz'
+          target: '/var/www/poms-api/'
+
+      - name: Extract & Update Postgres Container
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: |
+            SUPER_POSTGRES_PASSWORD=${{ secrets.SUPER_POSTGRES_PASSWORD }}
+            DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
+            STAGING_DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
+            PROD_DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+          script: |
+            TARGET_DIR="/var/www/poms-api"
+            cd $TARGET_DIR
+
+            echo "📦 Extracting Postgres deployment files..."
+            tar -xzf postgres.tar.gz --strip-components=1
+            rm postgres.tar.gz
+
+            chmod +x init-db.sh
+
+            echo "🚀 Applying Postgres configuration..."
+            export SUPER_POSTGRES_PASSWORD="$SUPER_POSTGRES_PASSWORD"
+            export DEV_DB_PASSWORD="$DEV_DB_PASSWORD"
+            export STAGING_DB_PASSWORD="$STAGING_DB_PASSWORD"
+            export PROD_DB_PASSWORD="$PROD_DB_PASSWORD"
+
+            docker compose -f docker-compose.postgres.yml up -d
+
+            echo "✅ Postgres deployment step completed successfully!"

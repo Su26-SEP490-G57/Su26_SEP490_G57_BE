@@ -8,7 +8,6 @@ export default new DataSource({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'SEP490_G57',
-  schema: process.env.DB_SCHEMA || 'SEP490_G57',
   entities: [__dirname + '/modules/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
 });

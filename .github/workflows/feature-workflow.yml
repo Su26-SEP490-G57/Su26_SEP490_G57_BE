@@ -1,0 +1,25 @@
+name: Main Branch CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - 'SEP490-*'
+
+jobs:
+  code_quality:
+    name: Verify Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+        with:
+          environment: staging
+
+      - name: Static Check
+        run: |
+          npm run format:check
+          npm run lint
