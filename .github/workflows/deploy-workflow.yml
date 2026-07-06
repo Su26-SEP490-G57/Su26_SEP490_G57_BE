@@ -73,5 +73,5 @@ jobs:
             curl -sSL $RAW_URL -o docker-compose.$DEPLOY_ENV.yml
 
             echo "🚀 [CI/CD] Updating containers..."
-            docker-compose -f docker-compose.$DEPLOY_ENV.yml pull app-$DEPLOY_ENV
-            docker-compose -f docker-compose.$DEPLOY_ENV.yml up -d --remove-orphans
+            docker compose -f docker-compose.$DEPLOY_ENV.yml pull app-$DEPLOY_ENV
+            docker compose -f docker-compose.$DEPLOY_ENV.yml up -d --remove-orphans
