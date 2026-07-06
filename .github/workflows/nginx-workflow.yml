@@ -26,6 +26,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Create dummy certificates for syntax check
+        run: |
+          mkdir -p ${{ github.workspace }}/dummy_certs
+          touch ${{ github.workspace }}/dummy_certs/fullchain.pem
+          touch ${{ github.workspace }}/dummy_certs/privkey.pem
+
       - name: Check Nginx Syntax
         run: |
           echo "🌐 Initializing Nginx for syntax check..."
@@ -34,14 +40,14 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}/resources/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
             -v ${{ github.workspace }}/resources/nginx/templates:/etc/nginx/templates:ro \
+            -v ${{ github.workspace }}/dummy_certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro \
+            -v ${{ github.workspace }}/dummy_certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro \
             --add-host=app-dev:127.0.0.1 \
             --add-host=app-staging:127.0.0.1 \
             --add-host=app-prod:127.0.0.1 \
             -e DOMAIN_NAME="example.com" \
             nginx:stable-alpine3.23-perl /bin/sh -c "
               mkdir -p /etc/nginx/conf.d
-              mkdir -p /etc/nginx/certs
-              touch /etc/nginx/certs/fullchain.pem /etc/nginx/certs/privkey.pem
 
               echo '--------------------------------------------------'
               for template_file in /etc/nginx/templates/*.template; do
