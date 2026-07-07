@@ -56,25 +56,31 @@ export class PatientRepository {
   /** Build the patient query with the account / level / operation-type joins applied. */
   private baseQuery(manager?: EntityManager): SelectQueryBuilder<Patient> {
     const repo = manager ? manager.getRepository(Patient) : this.repo;
-    return repo
-      .createQueryBuilder('patient')
-      // Manual join (not a relation) → the soft-delete filter must be set explicitly.
-      .leftJoinAndMapOne(
-        'patient.account',
-        User,
-        'account',
-        'account.case_id = patient.case_id AND account.deleted_at IS NULL',
-      )
-      .leftJoinAndSelect('account.roles', 'role')
-      .leftJoinAndSelect('patient.level', 'level')
-      .leftJoinAndSelect('patient.operationType', 'operationType');
+    return (
+      repo
+        .createQueryBuilder('patient')
+        // Manual join (not a relation) → the soft-delete filter must be set explicitly.
+        .leftJoinAndMapOne(
+          'patient.account',
+          User,
+          'account',
+          'account.case_id = patient.case_id AND account.deleted_at IS NULL',
+        )
+        .leftJoinAndSelect('account.roles', 'role')
+        .leftJoinAndSelect('patient.level', 'level')
+        .leftJoinAndSelect('patient.operationType', 'operationType')
+    );
   }
 
   findById(caseId: string): Promise<Patient | null> {
     return this.repo.findOne({ where: { case_id: caseId } });
   }
 
-  async updateLockStatus(caseId: string, isLocked: boolean, holdReason: string | null): Promise<void> {
+  async updateLockStatus(
+    caseId: string,
+    isLocked: boolean,
+    holdReason: string | null,
+  ): Promise<void> {
     await this.repo.update(
       { case_id: caseId },
       { is_locked: isLocked, reason_hold_pod: isLocked ? holdReason : null },
@@ -90,10 +96,7 @@ export class PatientRepository {
   }
 
   async startEras(caseId: string, startTime: Date): Promise<void> {
-    await this.repo.update(
-      { case_id: caseId },
-      { pod_start_date: startTime, current_pod: 0 },
-    );
+    await this.repo.update({ case_id: caseId }, { pod_start_date: startTime, current_pod: 0 });
   }
 
   /** A single patient with all relations joined (same shape as the list endpoint). */
@@ -106,10 +109,9 @@ export class PatientRepository {
 
     // Search by case_id or patient full name
     if (query.search) {
-      qb.andWhere(
-        '(patient.case_id ILIKE :search OR account.full_name ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+      qb.andWhere('(patient.case_id ILIKE :search OR account.full_name ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
     }
 
     // Filters
@@ -153,7 +155,11 @@ export class PatientRepository {
   }
 
   async operationTypeExists(id: number): Promise<boolean> {
-    return (await this.dataSource.getRepository(OperationType).count({ where: { operation_type_id: id } })) > 0;
+    return (
+      (await this.dataSource
+        .getRepository(OperationType)
+        .count({ where: { operation_type_id: id } })) > 0
+    );
   }
 
   async nurseExists(id: number): Promise<boolean> {
@@ -233,7 +239,8 @@ export class PatientRepository {
         if (account.phoneNumber !== undefined) linked.phone_number = account.phoneNumber;
         if (account.cityProvince !== undefined) linked.city_province = account.cityProvince;
         if (account.ward !== undefined) linked.ward = account.ward;
-        if (account.detailedAddress !== undefined) linked.detailed_address = account.detailedAddress;
+        if (account.detailedAddress !== undefined)
+          linked.detailed_address = account.detailedAddress;
         if (account.passwordHash !== undefined) linked.password_hash = account.passwordHash;
         if (account.isActive !== undefined) linked.is_active = account.isActive;
         await manager.save(linked);

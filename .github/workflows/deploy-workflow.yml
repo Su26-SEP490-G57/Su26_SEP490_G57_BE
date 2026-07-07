@@ -30,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
+    if: |
+      inputs.environment == 'dev' || 
+      ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -51,27 +55,52 @@ jobs:
             ${{ vars.APP_IMAGE_NAME }}:${{ github.sha }}
             ${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
 
-      - name: Deploy to Environment
-        uses: appleboy/ssh-action@v1.2.5
+      - name: Upload Healthcheck script via SSH
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: |
-            DEPLOY_ENV=${{ inputs.environment }}
-            APP_IMAGE_TAG=${{ github.sha }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          source: 'resources/scripts/check-health.sh'
+          target: '/var/www/poms-api/'
+
+      - name: Deploy to Environment
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          APP_IMAGE_NAME: ${{ vars.APP_IMAGE_NAME }}
+          APP_IMAGE_TAG: ${{ github.sha }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET
           script: |
+            set -e  
+
+            docker network create poms-${{ inputs.environment }} || true
+
             TARGET_DIR="/var/www/poms-api"
             mkdir -p $TARGET_DIR && cd $TARGET_DIR
 
-            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/docker-compose.$DEPLOY_ENV.yml"
+            COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
+            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/$COMPOSE_FILE"
+            SERVICE_NAME="app-${{ inputs.environment }}"
 
             echo "📥 [CI/CD] Downloading docker-compose file..."
-            curl -sSL $RAW_URL -o docker-compose.$DEPLOY_ENV.yml
+            curl -sSL $RAW_URL -o $COMPOSE_FILE
 
-            echo "🚀 [CI/CD] Updating containers..."
-            docker-compose -f docker-compose.$DEPLOY_ENV.yml pull app-$DEPLOY_ENV
-            docker-compose -f docker-compose.$DEPLOY_ENV.yml up -d --remove-orphans
+            echo "📥 [CI/CD] Pulling latest NestJS docker image..."
+            docker compose -f $COMPOSE_FILE pull $SERVICE_NAME
+
+            echo "🗄️ [CI/CD] [Migration] Running database migrations..."
+            docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
+
+            echo "🚀 [CI/CD] Migration passed successfully! Re-creating application containers..."
+            docker compose -f $COMPOSE_FILE up -d
+
+            echo "🔍 Checking health..."
+            chmod +x ./resources/scripts/check-health.sh
+            ./resources/scripts/check-health.sh poms-api-${{ inputs.environment }} 25 3

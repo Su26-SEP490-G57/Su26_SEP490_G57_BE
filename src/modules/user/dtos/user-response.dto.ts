@@ -13,7 +13,11 @@ export class UserResponseDto {
   @ApiProperty({ example: '0912345678', nullable: true })
   phoneNumber!: string | null;
 
-  @ApiPropertyOptional({ example: 'CASE-001', nullable: true, description: 'Linked patient case ID (Patient role only)' })
+  @ApiPropertyOptional({
+    example: 'CASE-001',
+    nullable: true,
+    description: 'Linked patient case ID (Patient role only)',
+  })
   caseId?: string | null;
 
   @ApiProperty({ example: ['Nurse'] })

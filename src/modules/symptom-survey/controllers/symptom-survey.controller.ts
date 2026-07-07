@@ -10,7 +10,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../user/decorators/roles.decorator';
@@ -53,7 +59,9 @@ export class SymptomSurveyController {
   @Post('questions')
   @UseGuards(RolesGuard)
   @Roles(UserRole.HEAD_NURSE)
-  @ApiOperation({ summary: 'Create a survey question with optional inline options (Head Nurse only)' })
+  @ApiOperation({
+    summary: 'Create a survey question with optional inline options (Head Nurse only)',
+  })
   @ApiResponse({ status: 201, type: SurveyQuestionDto })
   createQuestion(@Body() dto: CreateSurveyQuestionDto): Promise<SurveyQuestionDto> {
     return this.symptomSurveyService.createQuestion(dto);
@@ -160,7 +168,8 @@ export class SymptomSurveyController {
   @Get(':surveyId')
   @ApiOperation({
     summary: 'Get survey detail by ID',
-    description: 'Returns full answer breakdown and triage recommendation text. Patient role can only view their own surveys.',
+    description:
+      'Returns full answer breakdown and triage recommendation text. Patient role can only view their own surveys.',
   })
   @ApiResponse({ status: 200, type: SymptomSurveyResponseDto })
   @ApiNotFoundResponse({ description: 'Survey not found' })

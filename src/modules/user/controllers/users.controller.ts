@@ -1,6 +1,14 @@
 import {
-  Body, Controller, Delete, Get, Param,
-  ParseIntPipe, Patch, Post, Query, UseGuards
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -20,7 +28,8 @@ export class UsersController {
   @Post()
   @ApiOperation({
     summary: 'Create a user account (Admin only)',
-    description: 'Creates a new staff account. Password is bcrypt-hashed before storage. Returns no password_hash.',
+    description:
+      'Creates a new staff account. Password is bcrypt-hashed before storage. Returns no password_hash.',
   })
   @ApiResponse({ status: 201, type: UserResponseDto })
   @ApiResponse({ status: 409, description: 'Username already taken' })
@@ -48,7 +57,8 @@ export class UsersController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update user info',
-    description: 'Update full_name, role, status, or password. New password is re-hashed automatically.',
+    description:
+      'Update full_name, role, status, or password. New password is re-hashed automatically.',
   })
   @ApiResponse({ status: 200, type: UserResponseDto })
   update(
@@ -61,7 +71,8 @@ export class UsersController {
   @Delete(':id')
   @ApiOperation({
     summary: 'Deactivate user (soft delete)',
-    description: 'Sets status = Inactive. Does not hard delete — id is referenced by alerts.handled_by.',
+    description:
+      'Sets status = Inactive. Does not hard delete — id is referenced by alerts.handled_by.',
   })
   @ApiResponse({ status: 200, type: UserResponseDto })
   deactivate(@Param('id', ParseIntPipe) id: number): Promise<UserResponseDto> {

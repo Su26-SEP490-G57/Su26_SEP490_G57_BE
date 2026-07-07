@@ -24,8 +24,7 @@ export class PodSchedulerService {
       .createQueryBuilder()
       .update(Patient)
       .set({
-        current_pod: () =>
-          "FLOOR(EXTRACT(EPOCH FROM (NOW() - pod_start_date)) / 86400)::int",
+        current_pod: () => 'FLOOR(EXTRACT(EPOCH FROM (NOW() - pod_start_date)) / 86400)::int',
       })
       .where('is_locked = false')
       .andWhere('deleted_at IS NULL')

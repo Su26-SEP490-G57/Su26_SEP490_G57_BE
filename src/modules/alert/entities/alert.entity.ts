@@ -3,7 +3,14 @@ import { Patient } from '../../patient/entities/patient.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
 
 export const ALERT_TYPES = ['YELLOW', 'RED'] as const;
-export const ALERT_STATUSES = ['Pending', 'Acknowledged', 'Paused_POD', 'Rolled_Back', 'Escalated', 'Closed'] as const;
+export const ALERT_STATUSES = [
+  'Pending',
+  'Acknowledged',
+  'Paused_POD',
+  'Rolled_Back',
+  'Escalated',
+  'Closed',
+] as const;
 
 export type AlertType = (typeof ALERT_TYPES)[number];
 export type AlertStatus = (typeof ALERT_STATUSES)[number];

@@ -6,7 +6,10 @@ export class PodLockDto {
   @IsBoolean()
   isLocked!: boolean;
 
-  @ApiPropertyOptional({ example: 'Bệnh nhân chưa dung nạp tốt chế độ ăn hiện tại', description: 'Required when locking' })
+  @ApiPropertyOptional({
+    example: 'Bệnh nhân chưa dung nạp tốt chế độ ăn hiện tại',
+    description: 'Required when locking',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

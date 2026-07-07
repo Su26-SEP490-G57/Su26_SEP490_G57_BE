@@ -13,7 +13,14 @@ import { SymptomSurveyService } from './services/symptom-survey.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SymptomSurvey, AssessmentDetail, SurveyQuestion, QuestionOption, Patient, Level]),
+    TypeOrmModule.forFeature([
+      SymptomSurvey,
+      AssessmentDetail,
+      SurveyQuestion,
+      QuestionOption,
+      Patient,
+      Level,
+    ]),
     AlertModule,
   ],
   controllers: [SymptomSurveyController],

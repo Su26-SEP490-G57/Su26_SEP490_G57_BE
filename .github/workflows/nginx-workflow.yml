@@ -93,16 +93,31 @@ jobs:
           source: 'nginx.tar.gz'
           target: '/var/www/poms-api/'
 
-      - name: Extract, Load Certs & Hot Reload Nginx
-        uses: appleboy/ssh-action@v1.2.5
+      - name: Upload Healthcheck script via SSH
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: |
-            B64_FULLCHAIN=${{ secrets.B64_FULLCHAIN }}
-            B64_PRIVKEY=${{ secrets.B64_PRIVKEY }}
+          source: 'resources/scripts/check-health.sh'
+          target: '/var/www/poms-api/'
+
+      - name: Extract, Load Certs & Hot Reload Nginx
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
+          B64_FULLCHAIN: ${{ secrets.B64_FULLCHAIN }}
+          B64_PRIVKEY: ${{ secrets.B64_PRIVKEY }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
           script: |
+            docker network create poms-dev || true
+            docker network create poms-staging || true
+            docker network create poms-prod || true
+
             TARGET_DIR="/var/www/poms-api"
             cd $TARGET_DIR
 
@@ -116,10 +131,14 @@ jobs:
             echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
             chmod 600 certs/fullchain.pem certs/privkey.pem
 
-            if [ -z "$(docker ps -q -f name=nginx-gateway)" ]; then
+            if [ -z "$(docker ps -q -f name=poms-nginx)" ]; then
                 echo "🚀 Starting new Nginx instance with new configuration..."
-                docker compose -f docker-compose.nginx.yml up -d --remove-orphans
+                docker compose -f docker-compose.nginx.yml up -d
             else
                 echo "🔄 Reloading Nginx..."
-                docker exec nginx-gateway nginx -s reload
+                docker exec poms-nginx nginx -s reload
             fi
+
+            echo "🔍 Checking health..."
+            chmod +x ./resources/scripts/check-health.sh
+            ./resources/scripts/check-health.sh poms-nginx 10 2

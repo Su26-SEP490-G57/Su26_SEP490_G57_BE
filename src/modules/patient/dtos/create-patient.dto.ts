@@ -23,13 +23,21 @@ import {
  * the patient/admin can change later via PATCH /users/:id.
  */
 export class CreatePatientDto {
-  @ApiProperty({ example: 'CASE-002', description: 'Patient case id (primary key)', maxLength: 255 })
+  @ApiProperty({
+    example: 'CASE-002',
+    description: 'Patient case id (primary key)',
+    maxLength: 255,
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   caseId!: string;
 
-  @ApiProperty({ example: 'Nguyễn Văn B', description: "Patient full name (login account's full_name)", maxLength: 100 })
+  @ApiProperty({
+    example: 'Nguyễn Văn B',
+    description: "Patient full name (login account's full_name)",
+    maxLength: 100,
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
@@ -47,7 +55,8 @@ export class CreatePatientDto {
 
   @ApiPropertyOptional({
     example: 'Patient@123',
-    description: 'Login password. Min 8 chars, 1 uppercase, 1 number, 1 special char. Defaults to "Patient@123" when omitted.',
+    description:
+      'Login password. Min 8 chars, 1 uppercase, 1 number, 1 special char. Defaults to "Patient@123" when omitted.',
   })
   @IsString()
   @MinLength(8)
@@ -75,7 +84,11 @@ export class CreatePatientDto {
   @IsOptional()
   ward?: string;
 
-  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi', description: 'Địa chỉ chi tiết', maxLength: 255 })
+  @ApiPropertyOptional({
+    example: 'Số 1 Nguyễn Trãi',
+    description: 'Địa chỉ chi tiết',
+    maxLength: 255,
+  })
   @IsString()
   @MaxLength(255)
   @IsOptional()
@@ -124,19 +137,29 @@ export class CreatePatientDto {
   @IsOptional()
   diagnosis?: string;
 
-  @ApiPropertyOptional({ example: 2, description: 'operation_types.operation_type_id (the surgery type lookup)' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'operation_types.operation_type_id (the surgery type lookup)',
+  })
   @Type(() => Number)
   @IsInt()
   @IsOptional()
   operationTypeId?: number;
 
-  @ApiPropertyOptional({ example: 'Nội soi', description: 'Surgical method/approach', maxLength: 100 })
+  @ApiPropertyOptional({
+    example: 'Nội soi',
+    description: 'Surgical method/approach',
+    maxLength: 100,
+  })
   @IsString()
   @MaxLength(100)
   @IsOptional()
   method?: string;
 
-  @ApiPropertyOptional({ example: true, description: 'Whether the surgery created a GI anastomosis' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether the surgery created a GI anastomosis',
+  })
   @IsBoolean()
   @IsOptional()
   hasGiAnastomosis?: boolean;
