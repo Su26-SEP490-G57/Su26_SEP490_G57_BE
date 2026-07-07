@@ -1,7 +1,7 @@
 services:
   nginx-gateway:
     image: nginx:stable-alpine3.23-perl
-    container_name: nginx-gateway
+    container_name: poms-nginx
     restart: always
     ports:
       - '80:80'
@@ -16,6 +16,12 @@ services:
       - poms-dev
       - poms-staging
       - poms-prod
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --quiet --tries=1 --spider http://localhost:80/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 networks:
   poms-dev:

@@ -51,6 +51,15 @@ jobs:
             ${{ vars.APP_IMAGE_NAME }}:${{ github.sha }}
             ${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
 
+      - name: Upload Healthcheck script via SSH
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: 'resources/scripts/check-health.sh'
+          target: '/var/www/poms-api/'
+
       - name: Deploy to Environment
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -77,3 +86,7 @@ jobs:
             echo "🚀 [CI/CD] Updating containers..."
             docker compose -f docker-compose.${{ inputs.environment }}.yml pull app-${{ inputs.environment }}
             docker compose -f docker-compose.${{ inputs.environment }}.yml up -d --remove-orphans
+
+            echo "🔍 Checking health..."
+            chmod +x ./resources/scripts/check-health.sh
+            ./resources/scripts/check-health.sh poms-api-${{ inputs.environment }} 25 3
