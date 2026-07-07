@@ -3,9 +3,6 @@ services:
     image: ${APP_IMAGE_NAME}:${APP_IMAGE_TAG:-staging-latest}
     container_name: poms-api-staging
     restart: always
-    depends_on:
-      postgres-staging:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       DB_HOST: postgres
@@ -30,5 +27,4 @@ services:
 
 networks:
   poms-staging:
-    name: poms-staging
-    driver: bridge
+    external: true

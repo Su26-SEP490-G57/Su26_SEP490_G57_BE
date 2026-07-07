@@ -103,6 +103,10 @@ jobs:
             B64_FULLCHAIN=${{ secrets.B64_FULLCHAIN }}
             B64_PRIVKEY=${{ secrets.B64_PRIVKEY }}
           script: |
+            docker network create poms-dev || true
+            docker network create poms-staging || true
+            docker network create poms-prod || true
+
             TARGET_DIR="/var/www/poms-api"
             cd $TARGET_DIR
 

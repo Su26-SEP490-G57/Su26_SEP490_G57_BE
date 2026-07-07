@@ -70,6 +70,10 @@ jobs:
             STAGING_DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
             PROD_DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
           script: |
+            docker network create poms-dev || true
+            docker network create poms-staging || true
+            docker network create poms-prod || true
+
             TARGET_DIR="/var/www/poms-api"
             cd $TARGET_DIR
 

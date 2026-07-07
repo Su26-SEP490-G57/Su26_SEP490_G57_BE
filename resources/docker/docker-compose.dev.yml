@@ -3,9 +3,6 @@ services:
     image: ${APP_IMAGE_NAME}:${APP_IMAGE_TAG:-dev-latest}
     container_name: poms-api-dev
     restart: always
-    depends_on:
-      postgres-dev:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       DB_HOST: postgres
@@ -30,5 +27,4 @@ services:
 
 networks:
   poms-dev:
-    name: poms-dev
-    driver: bridge
+    external: true

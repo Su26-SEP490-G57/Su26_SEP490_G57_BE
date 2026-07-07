@@ -58,11 +58,14 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           envs: |
+            APP_IMAGE_NAME=${{ vars.APP_IMAGE_NAME }}
             APP_IMAGE_TAG=${{ github.sha }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
             JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
           script: |
+            docker network create poms-${{ inputs.environment }} || true
+
             TARGET_DIR="/var/www/poms-api"
             mkdir -p $TARGET_DIR && cd $TARGET_DIR
 
