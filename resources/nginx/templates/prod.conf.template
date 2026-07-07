@@ -30,7 +30,7 @@ server {
   proxy_request_buffering off;
 
   location / {
-    proxy_pass http://app-prod:4000/;
+    proxy_pass http://app-prod:3000;
 
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
