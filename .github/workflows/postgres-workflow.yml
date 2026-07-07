@@ -60,15 +60,16 @@ jobs:
 
       - name: Extract & Update Postgres Container
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          SUPER_POSTGRES_PASSWORD: ${{ secrets.SUPER_POSTGRES_PASSWORD }}
+          DEV_DB_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
+          STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+          PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: |
-            SUPER_POSTGRES_PASSWORD=${{ secrets.SUPER_POSTGRES_PASSWORD }}
-            DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
-            STAGING_DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
-            PROD_DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+          envs: SUPER_POSTGRES_PASSWORD,DEV_DB_PASSWORD,STAGING_DB_PASSWORD,PROD_DB_PASSWORD
           script: |
             docker network create poms-dev || true
             docker network create poms-staging || true
