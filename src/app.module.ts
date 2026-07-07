@@ -9,6 +9,7 @@ import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { UsersModule } from './modules/user/users.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/user/users.module';
       }),
       inject: [ConfigService],
     }),
+    HealthModule,
     UsersModule,
     AuthModule,
     NurseModule,
@@ -39,6 +41,7 @@ import { UsersModule } from './modules/user/users.module';
     SymptomSurveyModule,
     AlertModule,
     DietGuidanceModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
