@@ -105,13 +105,14 @@ jobs:
       - name: Extract, Load Certs & Hot Reload Nginx
         uses: appleboy/ssh-action@v1.2.5
         env:
+          DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
           B64_FULLCHAIN: ${{ secrets.B64_FULLCHAIN }}
           B64_PRIVKEY: ${{ secrets.B64_PRIVKEY }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: B64_FULLCHAIN,B64_PRIVKEY
+          envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
           script: |
             docker network create poms-dev || true
             docker network create poms-staging || true
