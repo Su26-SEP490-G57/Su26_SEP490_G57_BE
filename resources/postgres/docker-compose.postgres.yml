@@ -6,9 +6,9 @@ services:
       POSTGRES_USER: poms_root_admin
       POSTGRES_PASSWORD: ${SUPER_POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
-      POMS_DEV_PASSWORD: ${DEV_DB_PASSWORD}
-      POMS_STAGING_PASSWORD: ${STAGING_DB_PASSWORD}
-      POMS_PROD_PASSWORD: ${PROD_DB_PASSWORD}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD}
+      STAGING_DB_PASSWORD: ${STAGING_DB_PASSWORD}
+      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
