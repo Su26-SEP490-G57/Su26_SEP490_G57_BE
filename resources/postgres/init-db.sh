@@ -20,7 +20,7 @@ EOSQL
 
     # 2. Test the connection using PGPASSWORD to pass the credentials non-interactively
     # -c "SELECT 1" is a lightweight query just to verify authentication and connection
-    if PGPASSWORD="$db_password" psql -h localhost -U "$target_user" -d "$target_db" -c "SELECT 1" > /dev/null 2>&1; then
+    if PGPASSWORD="$db_password" psql -U "$target_user" -d "$target_db" -c "SELECT 1" > /dev/null 2>&1; then
         echo "✅ [Verification] Successfully authenticated! Connection verified for '$target_user'."
     else
         echo "❌ [Verification Error] Failed to connect to '$target_db' using user '$target_user'!"
