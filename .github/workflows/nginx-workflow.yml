@@ -131,7 +131,7 @@ jobs:
 
             if [ -z "$(docker ps -q -f name=nginx-gateway)" ]; then
                 echo "🚀 Starting new Nginx instance with new configuration..."
-                docker compose -f docker-compose.nginx.yml up -d --remove-orphans
+                docker compose -f docker-compose.nginx.yml up -d
             else
                 echo "🔄 Reloading Nginx..."
                 docker exec nginx-gateway nginx -s reload

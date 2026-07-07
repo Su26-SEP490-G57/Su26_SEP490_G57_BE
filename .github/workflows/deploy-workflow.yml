@@ -86,7 +86,7 @@ jobs:
 
             echo "🚀 [CI/CD] Updating containers..."
             docker compose -f docker-compose.${{ inputs.environment }}.yml pull app-${{ inputs.environment }}
-            docker compose -f docker-compose.${{ inputs.environment }}.yml up -d --remove-orphans
+            docker compose -f docker-compose.${{ inputs.environment }}.yml up -d
 
             echo "🔍 Checking health..."
             chmod +x ./resources/scripts/check-health.sh
