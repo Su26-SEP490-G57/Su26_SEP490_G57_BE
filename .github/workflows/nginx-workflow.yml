@@ -130,12 +130,12 @@ jobs:
             echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
             chmod 600 certs/fullchain.pem certs/privkey.pem
 
-            if [ -z "$(docker ps -q -f name=nginx-gateway)" ]; then
+            if [ -z "$(docker ps -q -f name=poms-nginx)" ]; then
                 echo "🚀 Starting new Nginx instance with new configuration..."
                 docker compose -f docker-compose.nginx.yml up -d
             else
                 echo "🔄 Reloading Nginx..."
-                docker exec nginx-gateway nginx -s reload
+                docker exec poms-nginx nginx -s reload
             fi
 
             echo "🔍 Checking health..."
