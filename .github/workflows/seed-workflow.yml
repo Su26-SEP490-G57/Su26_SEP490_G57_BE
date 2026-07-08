@@ -48,7 +48,7 @@ jobs:
 
             echo "🚀 [CI/CD] [Seed] Launching transient container to run seed script..."
 
-            if docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run seed; then
+            if docker compose -f $COMPOSE_FILE run --pull always --rm $SERVICE_NAME npm run seed; then
                 echo "✅ [CI/CD Success] Database has been successfully wiped and re-seeded for environment: $ENV_NAME"
             else
                 echo "❌ [CI/CD Failure] Seeding script crashed inside the container!"
