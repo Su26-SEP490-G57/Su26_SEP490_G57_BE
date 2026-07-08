@@ -21,10 +21,14 @@ jobs:
     steps:
       - name: Execute Seeding Script via SSH
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          APP_IMAGE_NAME: ${{ vars.APP_IMAGE_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          envs: APP_IMAGE_NAME,DB_PASSWORD
           script: |
             set -e
 
