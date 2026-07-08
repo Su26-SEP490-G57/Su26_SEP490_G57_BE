@@ -16,8 +16,26 @@ const AppDataSource = new DataSource({
 });
 
 async function seed() {
+  console.log('🌱 [Seed] Initializing TypeORM DataSource...');
+
   await AppDataSource.initialize();
-  console.log('🌱 Seeding database...');
+
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+
+  console.log('🧹 [Seed] Wiping old data...');
+
+  const entities = AppDataSource.entityMetadatas;
+  await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
+
+  for (const entity of entities) {
+    const tableName = entity.tableName;
+    console.log(`   - Truncating table: ${tableName}`);
+
+    await queryRunner.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`);
+  }
+
+  console.log('📥 [Seed] Inserting fresh standard dataset...');
 
   const schema = `"${SCHEMA}"`;
 
@@ -157,6 +175,7 @@ async function seed() {
   );
   console.log('✅ Sample patient case CASE-001 seeded');
 
+  await queryRunner.release();
   await AppDataSource.destroy();
   console.log('🎉 Seed completed!');
 }

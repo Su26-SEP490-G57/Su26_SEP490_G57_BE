@@ -1,0 +1,52 @@
+name: Seed Database Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment to RESET and SEED data'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+
+jobs:
+  execute_seed:
+    name: Reset and Seed Database
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Execute Seeding Script via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+
+            TARGET_DIR="/var/www/poms-api"
+            cd $TARGET_DIR
+
+            ENV_NAME="${{ github.event.inputs.environment }}"
+            COMPOSE_FILE="docker-compose.${ENV_NAME}.yml"
+            SERVICE_NAME="app-${ENV_NAME}"
+
+            echo "🔍 [CI/CD] Verifying infrastructure configuration for environment: $ENV_NAME..."
+
+            if [ ! -f "$COMPOSE_FILE" ]; then
+                echo "❌ [CI/CD Error] Configuration file $COMPOSE_FILE not found on VPS!"
+                exit 1
+            fi
+
+            echo "🚀 [CI/CD] [Seed] Launching transient container to run seed script..."
+
+            if docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run seed; then
+                echo "✅ [CI/CD Success] Database has been successfully wiped and re-seeded for environment: $ENV_NAME"
+            else
+                echo "❌ [CI/CD Failure] Seeding script crashed inside the container!"
+                exit 1
+            fi
