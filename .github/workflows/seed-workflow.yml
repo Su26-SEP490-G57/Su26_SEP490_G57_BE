@@ -52,7 +52,7 @@ jobs:
                 sudo docker exec -t poms-postgres psql -U poms_root_admin -d poms_${ENV_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
                 
                 echo "🚀 [CI/CD] [Migration] Launching transient container to rebuild schema architecture..."
-                docker compose -f $COMPOSE_FILE run --pull always --rm $SERVICE_NAME npm run migration:run
+                docker compose -f $COMPOSE_FILE run --pull always --rm $SERVICE_NAME npm run migration:apply
             else
                 echo "ℹ️ [CI/CD] Preserving current database schema. Proceeding directly to data population..."
             fi
