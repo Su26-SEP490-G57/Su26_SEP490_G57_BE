@@ -10,4 +10,5 @@ export default new DataSource({
   database: process.env.DB_NAME || 'SEP490_G57',
   entities: [__dirname + '/modules/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+  schema: 'public',
 });
