@@ -15,11 +15,14 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiProperty,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
+import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
@@ -56,7 +59,10 @@ class OperationTypeDto implements PatientOperationType {
 @UseGuards(JwtAuthGuard)
 @Controller('patients')
 export class PatientController {
-  constructor(private readonly patientService: PatientService) {}
+  constructor(
+    private readonly patientService: PatientService,
+    private readonly symptomSurveyService: SymptomSurveyService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -100,6 +106,22 @@ export class PatientController {
   @ApiNotFoundResponse({ description: 'Patient not found' })
   getCurrentPod(@Param('id') id: string): Promise<CurrentPodResponse> {
     return this.patientService.getCurrentPod(id);
+  }
+
+  @Get(':id/assessments')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.HEAD_NURSE, UserRole.NURSE)
+  @ApiOperation({ summary: 'Get assessment history for a patient (Nurse/Head Nurse only)' })
+  @ApiResponse({ status: 200, type: PaginatedAssessmentHistoryDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  getAssessmentHistory(
+    @Param('id') id: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ): Promise<PaginatedAssessmentHistoryDto> {
+    return this.symptomSurveyService.getAssessmentHistory(id, +page, +limit);
   }
 
   @Post(':id/start-eras')

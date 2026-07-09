@@ -43,6 +43,40 @@ export class SymptomSurveyResponseDto {
   recommendation?: string;
 }
 
+export class AssessmentHistoryItemDto {
+  @ApiProperty({ example: 1 })
+  assessment_id!: number;
+
+  @ApiProperty({ example: '2026-07-01T08:30:00.000Z' })
+  evaluation_datetime!: Date;
+
+  @ApiPropertyOptional({ example: 2 })
+  pod_context!: number | null;
+
+  @ApiProperty({ example: 4 })
+  total_score!: number;
+
+  @ApiProperty({ example: 'RED', enum: ['GREEN', 'YELLOW', 'RED'] })
+  triage_color!: string | null;
+
+  @ApiProperty({ type: [AnswerDetailDto] })
+  details!: AnswerDetailDto[];
+}
+
+export class PaginatedAssessmentHistoryDto {
+  @ApiProperty({ type: [AssessmentHistoryItemDto] })
+  data!: AssessmentHistoryItemDto[];
+
+  @ApiProperty({ example: 15 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 10 })
+  limit!: number;
+}
+
 export class SurveyQuestionDto {
   @ApiProperty({ example: 1 })
   question_id!: number;

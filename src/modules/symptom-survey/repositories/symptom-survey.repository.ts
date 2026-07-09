@@ -51,6 +51,39 @@ export class SymptomSurveyRepository {
     });
   }
 
+  findAllByPatient(
+    caseId: string,
+    page: number,
+    limit: number,
+  ): Promise<[SymptomSurvey[], number]> {
+    return this.surveyRepo.findAndCount({
+      where: { case_id: caseId },
+      order: { evaluation_datetime: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
+  async findCurrentPod(caseId: string): Promise<number | null> {
+    const patient = await this.patientRepo.findOne({
+      where: { case_id: caseId },
+      select: ['current_pod'],
+    });
+    return patient?.current_pod ?? null;
+  }
+
+  async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
+    const levelName = TRIAGE_TO_LEVEL_NAME[triageColor];
+    if (!levelName) return;
+
+    const level = await this.levelRepo.findOne({
+      where: { level_name: levelName as 'Red' | 'Yellow' | 'Green' },
+    });
+    if (!level) return;
+
+    await this.patientRepo.update({ case_id: caseId }, { level_id: level.level_id });
+  }
+
   findById(assessmentId: number): Promise<SymptomSurvey | null> {
     return this.surveyRepo.findOne({ where: { assessment_id: assessmentId } });
   }
