@@ -1,25 +1,27 @@
 import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
-  CreateQuestionOptionDto,
-  CreateSurveyQuestionDto,
-  QuestionOptionDto,
-  UpdateQuestionOptionDto,
-  UpdateSurveyQuestionDto,
+    CreateQuestionOptionDto,
+    CreateSurveyQuestionDto,
+    QuestionOptionDto,
+    UpdateQuestionOptionDto,
+    UpdateSurveyQuestionDto,
 } from '../dtos/survey-question.dto';
 import {
-  AnswerDetailDto,
-  SurveyQuestionDto,
-  SymptomSurveyResponseDto,
+    AnswerDetailDto,
+    AssessmentHistoryItemDto,
+    PaginatedAssessmentHistoryDto,
+    SurveyQuestionDto,
+    SymptomSurveyResponseDto,
 } from '../dtos/symptom-survey-response.dto';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
@@ -294,5 +296,35 @@ export class SymptomSurveyService {
     }
     const details = await this.repository.findDetailsById(assessmentId);
     return this.toResponse(survey, details, true);
+  }
+
+  async getAssessmentHistory(
+    caseId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedAssessmentHistoryDto> {
+    const [surveys, total] = await this.repository.findAllByPatient(caseId, page, limit);
+
+    const data: AssessmentHistoryItemDto[] = await Promise.all(
+      surveys.map(async (survey) => {
+        const details = await this.repository.findDetailsById(survey.assessment_id);
+        return {
+          assessment_id: survey.assessment_id,
+          evaluation_datetime: survey.evaluation_datetime,
+          pod_context: survey.pod_context,
+          total_score: survey.total_score,
+          triage_color: survey.triage_color,
+          details: details.map((d): AnswerDetailDto => ({
+            question_id: d.question_id,
+            question_text: d.question.question_text,
+            selected_option_id: d.selected_option_id,
+            option_text: d.selected_option.option_text,
+            score_earned: d.score_earned,
+          })),
+        };
+      }),
+    );
+
+    return { data, total, page, limit };
   }
 }

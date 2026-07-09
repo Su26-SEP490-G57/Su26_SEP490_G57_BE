@@ -51,6 +51,19 @@ export class SymptomSurveyRepository {
     });
   }
 
+  findAllByPatient(
+    caseId: string,
+    page: number,
+    limit: number,
+  ): Promise<[SymptomSurvey[], number]> {
+    return this.surveyRepo.findAndCount({
+      where: { case_id: caseId },
+      order: { evaluation_datetime: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
   findById(assessmentId: number): Promise<SymptomSurvey | null> {
     return this.surveyRepo.findOne({ where: { assessment_id: assessmentId } });
   }
