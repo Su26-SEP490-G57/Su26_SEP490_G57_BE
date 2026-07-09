@@ -1,19 +1,9 @@
 import * as bcrypt from 'bcrypt';
 import 'dotenv/config';
-import { DataSource } from 'typeorm';
+import AppDataSource from '../../data-source';
 
 const SCHEMA = process.env.DB_SCHEMA || 'public';
 const SALT_ROUNDS = 10;
-
-const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: +(process.env.DB_PORT || 5432),
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'SEP490_G57',
-  schema: SCHEMA,
-});
 
 async function seed() {
   console.log('🌱 [Seed] Initializing TypeORM DataSource...');

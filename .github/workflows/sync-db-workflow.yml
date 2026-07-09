@@ -1,0 +1,78 @@
+name: Database Environment Sync Workflow (To DEV)
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_env:
+        description: 'Select SOURCE environment (Where to PULL data FROM)'
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+      sync_mode:
+        description: 'Select Synchronization Mode'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - migrations_only
+
+jobs:
+  sync_database:
+    name: Execute Unidirectional DB Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Sync via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+
+            # Target is STRICTLY LOCKED to 'dev' to safeguard staging/prod environments
+            SRC_ENV="${{ github.event.inputs.source_env }}"
+            TGT_ENV="dev"
+
+            SRC_DB="poms_${SRC_ENV}"
+            TGT_DB="poms_${TGT_ENV}"
+
+            DB_USER="poms_root_admin"
+            CONTAINER_NAME="poms-postgres"
+            SYNC_MODE="${{ github.event.inputs.sync_mode }}"
+            BACKUP_FILE="/tmp/sync_${SRC_DB}_to_${TGT_DB}.sql"
+
+            echo "🚀 [CI/CD] Initiating data sync process: [$SRC_DB] ──► [$TGT_DB]..."
+
+            if [ "$SYNC_MODE" = "migrations_only" ]; then
+                echo "🩺 [CI/CD] [Sync Mode: Migrations Only] Extracting migration history table from $SRC_DB..."
+                sudo docker exec -t $CONTAINER_NAME pg_dump -U $DB_USER -d $SRC_DB -t migrations --data-only > $BACKUP_FILE
+
+                echo "🧹 [CI/CD] Truncating old migration log table in target database: $TGT_DB..."
+                sudo docker exec -t $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB -c "TRUNCATE TABLE migrations;"
+
+                echo "📤 [CI/CD] Injecting verified migration history into target database..."
+                sudo docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB < $BACKUP_FILE
+
+            else
+                echo "📦 [CI/CD] [Sync Mode: Full DB] Dumping complete source database architecture and logs from $SRC_DB..."
+                sudo docker exec -t $CONTAINER_NAME pg_dump -U $DB_USER -d $SRC_DB > $BACKUP_FILE
+
+                echo "🔥 [CI/CD] [Hard Reset] Purging public schema on localized development target: $TGT_DB..."
+                sudo docker exec -t $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+                echo "📤 [CI/CD] Restoring full snapshot mirror into target database..."
+                sudo docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB < $BACKUP_FILE
+            fi
+
+            echo "🧹 [CI/CD] Purging temporary backup artifacts from host filesystem..."
+            rm -f $BACKUP_FILE
+
+            echo "✅ [CI/CD Success] Synchronization pipeline completed successfully via mode: $SYNC_MODE!"
