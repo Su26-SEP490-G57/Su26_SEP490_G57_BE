@@ -1,22 +1,19 @@
-name: Seed Database Workflow
+name: Seed Database Workflow (DEV ONLY)
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target environment to RESET and SEED data'
+      drop_db:
+        description: '🔥 HARD RESET: Wipe database schema and re-run migrations from scratch before seeding?'
         required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - staging
+        type: boolean
+        default: false
 
 jobs:
   execute_seed:
     name: Reset and Seed Database
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: dev
 
     steps:
       - name: Execute Seeding Script via SSH
@@ -35,15 +32,29 @@ jobs:
             TARGET_DIR="/var/www/poms-api"
             cd $TARGET_DIR
 
-            ENV_NAME="${{ github.event.inputs.environment }}"
+            ENV_NAME="dev"
             COMPOSE_FILE="docker-compose.${ENV_NAME}.yml"
             SERVICE_NAME="app-${ENV_NAME}"
+
+            DROP_DB_REQUESTED="${{ github.event.inputs.drop_db }}"
 
             echo "🔍 [CI/CD] Verifying infrastructure configuration for environment: $ENV_NAME..."
 
             if [ ! -f "$COMPOSE_FILE" ]; then
                 echo "❌ [CI/CD Error] Configuration file $COMPOSE_FILE not found on VPS!"
                 exit 1
+            fi
+
+            if [ "$DROP_DB_REQUESTED" = "true" ]; then
+                echo "🔥 [CI/CD] [Hard Reset] Initiating complete schema purge for database: poms_${ENV_NAME}..."
+                
+                # Drop and recreate schema public using the root credentials via postgres container
+                sudo docker exec -t poms-postgres psql -U poms_root_admin -d poms_${ENV_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+                
+                echo "🚀 [CI/CD] [Migration] Launching transient container to rebuild schema architecture..."
+                docker compose -f $COMPOSE_FILE run --pull always --rm $SERVICE_NAME npm run migration:run
+            else
+                echo "ℹ️ [CI/CD] Preserving current database schema. Proceeding directly to data population..."
             fi
 
             echo "🚀 [CI/CD] [Seed] Launching transient container to run seed script..."
