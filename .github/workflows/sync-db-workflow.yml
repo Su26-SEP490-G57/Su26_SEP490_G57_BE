@@ -66,7 +66,7 @@ jobs:
                 sudo docker exec -t $CONTAINER_NAME pg_dump -U $DB_USER -d $SRC_DB > $BACKUP_FILE
 
                 echo "🔥 [CI/CD] [Hard Reset] Purging public schema on localized development target: $TGT_DB..."
-                sudo docker exec -t $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+                sudo docker exec -t $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT USAGE, CREATE ON SCHEMA public TO poms_dev;"
 
                 echo "📤 [CI/CD] Restoring full snapshot mirror into target database..."
                 sudo docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB < $BACKUP_FILE
