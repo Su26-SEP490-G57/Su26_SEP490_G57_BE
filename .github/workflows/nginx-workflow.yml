@@ -91,7 +91,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: 'nginx.tar.gz'
-          target: '/var/www/poms-api/'
+          target: '/var/www/poms-nginx/'
 
       - name: Upload Healthcheck script via SSH
         uses: appleboy/scp-action@v1
@@ -100,7 +100,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-api/'
+          target: '/var/www/poms-nginx/'
 
       - name: Extract, Load Certs & Hot Reload Nginx
         uses: appleboy/ssh-action@v1.2.5
@@ -118,7 +118,7 @@ jobs:
             docker network create poms-staging || true
             docker network create poms-prod || true
 
-            TARGET_DIR="/var/www/poms-api"
+            TARGET_DIR="/var/www/poms-nginx"
             cd $TARGET_DIR
 
             echo "📦 Extracting Nginx configuration..."
