@@ -72,11 +72,12 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET
+          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL
           script: |
             set -e  
 
