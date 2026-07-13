@@ -69,6 +69,15 @@ export class PatientRepository {
         .leftJoinAndSelect('account.roles', 'role')
         .leftJoinAndSelect('patient.level', 'level')
         .leftJoinAndSelect('patient.operationType', 'operationType')
+        // Add subquery to get last assessment time
+        .addSelect(
+          (subQuery) =>
+            subQuery
+              .select('MAX(assessment.evaluation_datetime)')
+              .from('patient_assessments', 'assessment')
+              .where('assessment.case_id = patient.case_id'),
+          'lastAssessmentTime',
+        )
     );
   }
 
@@ -99,12 +108,16 @@ export class PatientRepository {
     await this.repo.update({ case_id: caseId }, { pod_start_date: startTime, current_pod: 0 });
   }
 
+  async updatePodLevel(caseId: string, newPodLevel: number): Promise<void> {
+    await this.repo.update({ case_id: caseId }, { current_pod: newPodLevel });
+  }
+
   /** A single patient with all relations joined (same shape as the list endpoint). */
   findByIdWithRelations(caseId: string, manager?: EntityManager): Promise<Patient | null> {
     return this.baseQuery(manager).where('patient.case_id = :caseId', { caseId }).getOne();
   }
 
-  findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
+  async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
     const qb = this.baseQuery();
 
     // Search by case_id or patient full name
@@ -139,7 +152,20 @@ export class PatientRepository {
     const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
-    return qb.getManyAndCount();
+    // Get both raw and entity results to access the calculated lastAssessmentTime
+    const rawAndEntities = await qb.getRawAndEntities();
+    const total = await qb.getCount();
+
+    // Map lastAssessmentTime from raw results to entities
+    const patients = rawAndEntities.entities.map((patient, index) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        rawAndEntities.raw[index]?.lastAssessmentTime || null;
+      return patient;
+    });
+
+    return [patients, total];
   }
 
   // ── Existence / lookup helpers (for service-layer validation) ───────────────

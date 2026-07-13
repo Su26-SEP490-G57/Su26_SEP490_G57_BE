@@ -76,6 +76,9 @@ export class PatientListItemDto {
 
   @ApiPropertyOptional({ type: PatientAccountDto })
   account!: PatientAccountDto | null;
+
+  @ApiPropertyOptional({ example: '2026-07-13T14:30:00.000Z' })
+  lastAssessmentTime!: Date | null;
 }
 
 export class PaginatedPatientsDto {
