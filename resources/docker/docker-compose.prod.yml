@@ -16,6 +16,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: ${FRONTEND_URL}
     networks:
       - poms-prod
     healthcheck:
