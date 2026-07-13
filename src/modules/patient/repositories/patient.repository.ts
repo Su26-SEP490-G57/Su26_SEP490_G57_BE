@@ -112,10 +112,6 @@ export class PatientRepository {
     await this.repo.update({ case_id: caseId }, { current_pod: newPodLevel });
   }
 
-  async updatePodLevel(caseId: string, newPodLevel: number): Promise<void> {
-    await this.repo.update({ case_id: caseId }, { current_pod: newPodLevel });
-  }
-
   /** A single patient with all relations joined (same shape as the list endpoint). */
   findByIdWithRelations(caseId: string, manager?: EntityManager): Promise<Patient | null> {
     return this.baseQuery(manager).where('patient.case_id = :caseId', { caseId }).getOne();
