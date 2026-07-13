@@ -24,10 +24,6 @@ on:
         required: true
         type: string
 
-concurrency:
-  group: poms-api-build-${{ github.sha }}
-  cancel-in-progress: false
-
 jobs:
   check_and_build:
     name: Docker Image Check & Build
@@ -41,6 +37,10 @@ jobs:
     outputs:
       image_exists: ${{ steps.check_manifest.outputs.exists }}
       short_sha: ${{ steps.vars.outputs.short_sha }}
+
+    concurrency:
+      group: poms-api-build-${{ github.sha }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout code
@@ -93,15 +93,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Upload Healthcheck script via SSH
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-api/'
 
       - name: Deploy to Environment
         uses: appleboy/ssh-action@v1.2.5
