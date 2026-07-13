@@ -57,6 +57,7 @@ export type PatientWithAccount = Omit<Patient, 'account' | 'level' | 'operationT
   account: PatientAccount | null;
   level: PatientLevel | null;
   operationType: PatientOperationType | null;
+  lastAssessmentTime?: Date | null;
 };
 
 export interface PaginatedPatients {
@@ -73,7 +74,12 @@ export class PatientService {
     private readonly patientGateway: PatientGateway,
   ) {}
 
-  private toResponse({ account, level, operationType, ...patient }: Patient): PatientWithAccount {
+  private toResponse({
+    account,
+    level,
+    operationType,
+    ...patient
+  }: Patient & { lastAssessmentTime?: Date | null }): PatientWithAccount {
     return {
       ...patient,
       account: account
@@ -103,6 +109,7 @@ export class PatientService {
             name: operationType.operation_name,
           }
         : null,
+      lastAssessmentTime: patient.lastAssessmentTime ?? null,
     };
   }
 
@@ -183,6 +190,36 @@ export class PatientService {
     return response;
   }
 
+  /**
+   * Manually adjust POD level for a patient (rollback only).
+   * The new POD level must be >= 0 and < current_pod.
+   */
+  async updatePodLevel(caseId: string, newPodLevel: number): Promise<PatientWithAccount> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    if (patient.current_pod === null) {
+      throw new BadRequestException(`Patient ${caseId} has no active POD`);
+    }
+
+    if (newPodLevel < 0) {
+      throw new BadRequestException('POD level must be >= 0');
+    }
+
+    if (newPodLevel >= patient.current_pod) {
+      throw new BadRequestException(
+        `POD level must be < current POD (${patient.current_pod}). Only rollback is allowed.`,
+      );
+    }
+
+    await this.repository.updatePodLevel(caseId, newPodLevel);
+
+    const updated = await this.repository.findByIdWithRelations(caseId);
+    if (!updated) throw new NotFoundException(`Patient ${caseId} not found after update`);
+
+    return this.toResponse(updated);
+  }
+
   /** Operation types for the surgery-type dropdown. */
   async getOperationTypes(): Promise<PatientOperationType[]> {
     const types = await this.repository.listOperationTypes();
@@ -205,6 +242,7 @@ export class PatientService {
 
     await this.assertReferencesExist(dto.operationTypeId, dto.assignedNurseId);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const passwordHash = await bcrypt.hash(dto.password ?? DEFAULT_PATIENT_PASSWORD, SALT_ROUNDS);
 
     const created = await this.repository.createWithAccount({
@@ -213,6 +251,7 @@ export class PatientService {
       currentPod: dto.currentPod ?? 0,
       account: {
         username,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         passwordHash,
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber ?? null,
@@ -253,6 +292,7 @@ export class PatientService {
       isActive: dto.isActive,
     };
     if (dto.password !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       account.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
