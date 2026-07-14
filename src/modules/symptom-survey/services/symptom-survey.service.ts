@@ -1,27 +1,27 @@
 import {
-    BadRequestException,
-    ConflictException,
-    ForbiddenException,
-    Injectable,
-    NotFoundException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
-    CreateQuestionOptionDto,
-    CreateSurveyQuestionDto,
-    QuestionOptionDto,
-    UpdateQuestionOptionDto,
-    UpdateSurveyQuestionDto,
+  CreateQuestionOptionDto,
+  CreateSurveyQuestionDto,
+  QuestionOptionDto,
+  UpdateQuestionOptionDto,
+  UpdateSurveyQuestionDto,
 } from '../dtos/survey-question.dto';
 import {
-    AnswerDetailDto,
-    AssessmentHistoryItemDto,
-    PaginatedAssessmentHistoryDto,
-    SurveyQuestionDto,
-    SymptomSurveyResponseDto,
+  AnswerDetailDto,
+  AssessmentHistoryItemDto,
+  PaginatedAssessmentHistoryDto,
+  SurveyQuestionDto,
+  SymptomSurveyResponseDto,
 } from '../dtos/symptom-survey-response.dto';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
@@ -314,13 +314,15 @@ export class SymptomSurveyService {
           pod_context: survey.pod_context,
           total_score: survey.total_score,
           triage_color: survey.triage_color,
-          details: details.map((d): AnswerDetailDto => ({
-            question_id: d.question_id,
-            question_text: d.question.question_text,
-            selected_option_id: d.selected_option_id,
-            option_text: d.selected_option.option_text,
-            score_earned: d.score_earned,
-          })),
+          details: details.map(
+            (d): AnswerDetailDto => ({
+              question_id: d.question_id,
+              question_text: d.question.question_text,
+              selected_option_id: d.selected_option_id,
+              option_text: d.selected_option.option_text,
+              score_earned: d.score_earned,
+            }),
+          ),
         };
       }),
     );
