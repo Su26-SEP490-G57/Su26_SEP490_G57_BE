@@ -3,6 +3,11 @@ name: Database Hard Reset Workflow (DEV ONLY)
 on:
   workflow_dispatch:
 
+concurrency:
+  group: poms-db-maintenance-dev
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   reset_db:
     runs-on: ubuntu-latest

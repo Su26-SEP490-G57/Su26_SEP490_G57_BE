@@ -41,6 +41,7 @@ jobs:
     concurrency:
       group: poms-api-build-${{ github.sha }}
       cancel-in-progress: false
+      queue: max
 
     steps:
       - name: Checkout code
@@ -85,6 +86,11 @@ jobs:
     needs: check_and_build
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+
+    concurrency:
+      group: poms-api-deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+      queue: max
 
     if: |
       inputs.environment == 'dev' || 
