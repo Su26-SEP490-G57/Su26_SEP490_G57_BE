@@ -22,6 +22,11 @@ on:
           - full
           - migrations_only
 
+concurrency:
+  group: poms-db-maintenance-dev
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   sync_database:
     name: Execute Unidirectional DB Sync

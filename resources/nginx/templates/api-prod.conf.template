@@ -2,7 +2,7 @@ server {
   listen 80;
   listen [::]:80;
 
-  server_name api-staging.${DOMAIN_NAME};
+  server_name api.${DOMAIN_NAME};
   return 301 https://$host$request_uri;
 }
 
@@ -11,7 +11,7 @@ server {
   listen [::]:443 ssl;
   http2 on;
 
-  server_name api-staging.${DOMAIN_NAME};
+  server_name api.${DOMAIN_NAME};
 
   ssl_certificate /etc/nginx/certs/fullchain.pem;
   ssl_certificate_key /etc/nginx/certs/privkey.pem;
@@ -29,8 +29,24 @@ server {
   proxy_buffering off;
   proxy_request_buffering off;
 
+  location ~* ^/(api/docs|docs) {
+    proxy_pass http://app-prod:3000;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+    add_header Pragma "no-cache" always;
+    add_header Expires "0" always;
+  }
+
   location / {
-    proxy_pass http://app-staging:3000;
+    proxy_pass http://app-prod:3000;
 
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;

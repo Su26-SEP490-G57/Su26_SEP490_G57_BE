@@ -17,6 +17,11 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: poms-postgres-deploy
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   check_syntax:
     name: Validate Initialization Script Syntax

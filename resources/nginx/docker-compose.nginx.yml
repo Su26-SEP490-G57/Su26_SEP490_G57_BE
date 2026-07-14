@@ -10,6 +10,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
       - ./templates:/etc/nginx/templates:ro
+      - /var/www/poms-admin:/var/www/poms-admin:ro
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - NGINX_ENVSUBST_FILTER=DOMAIN_NAME

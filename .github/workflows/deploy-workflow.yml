@@ -25,10 +25,72 @@ on:
         type: string
 
 jobs:
-  build_and_deploy:
-    name: Build and Deploy
+  check_and_build:
+    name: Docker Image Check & Build
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+
+    if: |
+      inputs.environment == 'dev' || 
+      ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
+
+    outputs:
+      image_exists: ${{ steps.check_manifest.outputs.exists }}
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+
+    concurrency:
+      group: poms-api-build-${{ github.sha }}
+      cancel-in-progress: false
+      queue: max
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Generate Short SHA Tag
+        id: vars
+        run: echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Docker Image Existence in GHCR
+        id: check_manifest
+        run: |
+          FULL_IMAGE_PATH="ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}"
+          if docker manifest inspect $FULL_IMAGE_PATH > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "🚀 [GHCR Hit] Image with tag ${{ steps.vars.outputs.short_sha }} already exists. Skipping build stage!"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "📦 [GHCR Miss] Image not found. Proceeding to build stage..."
+          fi
+
+      - name: Build and Push Docker Image
+        if: steps.check_manifest.outputs.exists == 'false'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: resources/docker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
+            ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
+
+  deploy:
+    name: Deployment
+    needs: check_and_build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    concurrency:
+      group: poms-api-deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+      queue: max
 
     if: |
       inputs.environment == 'dev' || 
@@ -38,45 +100,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Log in to the GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: resources/docker/Dockerfile
-          push: true
-          tags: |
-            ${{ vars.APP_IMAGE_NAME }}:${{ github.sha }}
-            ${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
-
-      - name: Upload Healthcheck script via SSH
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-api/'
-
       - name: Deploy to Environment
         uses: appleboy/ssh-action@v1.2.5
         env:
           APP_IMAGE_NAME: ${{ vars.APP_IMAGE_NAME }}
-          APP_IMAGE_TAG: ${{ github.sha }}
+          APP_IMAGE_TAG: ${{ needs.check_and_build.outputs.short_sha }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET
+          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL
           script: |
             set -e  
 
