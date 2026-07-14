@@ -29,3 +29,4 @@ jobs:
     uses: ./.github/workflows/deploy-workflow.yml
     with:
       environment: staging
+    secrets: inherit
