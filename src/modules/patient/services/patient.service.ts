@@ -58,6 +58,7 @@ export type PatientWithAccount = Omit<Patient, 'account' | 'level' | 'operationT
   level: PatientLevel | null;
   operationType: PatientOperationType | null;
   lastAssessmentTime?: Date | null;
+  full_name?: string | null;
 };
 
 export interface PaginatedPatients {
@@ -110,6 +111,8 @@ export class PatientService {
           }
         : null,
       lastAssessmentTime: patient.lastAssessmentTime ?? null,
+      // Add full_name from account for convenience
+      full_name: account?.full_name ?? null,
     };
   }
 
@@ -337,7 +340,6 @@ export class PatientService {
   /** Map the (camelCase) DTO clinical fields to the repository's case-field shape. */
   private toCaseFields(dto: CreatePatientDto | UpdatePatientDto): PatientCaseInput {
     return {
-      nameInitials: dto.nameInitials,
       age: dto.age,
       gender: dto.gender,
       height: dto.height,

@@ -22,7 +22,6 @@ export interface PatientAccountInput {
 
 /** Clinical fields for the patient_cases row. `undefined` means "leave unchanged" on update. */
 export interface PatientCaseInput {
-  nameInitials?: string | null;
   age?: number | null;
   gender?: string | null;
   height?: number | null;
@@ -219,7 +218,6 @@ export class PatientRepository {
 
       const patient = manager.create(Patient, {
         case_id: input.caseId,
-        name_initials: input.nameInitials ?? null,
         age: input.age ?? null,
         gender: input.gender ?? null,
         height: input.height ?? null,
@@ -277,7 +275,6 @@ export class PatientRepository {
   }
 
   private applyCaseFields(patient: Patient, f: PatientCaseInput): void {
-    if (f.nameInitials !== undefined) patient.name_initials = f.nameInitials;
     if (f.age !== undefined) patient.age = f.age;
     if (f.gender !== undefined) patient.gender = f.gender;
     if (f.height !== undefined) patient.height = f.height;
