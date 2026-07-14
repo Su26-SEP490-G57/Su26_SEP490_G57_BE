@@ -9,6 +9,11 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: poms-db-maintenance-dev
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   execute_seed:
     name: Reset and Seed Database
