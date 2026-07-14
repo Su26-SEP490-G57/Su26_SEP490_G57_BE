@@ -8,9 +8,6 @@ export class Patient {
   @PrimaryColumn({ name: 'case_id', type: 'varchar' })
   case_id!: string;
 
-  @Column({ name: 'name_initials', type: 'varchar', length: 50, nullable: true })
-  name_initials!: string | null;
-
   @Column({ type: 'int', nullable: true })
   age!: number | null;
 

@@ -30,6 +30,7 @@ import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-respon
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
+import { UpdatePodLevelDto } from '../dtos/update-pod-level.dto';
 import {
   CurrentPodResponse,
   PaginatedPatients,
@@ -148,6 +149,28 @@ export class PatientController {
   @ApiResponse({ status: 400, description: 'No active POD or holdReason missing' })
   lockPod(@Param('id') id: string, @Body() dto: PodLockDto): Promise<PodLockResponseDto> {
     return this.patientService.lockPod(id, dto);
+  }
+
+  @Patch(':id/pod-level')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.NURSE, UserRole.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Manually adjust POD level for a patient (rollback only)',
+    description:
+      'Nurse/Head Nurse only. Allows rolling back to a previous POD level. ' +
+      'The new podLevel must be >= 0 and < current_pod (only backward movement allowed).',
+  })
+  @ApiResponse({ status: 200, type: PatientListItemDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid POD level: must be >= 0 and < current_pod',
+  })
+  updatePodLevel(
+    @Param('id') id: string,
+    @Body() dto: UpdatePodLevelDto,
+  ): Promise<PatientWithAccount> {
+    return this.patientService.updatePodLevel(id, dto.podLevel);
   }
 
   @Patch(':id')

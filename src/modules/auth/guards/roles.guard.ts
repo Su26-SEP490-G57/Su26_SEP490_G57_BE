@@ -11,7 +11,7 @@ export class RolesGuard implements CanActivate {
     if (requiredRoles.length === 0) return true;
 
     const req = context.switchToHttp().getRequest();
-    const user = req.user as any;
+    const user = req.user;
     if (!user) throw new UnauthorizedException('No user available');
 
     // Support both single role (string) and array of roles

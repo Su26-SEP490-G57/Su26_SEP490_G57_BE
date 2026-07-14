@@ -95,12 +95,6 @@ export class CreatePatientDto {
   detailedAddress?: string;
 
   // ── Clinical / patient_cases ───────────────────────────────────────────────
-  @ApiPropertyOptional({ example: 'N.V.B', description: 'Name initials (privacy)', maxLength: 50 })
-  @IsString()
-  @MaxLength(50)
-  @IsOptional()
-  nameInitials?: string;
-
   @ApiPropertyOptional({ example: 55 })
   @Type(() => Number)
   @IsInt()

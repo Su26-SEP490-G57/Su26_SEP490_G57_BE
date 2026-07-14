@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import * as bcrypt from 'bcrypt';
 import 'dotenv/config';
 import AppDataSource from '../../data-source';
@@ -15,13 +19,20 @@ async function seed() {
 
   console.log('🧹 [Seed] Wiping old data...');
 
+  const PROTECTED_TABLES = ['survey_questions', 'question_options'];
+
   const entities = AppDataSource.entityMetadatas;
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
   for (const entity of entities) {
     const tableName = entity.tableName;
-    console.log(`   - Truncating table: ${tableName}`);
 
+    if (PROTECTED_TABLES.includes(tableName)) {
+      console.log(`Skipping protected table: ${tableName}`);
+      continue;
+    }
+
+    console.log(`   - Truncating table: ${tableName}`);
     await queryRunner.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`);
   }
 
@@ -67,9 +78,72 @@ async function seed() {
     {
       username: 'patient01',
       password: 'Patient@123',
-      fullName: 'Bệnh nhân 01',
+      fullName: 'Nguyễn Văn An',
       role: 'Patient',
       caseId: 'CASE-001',
+    },
+    {
+      username: 'patient02',
+      password: 'Patient@123',
+      fullName: 'Trần Thị Bình',
+      role: 'Patient',
+      caseId: 'CASE-002',
+    },
+    {
+      username: 'patient03',
+      password: 'Patient@123',
+      fullName: 'Lê Văn Cường',
+      role: 'Patient',
+      caseId: 'CASE-003',
+    },
+    {
+      username: 'patient04',
+      password: 'Patient@123',
+      fullName: 'Phạm Thị Dung',
+      role: 'Patient',
+      caseId: 'CASE-004',
+    },
+    {
+      username: 'patient05',
+      password: 'Patient@123',
+      fullName: 'Hoàng Minh Đức',
+      role: 'Patient',
+      caseId: 'CASE-005',
+    },
+    {
+      username: 'patient06',
+      password: 'Patient@123',
+      fullName: 'Đặng Thị Hoa',
+      role: 'Patient',
+      caseId: 'CASE-006',
+    },
+    {
+      username: 'patient07',
+      password: 'Patient@123',
+      fullName: 'Vũ Văn Hùng',
+      role: 'Patient',
+      caseId: 'CASE-007',
+    },
+    {
+      username: 'patient08',
+      password: 'Patient@123',
+      fullName: 'Ngô Thị Lan',
+      role: 'Patient',
+      caseId: 'CASE-008',
+    },
+    {
+      username: 'patient09',
+      password: 'Patient@123',
+      fullName: 'Bùi Văn Minh',
+      role: 'Patient',
+      caseId: 'CASE-009',
+    },
+    {
+      username: 'patient10',
+      password: 'Patient@123',
+      fullName: 'Trương Mai Phương',
+      role: 'Patient',
+      caseId: 'CASE-010',
     },
   ];
 
@@ -138,32 +212,179 @@ async function seed() {
   );
   console.log('✅ Operation types seeded: Phẫu thuật dạ dày, Phẫu thuật đại trực tràng');
 
-  await AppDataSource.query(
-    `
-    INSERT INTO ${schema}."patient_cases" (
-      "case_id", "name_initials", "age", "gender",
-      "diagnosis", "operation_type_id", "method",
-      "surgery_date", "room_bed", "current_pod",
-      "assigned_nurse_id"
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    ON CONFLICT ("case_id") DO NOTHING
-  `,
-    [
-      'CASE-001',
-      'N.V.A',
-      55,
-      'Nam',
-      'Ung thư đại tràng giai đoạn II',
-      operationTypeByName['Phẫu thuật đại trực tràng'],
-      'Nội soi',
-      '2026-06-10',
-      'P101-B1',
-      2,
-      nurseId,
-    ],
-  );
-  console.log('✅ Sample patient case CASE-001 seeded');
+  const patientCases = [
+    {
+      caseId: 'CASE-001',
+      age: 55,
+      gender: 'Nam',
+      height: 168,
+      weight: 62,
+      bmi: 22.0,
+      diagnosis: 'Ung thư đại tràng giai đoạn II',
+      operationType: 'Phẫu thuật đại trực tràng',
+      method: 'Nội soi',
+      surgeryDate: '2026-06-10',
+      roomBed: 'P101-B1',
+      currentPod: 2,
+    },
+    {
+      caseId: 'CASE-002',
+      age: 48,
+      gender: 'Nữ',
+      height: 156,
+      weight: 52,
+      bmi: 21.4,
+      diagnosis: 'Loét dạ dày chảy máu',
+      operationType: 'Phẫu thuật dạ dày',
+      method: 'Mở',
+      surgeryDate: '2026-07-01',
+      roomBed: 'P503-B1',
+      currentPod: 1,
+    },
+    {
+      caseId: 'CASE-003',
+      age: 62,
+      gender: 'Nam',
+      height: 172,
+      weight: 75,
+      bmi: 25.4,
+      diagnosis: 'Polyp đại tràng có nguy cơ ác tính',
+      operationType: 'Phẫu thuật đại trực tràng',
+      method: 'Nội soi',
+      surgeryDate: '2026-07-05',
+      roomBed: 'P503-B2',
+      currentPod: 3,
+    },
+    {
+      caseId: 'CASE-004',
+      age: 51,
+      gender: 'Nữ',
+      height: 160,
+      weight: 58,
+      bmi: 22.7,
+      diagnosis: 'U dạ dày lành tính kích thước lớn',
+      operationType: 'Phẫu thuật dạ dày',
+      method: 'Nội soi',
+      surgeryDate: '2026-07-08',
+      roomBed: 'P504-B1',
+      currentPod: 2,
+    },
+    {
+      caseId: 'CASE-005',
+      age: 45,
+      gender: 'Nam',
+      height: 175,
+      weight: 82,
+      bmi: 26.8,
+      diagnosis: 'Viêm túi thừa đại tràng biến chứng',
+      operationType: 'Phẫu thuật đại trực tràng',
+      method: 'Mở',
+      surgeryDate: '2026-07-02',
+      roomBed: 'P504-B2',
+      currentPod: 4,
+    },
+    {
+      caseId: 'CASE-006',
+      age: 58,
+      gender: 'Nữ',
+      height: 158,
+      weight: 49,
+      bmi: 19.6,
+      diagnosis: 'Viêm loét dạ dày mạn tính không đáp ứng điều trị nội khoa',
+      operationType: 'Phẫu thuật dạ dày',
+      method: 'Nội soi',
+      surgeryDate: '2026-07-10',
+      roomBed: 'P504-B3',
+      currentPod: 1,
+    },
+    {
+      caseId: 'CASE-007',
+      age: 67,
+      gender: 'Nam',
+      height: 165,
+      weight: 58,
+      bmi: 21.3,
+      diagnosis: 'Ung thư trực tràng giai đoạn III',
+      operationType: 'Phẫu thuật đại trực tràng',
+      method: 'Mở',
+      surgeryDate: '2026-06-28',
+      roomBed: 'P504-B4',
+      currentPod: 5,
+    },
+    {
+      caseId: 'CASE-008',
+      age: 43,
+      gender: 'Nữ',
+      height: 162,
+      weight: 55,
+      bmi: 21.0,
+      diagnosis: 'Chít hẹp môn vị do loét',
+      operationType: 'Phẫu thuật dạ dày',
+      method: 'Nội soi',
+      surgeryDate: '2026-07-12',
+      roomBed: 'P506-B1',
+      currentPod: 0,
+    },
+    {
+      caseId: 'CASE-009',
+      age: 54,
+      gender: 'Nam',
+      height: 170,
+      weight: 68,
+      bmi: 23.5,
+      diagnosis: 'Bệnh Crohn đại tràng không đáp ứng điều trị',
+      operationType: 'Phẫu thuật đại trực tràng',
+      method: 'Nội soi',
+      surgeryDate: '2026-07-06',
+      roomBed: 'P506-B2',
+      currentPod: 3,
+    },
+    {
+      caseId: 'CASE-010',
+      age: 60,
+      gender: 'Nữ',
+      height: 155,
+      weight: 60,
+      bmi: 25.0,
+      diagnosis: 'Ung thư dạ dày giai đoạn IB',
+      operationType: 'Phẫu thuật dạ dày',
+      method: 'Mở',
+      surgeryDate: '2026-07-03',
+      roomBed: 'P506-B3',
+      currentPod: 4,
+    },
+  ];
+
+  for (const patient of patientCases) {
+    await AppDataSource.query(
+      `
+      INSERT INTO ${schema}."patient_cases" (
+        "case_id", "age", "gender", "height", "weight", "bmi",
+        "diagnosis", "operation_type_id", "method",
+        "surgery_date", "room_bed", "current_pod",
+        "assigned_nurse_id"
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ON CONFLICT ("case_id") DO NOTHING
+    `,
+      [
+        patient.caseId,
+        patient.age,
+        patient.gender,
+        patient.height,
+        patient.weight,
+        patient.bmi,
+        patient.diagnosis,
+        operationTypeByName[patient.operationType],
+        patient.method,
+        patient.surgeryDate,
+        patient.roomBed,
+        patient.currentPod,
+        nurseId,
+      ],
+    );
+  }
+  console.log('✅ 10 patient cases seeded (P101: 1, P503: 2, P504: 4, P506: 3)');
 
   await queryRunner.release();
   await AppDataSource.destroy();

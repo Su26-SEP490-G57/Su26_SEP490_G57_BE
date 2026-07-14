@@ -56,8 +56,8 @@ export class PatientListItemDto {
   @ApiProperty({ example: 'CASE-001' })
   case_id!: string;
 
-  @ApiPropertyOptional({ example: 'N.V.A' })
-  name_initials!: string | null;
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
+  full_name!: string | null;
 
   @ApiPropertyOptional({ example: 55 })
   age!: number | null;
@@ -76,6 +76,9 @@ export class PatientListItemDto {
 
   @ApiPropertyOptional({ type: PatientAccountDto })
   account!: PatientAccountDto | null;
+
+  @ApiPropertyOptional({ example: '2026-07-13T14:30:00.000Z' })
+  lastAssessmentTime!: Date | null;
 }
 
 export class PaginatedPatientsDto {
