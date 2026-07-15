@@ -73,15 +73,43 @@ export class SymptomSurveyRepository {
   }
 
   async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
+    console.log(`[syncPatientLevel] START - caseId: ${caseId}, triageColor: ${triageColor}`);
+
     const levelName = TRIAGE_TO_LEVEL_NAME[triageColor];
-    if (!levelName) return;
+    console.log(`[syncPatientLevel] levelName from mapping: ${levelName}`);
+
+    if (!levelName) {
+      console.log(`[syncPatientLevel] ERROR - No levelName found for triageColor: ${triageColor}`);
+      return;
+    }
 
     const level = await this.levelRepo.findOne({
       where: { level_name: levelName as 'Red' | 'Yellow' | 'Green' },
     });
-    if (!level) return;
+    console.log(`[syncPatientLevel] Found level:`, JSON.stringify(level));
 
-    await this.patientRepo.update({ case_id: caseId }, { level_id: level.level_id });
+    if (!level) {
+      console.log(
+        `[syncPatientLevel] ERROR - Level not found in database for levelName: ${levelName}`,
+      );
+      return;
+    }
+
+    console.log(
+      `[syncPatientLevel] Attempting update - caseId: ${caseId}, level_id: ${level.level_id}`,
+    );
+    const result = await this.patientRepo.update({ case_id: caseId }, { level_id: level.level_id });
+    console.log(
+      `[syncPatientLevel] Update result - affected: ${result.affected}, raw: ${JSON.stringify(result.raw)}`,
+    );
+
+    if (result.affected === 0) {
+      console.log(
+        `[syncPatientLevel] WARNING - No rows updated. Patient with caseId ${caseId} may not exist`,
+      );
+    } else {
+      console.log(`[syncPatientLevel] SUCCESS - Updated ${result.affected} row(s)`);
+    }
   }
 
   findById(assessmentId: number): Promise<SymptomSurvey | null> {

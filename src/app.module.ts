@@ -5,11 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from './modules/alert/alert.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module';
+import { HealthModule } from './modules/health/health.module';
 import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { UsersModule } from './modules/user/users.module';
-import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
