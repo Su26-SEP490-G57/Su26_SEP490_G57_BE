@@ -19,7 +19,12 @@ async function seed() {
 
   console.log('🧹 [Seed] Wiping old data...');
 
-  const PROTECTED_TABLES = ['survey_questions', 'question_options'];
+  // eslint-disable-next-line prettier/prettier
+  const PROTECTED_TABLES = [
+    'survey_questions',
+    'question_options',
+    'levels',
+  ];
 
   const entities = AppDataSource.entityMetadatas;
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
@@ -28,7 +33,7 @@ async function seed() {
     const tableName = entity.tableName;
 
     if (PROTECTED_TABLES.includes(tableName)) {
-      console.log(`Skipping protected table: ${tableName}`);
+      console.log(`   - Skipping protected table: ${tableName}`);
       continue;
     }
 

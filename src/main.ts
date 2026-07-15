@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'dotenv/config';
 import { AppModule } from './app.module';
+import { TimezoneInterceptor } from './common/interceptors/timezone.interceptor';
 
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
@@ -25,6 +26,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Apply timezone interceptor globally
+  app.useGlobalInterceptors(new TimezoneInterceptor());
 
   const config = new DocumentBuilder()
     .setTitle('Capstone API')
