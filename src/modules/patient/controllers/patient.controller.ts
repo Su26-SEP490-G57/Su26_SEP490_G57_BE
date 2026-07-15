@@ -45,6 +45,12 @@ class CurrentPodResponseDto implements CurrentPodResponse {
 
   @ApiProperty({ example: 3, nullable: true })
   currentPod!: number | null;
+
+  @ApiProperty({ example: false })
+  isLocked!: boolean;
+
+  @ApiProperty({ example: 'Bệnh nhân nôn nhiều', nullable: true })
+  holdReason!: string | null;
 }
 
 class OperationTypeDto implements PatientOperationType {
