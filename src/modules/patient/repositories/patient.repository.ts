@@ -120,11 +120,14 @@ export class PatientRepository {
   async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
     const qb = this.baseQuery();
 
-    // Search by case_id or patient full name
+    // Search by case_id or patient full name.
+    // unaccent() makes it diacritics-insensitive (e.g. "nguyen" matches "Nguyễn");
+    // ILIKE already handles upper/lowercase.
     if (query.search) {
-      qb.andWhere('(patient.case_id ILIKE :search OR account.full_name ILIKE :search)', {
-        search: `%${query.search}%`,
-      });
+      qb.andWhere(
+        '(unaccent(patient.case_id) ILIKE unaccent(:search) OR unaccent(account.full_name) ILIKE unaccent(:search))',
+        { search: `%${query.search}%` },
+      );
     }
 
     // Filters
