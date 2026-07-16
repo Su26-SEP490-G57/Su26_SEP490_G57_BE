@@ -131,8 +131,8 @@ export class PatientService {
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
-    return { 
-      caseId: patient.case_id, 
+    return {
+      caseId: patient.case_id,
       currentPod: patient.current_pod,
       isLocked: patient.is_locked,
       holdReason: patient.reason_hold_pod,

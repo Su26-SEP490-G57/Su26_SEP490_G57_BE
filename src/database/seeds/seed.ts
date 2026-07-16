@@ -19,12 +19,7 @@ async function seed() {
 
   console.log('🧹 [Seed] Wiping old data...');
 
-  // eslint-disable-next-line prettier/prettier
-  const PROTECTED_TABLES = [
-    'survey_questions',
-    'question_options',
-    'levels',
-  ];
+  const PROTECTED_TABLES = ['survey_questions', 'question_options', 'levels'];
 
   const entities = AppDataSource.entityMetadatas;
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');

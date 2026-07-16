@@ -158,7 +158,6 @@ export class PatientRepository {
 
     // Map lastAssessmentTime from raw results to entities
     const patients = rawAndEntities.entities.map((patient, index) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         rawAndEntities.raw[index]?.lastAssessmentTime || null;
