@@ -46,8 +46,8 @@ export class SymptomSurveyRepository {
 
   findLatestByPatient(caseId: string): Promise<SymptomSurvey | null> {
     return this.surveyRepo.findOne({
-      where: { case_id: caseId },
-      order: { evaluation_datetime: 'DESC' },
+      where: { caseId: caseId },
+      order: { evaluationDatetime: 'DESC' },
     });
   }
 
@@ -57,8 +57,8 @@ export class SymptomSurveyRepository {
     limit: number,
   ): Promise<[SymptomSurvey[], number]> {
     return this.surveyRepo.findAndCount({
-      where: { case_id: caseId },
-      order: { evaluation_datetime: 'DESC' },
+      where: { caseId: caseId },
+      order: { evaluationDatetime: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -66,10 +66,10 @@ export class SymptomSurveyRepository {
 
   async findCurrentPod(caseId: string): Promise<number | null> {
     const patient = await this.patientRepo.findOne({
-      where: { case_id: caseId },
-      select: ['current_pod'],
+      where: { caseId: caseId },
+      select: ['currentPod'],
     });
-    return patient?.current_pod ?? null;
+    return patient?.currentPod ?? null;
   }
 
   async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
@@ -84,7 +84,7 @@ export class SymptomSurveyRepository {
     }
 
     const level = await this.levelRepo.findOne({
-      where: { level_name: levelName as 'Red' | 'Yellow' | 'Green' },
+      where: { levelName: levelName as 'Red' | 'Yellow' | 'Green' },
     });
     console.log(`[syncPatientLevel] Found level:`, JSON.stringify(level));
 
@@ -96,9 +96,9 @@ export class SymptomSurveyRepository {
     }
 
     console.log(
-      `[syncPatientLevel] Attempting update - caseId: ${caseId}, level_id: ${level.level_id}`,
+      `[syncPatientLevel] Attempting update - caseId: ${caseId}, level_id: ${level.levelId}`,
     );
-    const result = await this.patientRepo.update({ case_id: caseId }, { level_id: level.level_id });
+    const result = await this.patientRepo.update({ caseId: caseId }, { levelId: level.levelId });
     console.log(
       `[syncPatientLevel] Update result - affected: ${result.affected}, raw: ${JSON.stringify(result.raw)}`,
     );
@@ -113,22 +113,22 @@ export class SymptomSurveyRepository {
   }
 
   findById(assessmentId: number): Promise<SymptomSurvey | null> {
-    return this.surveyRepo.findOne({ where: { assessment_id: assessmentId } });
+    return this.surveyRepo.findOne({ where: { assessmentId: assessmentId } });
   }
 
   findDetailsById(assessmentId: number): Promise<AssessmentDetail[]> {
     return this.detailRepo.find({
-      where: { assessment_id: assessmentId },
+      where: { assessmentId: assessmentId },
       relations: ['question', 'selected_option'],
     });
   }
 
   findAllQuestions(): Promise<SurveyQuestion[]> {
-    return this.questionRepo.find({ order: { order_number: 'ASC' } });
+    return this.questionRepo.find({ order: { orderNumber: 'ASC' } });
   }
 
   findQuestionById(questionId: number): Promise<SurveyQuestion | null> {
-    return this.questionRepo.findOne({ where: { question_id: questionId } });
+    return this.questionRepo.findOne({ where: { questionId: questionId } });
   }
 
   saveQuestion(data: Partial<SurveyQuestion>): Promise<SurveyQuestion> {
@@ -136,15 +136,15 @@ export class SymptomSurveyRepository {
   }
 
   async deleteQuestion(questionId: number): Promise<void> {
-    await this.questionRepo.delete({ question_id: questionId });
+    await this.questionRepo.delete({ questionId: questionId });
   }
 
   countDetailsByQuestion(questionId: number): Promise<number> {
-    return this.detailRepo.count({ where: { question_id: questionId } });
+    return this.detailRepo.count({ where: { questionId: questionId } });
   }
 
   findOptionById(optionId: number): Promise<QuestionOption | null> {
-    return this.optionRepo.findOne({ where: { option_id: optionId } });
+    return this.optionRepo.findOne({ where: { optionId: optionId } });
   }
 
   saveOption(data: Partial<QuestionOption>): Promise<QuestionOption> {
@@ -156,10 +156,10 @@ export class SymptomSurveyRepository {
   }
 
   async deleteOption(optionId: number): Promise<void> {
-    await this.optionRepo.delete({ option_id: optionId });
+    await this.optionRepo.delete({ optionId: optionId });
   }
 
   countDetailsByOption(optionId: number): Promise<number> {
-    return this.detailRepo.count({ where: { selected_option_id: optionId } });
+    return this.detailRepo.count({ where: { selectedOptionId: optionId } });
   }
 }

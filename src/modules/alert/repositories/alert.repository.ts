@@ -16,22 +16,22 @@ export class AlertRepository {
   }
 
   findById(alertId: number): Promise<Alert | null> {
-    return this.repo.findOne({ where: { alert_id: alertId } });
+    return this.repo.findOne({ where: { alertId: alertId } });
   }
 
   findAll(query: QueryAlertDto): Promise<[Alert[], number]> {
     const where: FindOptionsWhere<Alert> = {};
 
-    if (query.caseId) where.case_id = query.caseId;
+    if (query.caseId) where.caseId = query.caseId;
     if (query.status) where.status = query.status;
-    if (query.alertType) where.alert_type = query.alertType;
+    if (query.alertType) where.alertType = query.alertType;
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
     return this.repo.findAndCount({
       where,
-      order: { triggered_at: 'DESC' },
+      order: { triggeredAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });

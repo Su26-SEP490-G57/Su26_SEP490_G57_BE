@@ -36,11 +36,11 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    if (!user.is_active) {
+    if (!user.isActive) {
       throw new UnauthorizedException('Account is disabled');
     }
 
-    const passwordMatch = await bcrypt.compare(dto.password, user.password_hash);
+    const passwordMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -67,22 +67,22 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_MS);
     await this.refreshTokenRepo.save(
       this.refreshTokenRepo.create({
-        user_id: user.id,
+        userId: user.id,
         token: refreshToken,
-        expires_at: expiresAt,
+        expiresAt: expiresAt,
       }),
     );
 
     const userDto: UserResponseDto = {
       id: user.id,
       username: user.username,
-      fullName: user.full_name,
-      phoneNumber: user.phone_number,
-      caseId: user.case_id ?? null,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      caseId: user.caseId ?? null,
       roles: roleNames,
-      isActive: user.is_active,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     return { accessToken, refreshToken, user: userDto };
@@ -99,7 +99,7 @@ export class AuthService {
 
     // 2. Check token exists in DB (rotation / revocation support)
     const stored = await this.refreshTokenRepo.findOne({ where: { token } });
-    if (!stored || stored.expires_at < new Date()) {
+    if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token not found or expired');
     }
 

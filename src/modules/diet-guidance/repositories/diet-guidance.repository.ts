@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { OperationType } from '../../patient/entities/operation-type.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
 
@@ -16,11 +16,11 @@ export class DietGuidanceRepository {
   // ── Operation Types ──────────────────────────────────────────────────────────
 
   findAllOperationTypes(): Promise<OperationType[]> {
-    return this.opTypeRepo.find({ order: { operation_name: 'ASC' } });
+    return this.opTypeRepo.find({ order: { operationName: 'ASC' } });
   }
 
   findOperationTypeById(id: number): Promise<OperationType | null> {
-    return this.opTypeRepo.findOne({ where: { operation_type_id: id } });
+    return this.opTypeRepo.findOne({ where: { operationTypeId: id } });
   }
 
   saveOperationType(data: Partial<OperationType>): Promise<OperationType> {
@@ -28,31 +28,31 @@ export class DietGuidanceRepository {
   }
 
   async deleteOperationType(id: number): Promise<void> {
-    await this.opTypeRepo.delete({ operation_type_id: id });
+    await this.opTypeRepo.delete({ operationTypeId: id });
   }
 
   countPodsByOperationType(operationTypeId: number): Promise<number> {
-    return this.podRepo.count({ where: { operation_type_id: operationTypeId } });
+    return this.podRepo.count({ where: { operationTypeId: operationTypeId } });
   }
 
   // ── Pod Protocols ────────────────────────────────────────────────────────────
 
   findPodsByOperationType(operationTypeId: number): Promise<PodProtocol[]> {
     return this.podRepo.find({
-      where: { operation_type_id: operationTypeId },
+      where: { operationTypeId: operationTypeId },
       order: { label: 'ASC' },
     });
   }
 
   findPodById(podId: number): Promise<PodProtocol | null> {
-    return this.podRepo.findOne({ where: { pod_id: podId } });
+    return this.podRepo.findOne({ where: { podId: podId } });
   }
 
-  savePod(data: Partial<PodProtocol>): Promise<PodProtocol> {
-    return this.podRepo.save(data as PodProtocol);
+  savePod(data: DeepPartial<PodProtocol>): Promise<PodProtocol> {
+    return this.podRepo.save(data);
   }
 
   async deletePod(podId: number): Promise<void> {
-    await this.podRepo.delete({ pod_id: podId });
+    await this.podRepo.delete({ podId: podId });
   }
 }

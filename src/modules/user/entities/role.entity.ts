@@ -18,4 +18,10 @@ export class Role {
 
   @ManyToMany(() => Permission, (permission) => permission.roles, { eager: true })
   permissions!: Permission[];
+
+  constructor(props?: Partial<Role>) {
+    if (props) {
+      Object.assign(this, props);
+    }
+  }
 }

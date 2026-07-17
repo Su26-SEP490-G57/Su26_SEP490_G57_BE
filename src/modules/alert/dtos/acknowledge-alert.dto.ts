@@ -6,7 +6,7 @@ export class AcknowledgeAlertDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  nurse_action?: string;
+  nurseAction?: string;
 
   @ApiPropertyOptional({
     example: 'Patient responded well to medication.',
@@ -14,5 +14,5 @@ export class AcknowledgeAlertDto {
   })
   @IsOptional()
   @IsString()
-  nursing_note?: string;
+  nursingNote?: string;
 }

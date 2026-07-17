@@ -10,6 +10,7 @@ import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { UsersModule } from './modules/user/users.module';
+import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { UsersModule } from './modules/user/users.module';
         synchronize: false,
         retryAttempts: config.get<number>('DB_RETRY_ATTEMPTS', 1),
         retryDelay: config.get<number>('DB_RETRY_DELAY', 1000),
+        namingStrategy: new SnakeNamingStrategy(),
       }),
       inject: [ConfigService],
     }),

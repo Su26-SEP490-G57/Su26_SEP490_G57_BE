@@ -2,37 +2,37 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AlertResponseDto {
   @ApiProperty({ example: 1 })
-  alert_id!: number;
+  alertId!: number;
 
   @ApiProperty({ example: 'CASE-001' })
-  case_id!: string;
+  caseId!: string;
 
   @ApiProperty({ example: 5 })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @ApiPropertyOptional({ example: 8 })
-  survey_score!: number | null;
+  surveyScore!: number | null;
 
   @ApiProperty({ example: 'YELLOW', enum: ['YELLOW', 'RED'] })
-  alert_type!: string;
+  alertType!: string;
 
   @ApiProperty({ example: 'Pending' })
   status!: string;
 
   @ApiPropertyOptional({ example: true })
-  is_auto_progression!: boolean | null;
+  isAutoProgression!: boolean | null;
 
   @ApiPropertyOptional({ example: '2026-06-09T10:00:00.000Z' })
-  triggered_at!: Date | null;
+  triggeredAt!: Date | null;
 
   @ApiPropertyOptional({ example: 'Administered antiemetic' })
-  nurse_action!: string | null;
+  nurseAction!: string | null;
 
   @ApiPropertyOptional({ example: 'Patient responded well.' })
-  nursing_note!: string | null;
+  nursingNote!: string | null;
 
   @ApiPropertyOptional({ example: null })
-  closed_at!: Date | null;
+  closedAt!: Date | null;
 }
 
 export class PaginatedAlertsDto {

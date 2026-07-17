@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { UserRole } from '../enums/user-role.enum';
+import { UserRoleName } from '../enums/user-role.enum';
 
 export class QueryUserDto {
   @ApiPropertyOptional({ example: 1 })
@@ -19,10 +19,10 @@ export class QueryUserDto {
   @IsOptional()
   limit?: number = 10;
 
-  @ApiPropertyOptional({ enum: UserRole, example: UserRole.NURSE })
-  @IsEnum(UserRole)
+  @ApiPropertyOptional({ enum: UserRoleName, example: UserRoleName.NURSE })
+  @IsEnum(UserRoleName)
   @IsOptional()
-  role?: UserRole;
+  role?: UserRoleName;
 
   @ApiPropertyOptional({ example: true })
   @Type(() => Boolean)

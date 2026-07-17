@@ -89,32 +89,32 @@ export class PatientService {
         ? {
             id: account.id,
             username: account.username,
-            fullName: account.full_name,
-            phoneNumber: account.phone_number,
-            cityProvince: account.city_province,
+            fullName: account.fullName,
+            phoneNumber: account.phoneNumber,
+            cityProvince: account.cityProvince,
             ward: account.ward,
-            detailedAddress: account.detailed_address,
-            isActive: account.is_active,
+            detailedAddress: account.detailedAddress,
+            isActive: account.isActive,
             roles: (account.roles ?? []).map((r) => r.roleName),
-            createdAt: account.created_at,
+            createdAt: account.createdAt,
           }
         : null,
       level: level
         ? {
-            id: level.level_id,
-            name: level.level_name,
+            id: level.levelId,
+            name: level.levelName,
             description: level.description,
           }
         : null,
       operationType: operationType
         ? {
-            id: operationType.operation_type_id,
-            name: operationType.operation_name,
+            id: operationType.operationTypeId,
+            name: operationType.operationName,
           }
         : null,
       lastAssessmentTime: patient.lastAssessmentTime ?? null,
       // Add full_name from account for convenience
-      full_name: account?.full_name ?? null,
+      full_name: account?.fullName ?? null,
     };
   }
 
@@ -131,11 +131,11 @@ export class PatientService {
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
-    return { 
-      caseId: patient.case_id, 
-      currentPod: patient.current_pod,
-      isLocked: patient.is_locked,
-      holdReason: patient.reason_hold_pod,
+    return {
+      caseId: patient.caseId,
+      currentPod: patient.currentPod,
+      isLocked: patient.isLocked,
+      holdReason: patient.reasonHoldPod,
     };
   }
 
@@ -144,7 +144,7 @@ export class PatientService {
   ): Promise<{ caseId: string; currentPod: number; podStartDate: Date }> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
-    if (patient.pod_start_date) {
+    if (patient.podStartDate) {
       throw new BadRequestException(`ERAS already started for patient ${caseId}`);
     }
 
@@ -158,7 +158,7 @@ export class PatientService {
   async lockPod(caseId: string, dto: PodLockDto): Promise<PodLockResponseDto> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
-    if (patient.current_pod === null) {
+    if (patient.currentPod === null) {
       throw new BadRequestException(`Patient ${caseId} has no active POD`);
     }
     if (dto.isLocked && !dto.holdReason) {
@@ -173,11 +173,9 @@ export class PatientService {
       await this.repository.setLockedAt(caseId, now);
     } else {
       // Unlock: shift pod_start_date forward by lock duration so POD stays the same
-      if (patient.locked_at && patient.pod_start_date) {
-        const lockDurationMs = now.getTime() - new Date(patient.locked_at).getTime();
-        const newPodStartDate = new Date(
-          new Date(patient.pod_start_date).getTime() + lockDurationMs,
-        );
+      if (patient.lockedAt && patient.podStartDate) {
+        const lockDurationMs = now.getTime() - new Date(patient.lockedAt).getTime();
+        const newPodStartDate = new Date(new Date(patient.podStartDate).getTime() + lockDurationMs);
         await this.repository.shiftPodStartDate(caseId, newPodStartDate);
       }
       await this.repository.updateLockStatus(caseId, false, null);
@@ -186,7 +184,7 @@ export class PatientService {
 
     const response: PodLockResponseDto = {
       caseId,
-      currentPod: patient.current_pod,
+      currentPod: patient.currentPod,
       isLocked: dto.isLocked,
       holdReason: dto.isLocked ? (dto.holdReason ?? null) : null,
     };
@@ -208,7 +206,7 @@ export class PatientService {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
 
-    if (patient.current_pod === null) {
+    if (patient.currentPod === null) {
       throw new BadRequestException(`Patient ${caseId} has no active POD`);
     }
 
@@ -216,9 +214,9 @@ export class PatientService {
       throw new BadRequestException('POD level must be >= 0');
     }
 
-    if (newPodLevel >= patient.current_pod) {
+    if (newPodLevel >= patient.currentPod) {
       throw new BadRequestException(
-        `POD level must be < current POD (${patient.current_pod}). Only rollback is allowed.`,
+        `POD level must be < current POD (${patient.currentPod}). Only rollback is allowed.`,
       );
     }
 
@@ -233,7 +231,7 @@ export class PatientService {
   /** Operation types for the surgery-type dropdown. */
   async getOperationTypes(): Promise<PatientOperationType[]> {
     const types = await this.repository.listOperationTypes();
-    return types.map((t) => ({ id: t.operation_type_id, name: t.operation_name }));
+    return types.map((t) => ({ id: t.operationTypeId, name: t.operationName }));
   }
 
   /**
@@ -252,7 +250,6 @@ export class PatientService {
 
     await this.assertReferencesExist(dto.operationTypeId, dto.assignedNurseId);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const passwordHash = await bcrypt.hash(dto.password ?? DEFAULT_PATIENT_PASSWORD, SALT_ROUNDS);
 
     const created = await this.repository.createWithAccount({
@@ -261,7 +258,6 @@ export class PatientService {
       currentPod: dto.currentPod ?? 0,
       account: {
         username,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         passwordHash,
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber ?? null,
@@ -277,15 +273,15 @@ export class PatientService {
   /** Update a patient case and its linked login account, addressed by the account's user id. */
   async updatePatient(userId: number, dto: UpdatePatientDto): Promise<PatientWithAccount> {
     const user = await this.repository.findUserById(userId);
-    if (!user || !user.case_id) throw new NotFoundException(`Patient user #${userId} not found`);
-    const caseId = user.case_id;
+    if (!user || !user.caseId) throw new NotFoundException(`Patient user #${userId} not found`);
+    const caseId = user.caseId;
 
     const existing = await this.repository.findById(caseId);
     if (!existing) throw new NotFoundException(`Patient ${caseId} not found`);
 
     if (dto.username !== undefined) {
       const owner = await this.repository.findUserByUsername(dto.username);
-      if (owner && owner.case_id !== caseId) {
+      if (owner && owner.caseId !== caseId) {
         throw new ConflictException(`Username "${dto.username}" is already taken`);
       }
     }
@@ -302,7 +298,6 @@ export class PatientService {
       isActive: dto.isActive,
     };
     if (dto.password !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       account.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
@@ -327,8 +322,8 @@ export class PatientService {
     const user = await this.repository.findUserById(userId);
     if (!user) throw new NotFoundException(`User #${userId} not found`);
 
-    await this.repository.softDeletePatient(user.id, user.case_id);
-    return { userId: user.id, caseId: user.case_id, deleted: true };
+    await this.repository.softDeletePatient(user.id, user.caseId);
+    return { userId: user.id, caseId: user.caseId, deleted: true };
   }
 
   /** Validate optional foreign keys before a write. */

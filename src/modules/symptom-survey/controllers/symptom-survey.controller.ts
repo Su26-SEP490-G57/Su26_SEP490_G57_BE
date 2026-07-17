@@ -20,7 +20,7 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../user/decorators/roles.decorator';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
   CreateQuestionOptionDto,
@@ -58,7 +58,7 @@ export class SymptomSurveyController {
 
   @Post('questions')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Create a survey question with optional inline options (Head Nurse only)',
   })
@@ -69,7 +69,7 @@ export class SymptomSurveyController {
 
   @Patch('questions/:questionId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update a survey question (Head Nurse only)' })
   @ApiResponse({ status: 200, type: SurveyQuestionDto })
   @ApiNotFoundResponse({ description: 'Question not found' })
@@ -82,7 +82,7 @@ export class SymptomSurveyController {
 
   @Delete('questions/:questionId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a survey question and its options (Head Nurse only)' })
   @ApiResponse({ status: 204 })
@@ -94,7 +94,7 @@ export class SymptomSurveyController {
 
   @Post('questions/:questionId/options')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Add an option to a question (Head Nurse only)' })
   @ApiResponse({ status: 201, type: QuestionOptionDto })
   @ApiNotFoundResponse({ description: 'Question not found' })
@@ -107,7 +107,7 @@ export class SymptomSurveyController {
 
   @Patch('questions/:questionId/options/:optionId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update a question option (Head Nurse only)' })
   @ApiResponse({ status: 200, type: QuestionOptionDto })
   @ApiNotFoundResponse({ description: 'Option not found' })
@@ -121,7 +121,7 @@ export class SymptomSurveyController {
 
   @Delete('questions/:questionId/options/:optionId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a question option (Head Nurse only)' })
   @ApiResponse({ status: 204 })
