@@ -16,29 +16,29 @@ export class AlertService {
 
   private toResponse(alert: Alert): AlertResponseDto {
     return {
-      alert_id: alert.alert_id,
-      case_id: alert.case_id,
-      assessment_id: alert.assessment_id,
-      survey_score: alert.survey_score,
-      alert_type: alert.alert_type,
+      alertId: alert.alertId,
+      caseId: alert.caseId,
+      assessmentId: alert.assessmentId,
+      surveyScore: alert.surveyScore,
+      alertType: alert.alertType,
       status: alert.status,
-      is_auto_progression: alert.is_auto_progression,
-      triggered_at: alert.triggered_at,
-      nurse_action: alert.nurse_action,
-      nursing_note: alert.nursing_note,
-      closed_at: alert.closed_at,
+      isAutoProgression: alert.isAutoProgression,
+      triggeredAt: alert.triggeredAt,
+      nurseAction: alert.nurseAction,
+      nursingNote: alert.nursingNote,
+      closedAt: alert.closedAt,
     };
   }
 
   async createAlert(dto: CreateAlertDto): Promise<AlertResponseDto> {
     const saved = await this.repository.save({
-      case_id: dto.caseId,
-      assessment_id: dto.assessmentId,
-      survey_score: dto.surveyScore,
-      alert_type: dto.alertType,
+      caseId: dto.caseId,
+      assessmentId: dto.assessmentId,
+      surveyScore: dto.surveyScore,
+      alertType: dto.alertType,
       status: 'Pending',
-      is_auto_progression: true,
-      triggered_at: new Date(),
+      isAutoProgression: true,
+      triggeredAt: new Date(),
     });
 
     const response = this.toResponse(saved);
@@ -64,8 +64,8 @@ export class AlertService {
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
 
     alert.status = 'Acknowledged';
-    if (dto.nurse_action !== undefined) alert.nurse_action = dto.nurse_action;
-    if (dto.nursing_note !== undefined) alert.nursing_note = dto.nursing_note;
+    if (dto.nurseAction !== undefined) alert.nurseAction = dto.nurseAction;
+    if (dto.nursingNote !== undefined) alert.nursingNote = dto.nursingNote;
 
     const saved = await this.repository.save(alert);
     return this.toResponse(saved);

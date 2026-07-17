@@ -1,40 +1,41 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { QuestionOptionDto } from './survey-question.dto';
 
 export class AnswerDetailDto {
   @ApiProperty({ example: 1 })
-  question_id!: number;
+  questionId!: number;
 
   @ApiProperty({ example: 'Bạn có buồn nôn không?' })
-  question_text!: string;
+  questionText!: string;
 
   @ApiProperty({ example: 2 })
-  selected_option_id!: number;
+  selectedOptionId!: number;
 
   @ApiProperty({ example: 'Nhẹ' })
-  option_text!: string;
+  optionText!: string;
 
   @ApiProperty({ example: 1 })
-  score_earned!: number;
+  scoreEarned!: number;
 }
 
 export class SymptomSurveyResponseDto {
   @ApiProperty({ example: 1 })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @ApiProperty({ example: 'CASE-001' })
-  case_id!: string;
+  caseId!: string;
 
   @ApiProperty({ example: '2026-06-09T10:00:00.000Z' })
-  evaluation_datetime!: Date;
+  evaluationDatetime!: Date;
 
   @ApiPropertyOptional({ example: 3 })
-  pod_context!: number | null;
+  podContext!: number | null;
 
   @ApiProperty({ example: 4 })
-  total_score!: number;
+  totalScore!: number;
 
   @ApiProperty({ example: 'GREEN', enum: ['GREEN', 'YELLOW', 'RED'] })
-  triage_color!: string | null;
+  triageColor!: string | null;
 
   @ApiPropertyOptional({ type: [AnswerDetailDto] })
   details?: AnswerDetailDto[];
@@ -45,19 +46,19 @@ export class SymptomSurveyResponseDto {
 
 export class AssessmentHistoryItemDto {
   @ApiProperty({ example: 1 })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @ApiProperty({ example: '2026-07-01T08:30:00.000Z' })
-  evaluation_datetime!: Date;
+  evaluationDatetime!: Date;
 
   @ApiPropertyOptional({ example: 2 })
-  pod_context!: number | null;
+  podContext!: number | null;
 
   @ApiProperty({ example: 4 })
-  total_score!: number;
+  totalScore!: number;
 
   @ApiProperty({ example: 'RED', enum: ['GREEN', 'YELLOW', 'RED'] })
-  triage_color!: string | null;
+  triageColor!: string | null;
 
   @ApiProperty({ type: [AnswerDetailDto] })
   details!: AnswerDetailDto[];
@@ -79,19 +80,19 @@ export class PaginatedAssessmentHistoryDto {
 
 export class SurveyQuestionDto {
   @ApiProperty({ example: 1 })
-  question_id!: number;
+  questionId!: number;
 
   @ApiProperty({ example: 'Bạn có buồn nôn không?' })
-  question_text!: string;
+  questionText!: string;
 
   @ApiProperty({ example: 1 })
-  order_number!: number | null;
+  orderNumber!: number | null;
 
   @ApiProperty({ example: true, description: 'True for built-in default questions' })
-  is_default!: boolean;
+  isDefault!: boolean;
 
   @ApiProperty({
-    example: [{ option_id: 1, option_text: 'Không', score_value: 0 }],
+    example: [{ optionId: 1, optionText: 'Không', scoreValue: 0 } satisfies QuestionOptionDto],
   })
-  options!: { option_id: number; option_text: string; score_value: number }[];
+  options!: QuestionOptionDto[];
 }

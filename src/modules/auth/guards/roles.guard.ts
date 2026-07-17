@@ -1,26 +1,28 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
+import { AuthenticatedRequest } from 'src/shared/types/authenticated-request';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.get<UserRole[]>('roles', context.getHandler()) || [];
+    const requiredRoles = this.reflector.get<UserRoleName[]>('roles', context.getHandler()) || [];
     if (requiredRoles.length === 0) return true;
 
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = req.user;
     if (!user) throw new UnauthorizedException('No user available');
 
-    // Support both single role (string) and array of roles
-    const userRoles: string[] = Array.isArray(user.roles)
-      ? user.roles
-      : user.role
-        ? [user.role]
-        : [];
-
-    return requiredRoles.some((r) => userRoles.includes(r));
+    return requiredRoles.some((r) => user.roles.includes(r));
   }
 }

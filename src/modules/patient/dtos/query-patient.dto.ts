@@ -53,7 +53,7 @@ export class QueryPatientDto {
     example: 'ASC',
   })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : (value as never)))
   @IsIn(SORT_ORDERS)
   sortOrder?: SortOrder = 'ASC';
 

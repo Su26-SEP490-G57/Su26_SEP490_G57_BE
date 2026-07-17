@@ -9,7 +9,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '../enums/user-role.enum';
+import { UserRoleName } from '../enums/user-role.enum';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'user_hoa', description: 'Unique login username', maxLength: 50 })
@@ -42,13 +42,13 @@ export class CreateUserDto {
   phoneNumber?: string;
 
   @ApiPropertyOptional({
-    enum: UserRole,
+    enum: UserRoleName,
     isArray: true,
-    example: [UserRole.NURSE],
-    default: [UserRole.NURSE],
+    example: [UserRoleName.NURSE],
+    default: [UserRoleName.NURSE],
   })
   @IsArray()
-  @IsEnum(UserRole, { each: true })
+  @IsEnum(UserRoleName, { each: true })
   @IsOptional()
-  roles?: UserRole[];
+  roles?: UserRoleName[];
 }

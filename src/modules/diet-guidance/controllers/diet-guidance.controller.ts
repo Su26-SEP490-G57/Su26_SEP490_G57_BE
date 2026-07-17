@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import {
   CreateOperationTypeDto,
   OperationTypeResponseDto,
@@ -52,7 +52,7 @@ export class DietGuidanceController {
 
   @Post('operation-types')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Create a new operation type (Head Nurse only)' })
   @ApiResponse({ status: 201, type: OperationTypeResponseDto })
   createOperationType(@Body() dto: CreateOperationTypeDto): Promise<OperationTypeResponseDto> {
@@ -61,7 +61,7 @@ export class DietGuidanceController {
 
   @Patch('operation-types/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update an operation type (Head Nurse only)' })
   @ApiResponse({ status: 200, type: OperationTypeResponseDto })
   @ApiNotFoundResponse({ description: 'Operation type not found' })
@@ -74,7 +74,7 @@ export class DietGuidanceController {
 
   @Delete('operation-types/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete an operation type (Head Nurse only)' })
   @ApiResponse({ status: 204 })
@@ -105,7 +105,7 @@ export class DietGuidanceController {
 
   @Post('operation-types/:opId/pods')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Create a new POD (Head Nurse only)' })
   @ApiResponse({ status: 201, type: PodProtocolResponseDto })
   createPod(
@@ -118,7 +118,7 @@ export class DietGuidanceController {
 
   @Patch('operation-types/:opId/pods/:podId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update a POD inline (Head Nurse only)' })
   @ApiResponse({ status: 200, type: PodProtocolResponseDto })
   @ApiNotFoundResponse({ description: 'POD not found' })
@@ -133,7 +133,7 @@ export class DietGuidanceController {
 
   @Delete('operation-types/:opId/pods/:podId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a POD (Head Nurse only)' })
   @ApiResponse({ status: 204 })

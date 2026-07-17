@@ -9,7 +9,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 
 export class UpdateNurseDto {
   @ApiPropertyOptional({ example: 'Điều dưỡng 02 Updated' })
@@ -54,10 +54,10 @@ export class UpdateNurseDto {
   @MaxLength(255)
   detailedAddress?: string;
 
-  @ApiPropertyOptional({ enum: [UserRole.NURSE, UserRole.HEAD_NURSE] })
+  @ApiPropertyOptional({ enum: [UserRoleName.NURSE, UserRoleName.HEAD_NURSE] })
   @IsOptional()
-  @IsEnum([UserRole.NURSE, UserRole.HEAD_NURSE])
-  role?: UserRole.NURSE | UserRole.HEAD_NURSE;
+  @IsEnum([UserRoleName.NURSE, UserRoleName.HEAD_NURSE])
+  role?: UserRoleName.NURSE | UserRoleName.HEAD_NURSE;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

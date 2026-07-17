@@ -18,12 +18,12 @@ export class CreateQuestionOptionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  option_text!: string;
+  optionText!: string;
 
   @ApiProperty({ example: 1, description: 'Score contributed when this option is selected' })
   @IsInt()
   @Min(0)
-  score_value!: number;
+  scoreValue!: number;
 }
 
 export class UpdateQuestionOptionDto {
@@ -32,33 +32,33 @@ export class UpdateQuestionOptionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  option_text?: string;
+  optionText?: string;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsInt()
   @Min(0)
-  score_value?: number;
+  scoreValue?: number;
 }
 
 export class CreateSurveyQuestionDto {
   @ApiProperty({ example: 'Bạn có buồn nôn không?' })
   @IsString()
   @IsNotEmpty()
-  question_text!: string;
+  questionText!: string;
 
   @ApiPropertyOptional({ example: 1, description: 'Display order; lower shows first' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  order_number?: number;
+  orderNumber?: number;
 
   @ApiProperty({
     example: false,
     description: 'Whether this is a built-in default question. Must be chosen when creating.',
   })
   @IsBoolean()
-  is_default!: boolean;
+  isDefault!: boolean;
 
   @ApiPropertyOptional({
     type: [CreateQuestionOptionDto],
@@ -77,7 +77,7 @@ export class UpdateSurveyQuestionDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  question_text?: string;
+  questionText?: string;
 
   @ApiPropertyOptional({ example: 2 })
   @IsOptional()
@@ -91,16 +91,16 @@ export class UpdateSurveyQuestionDto {
   })
   @IsOptional()
   @IsBoolean()
-  is_default?: boolean;
+  isDefault?: boolean;
 }
 
 export class QuestionOptionDto {
   @ApiProperty({ example: 1 })
-  option_id!: number;
+  optionId!: number;
 
   @ApiProperty({ example: 'Nhẹ' })
-  option_text!: string;
+  optionText!: string;
 
   @ApiProperty({ example: 1 })
-  score_value!: number;
+  scoreValue!: number;
 }
