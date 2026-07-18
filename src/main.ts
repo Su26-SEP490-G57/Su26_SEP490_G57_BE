@@ -12,6 +12,7 @@ process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 async function bootstrap() {
   console.log('Hello world');
+  console.log('Hello world');
 
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = process.env.FRONTEND_URL
