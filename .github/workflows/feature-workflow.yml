@@ -1,9 +1,28 @@
 name: Feature Branch CI/CD Workflow
 
+permissions:
+  contents: read
+  packages: write
+  deployments: write
+  actions: write
+
 on:
   push:
     branches:
       - 'SEP490-*'
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'nest-cli.json'
+      - 'resources/docker/Dockerfile'
+      - 'resources/docker/docker-compose.dev.yml'
+      - 'resources/scripts/check-health.sh'
+      - '.github/workflows/feature-workflow.yml'
+      - '.github/workflows/deploy-workflow.yml'
+      - '.github/actions/**'
 
 jobs:
   code_quality:
@@ -16,10 +35,16 @@ jobs:
 
       - name: Setup Project
         uses: ./.github/actions/setup-project
-        with:
-          environment: staging
 
       - name: Static Check
         run: |
           npm run format:check
           npm run lint
+
+  deploy_dev:
+    name: Deploy to Dev
+    needs: code_quality
+    uses: ./.github/workflows/deploy-workflow.yml
+    with:
+      environment: dev
+    secrets: inherit

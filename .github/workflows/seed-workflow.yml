@@ -1,5 +1,9 @@
 name: Seed Database Workflow (DEV ONLY)
 
+permissions:
+  deployments: write
+  actions: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +19,23 @@ concurrency:
   queue: max
 
 jobs:
+  auto_approve:
+    name: Auto Approve If Manual Trigger
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto Approve If Manual Trigger
+        uses: activescott/automate-environment-deployment-approval@v1.0.6
+        with:
+          github_token: ${{ secrets.AUTO_APPROVE_TOKEN }}
+          environment_allow_list: |
+            dev
+          actor_allow_list: |
+            WhiteAngel2406
+            BinhH12
+            fonghtdev
+            giangdoit123
+            lucif3r2003
+
   execute_seed:
     name: Reset and Seed Database
     runs-on: ubuntu-latest
