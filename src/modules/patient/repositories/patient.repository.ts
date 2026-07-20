@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -159,7 +160,6 @@ export class PatientRepository {
     // Map lastAssessmentTime from raw results to entities
     const patients = rawAndEntities.entities.map((patient, index) => {
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         rawAndEntities.raw[index]?.lastAssessmentTime || null;
       return patient;
     });

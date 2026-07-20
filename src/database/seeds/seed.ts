@@ -1,12 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import * as bcrypt from 'bcrypt';
 import 'dotenv/config';
-import AppDataSource from '../../data-source';
+import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
+import { Patient } from 'src/modules/patient/entities/patient.entity';
 import { Role } from 'src/modules/user/entities/role.entity';
 import { User } from 'src/modules/user/entities/user.entity';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
 import { DeepPartial } from 'typeorm';
-import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
-import { Patient } from 'src/modules/patient/entities/patient.entity';
+import AppDataSource from '../../data-source';
 
 const SALT_ROUNDS = 10;
 
@@ -208,6 +210,21 @@ async function seed() {
     `✅ Operation types seeded: [${operationTypes.map((operationType) => operationType.operationName).join(', ')}]`,
   );
 
+  // Get nurse01 user ID for assigned_nurse_id
+  const nurse01 = savedUsers.find((u) => u.username === 'nurse01');
+  const nurseId = nurse01?.id ?? null;
+
+  // Map operation type names to IDs
+  const operationTypeByName: Record<string, number> = {};
+  savedOperationTypes.forEach((op) => {
+    if (op.operationName) {
+      operationTypeByName[op.operationName] = op.operationTypeId!;
+    }
+  });
+
+  // Schema for raw SQL queries
+  const schema = `"${process.env.DB_SCHEMA || 'public'}"`;
+
   // Current time for realistic seed data
   const now = new Date();
 
@@ -404,7 +421,7 @@ async function seed() {
         patient.weight,
         patient.bmi,
         patient.diagnosis,
-        operationTypeByName[patient.operationType],
+        patient.operationType.operationTypeId,
         patient.method,
         patient.surgeryDate,
         patient.roomBed,
