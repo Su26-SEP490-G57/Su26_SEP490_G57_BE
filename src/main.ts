@@ -8,8 +8,6 @@ import { TimezoneInterceptor } from './common/interceptors/timezone.interceptor'
 
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
-process.env.TZ = 'Asia/Ho_Chi_Minh';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = process.env.FRONTEND_URL
