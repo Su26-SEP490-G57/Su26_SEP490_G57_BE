@@ -3,6 +3,8 @@ name: Deploy Workflow
 permissions:
   contents: read
   packages: write
+  deployments: write
+  actions: write
 
 on:
   workflow_dispatch:
@@ -25,8 +27,26 @@ on:
         type: string
 
 jobs:
-  check_and_build:
-    name: Docker Image Check & Build
+  auto_approve:
+    name: Auto Approve If Manual Trigger
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Auto Approve If Manual Trigger
+        uses: activescott/automate-environment-deployment-approval@v1.0.6
+        with:
+          github_token: ${{ secrets.AUTO_APPROVE_TOKEN }}
+          environment_allow_list: |
+            dev
+          actor_allow_list: |
+            WhiteAngel2406
+            BinhH12
+            fonghtdev
+            giangdoit123
+            lucif3r2003
+
+  build_and_deploy:
+    name: Build & Deploy to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
@@ -34,12 +54,8 @@ jobs:
       inputs.environment == 'dev' || 
       ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
 
-    outputs:
-      image_exists: ${{ steps.check_manifest.outputs.exists }}
-      short_sha: ${{ steps.vars.outputs.short_sha }}
-
     concurrency:
-      group: poms-api-build-${{ github.sha }}
+      group: poms-api-pipeline-${{ inputs.environment }}-${{ github.sha }}
       cancel-in-progress: false
       queue: max
 
@@ -81,30 +97,11 @@ jobs:
             ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
             ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
 
-  deploy:
-    name: Deployment
-    needs: check_and_build
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    concurrency:
-      group: poms-api-deploy-${{ inputs.environment }}
-      cancel-in-progress: false
-      queue: max
-
-    if: |
-      inputs.environment == 'dev' || 
-      ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Deploy to Environment
+      - name: Deploy to Environment via SSH
         uses: appleboy/ssh-action@v1.2.5
         env:
           APP_IMAGE_NAME: ${{ vars.APP_IMAGE_NAME }}
-          APP_IMAGE_TAG: ${{ needs.check_and_build.outputs.short_sha }}
+          APP_IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
@@ -139,5 +136,5 @@ jobs:
             docker compose -f $COMPOSE_FILE up -d
 
             echo "🔍 Checking health..."
-            chmod +x ./resources/scripts/check-health.sh
+            chmod +x ./resources/scripts/check-health.sh || true
             ./resources/scripts/check-health.sh poms-api-${{ inputs.environment }} 25 3

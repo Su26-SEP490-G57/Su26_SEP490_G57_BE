@@ -6,29 +6,29 @@ import { SymptomSurvey } from './symptom-survey.entity';
 @Entity('patient_assessment_details')
 export class AssessmentDetail {
   @PrimaryGeneratedColumn({ name: 'detail_id', type: 'int' })
-  detail_id!: number;
+  detailId!: number;
 
   @Column({ name: 'assessment_id', type: 'int' })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @ManyToOne(() => SymptomSurvey, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'assessment_id' })
   assessment!: SymptomSurvey;
 
   @Column({ name: 'question_id', type: 'int' })
-  question_id!: number;
+  questionId!: number;
 
   @ManyToOne(() => SurveyQuestion, { onDelete: 'RESTRICT', eager: true })
   @JoinColumn({ name: 'question_id' })
   question!: SurveyQuestion;
 
   @Column({ name: 'selected_option_id', type: 'int' })
-  selected_option_id!: number;
+  selectedOptionId!: number;
 
   @ManyToOne(() => QuestionOption, { onDelete: 'RESTRICT', eager: true })
   @JoinColumn({ name: 'selected_option_id' })
-  selected_option!: QuestionOption;
+  selectedOption!: QuestionOption;
 
   @Column({ name: 'score_earned', type: 'int' })
-  score_earned!: number;
+  scoreEarned!: number;
 }

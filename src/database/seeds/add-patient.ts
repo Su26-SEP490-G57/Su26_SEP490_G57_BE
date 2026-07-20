@@ -19,7 +19,7 @@ import * as bcrypt from 'bcrypt';
 import dataSource from '../../data-source';
 import { User } from '../../modules/user/entities/user.entity';
 import { Role } from '../../modules/user/entities/role.entity';
-import { UserRole } from '../../modules/user/enums/user-role.enum';
+import { UserRoleName } from '../../modules/user/enums/user-role.enum';
 
 const SALT_ROUNDS = 10; // keep in sync with UsersService
 
@@ -32,7 +32,7 @@ async function run() {
   ] = process.argv.slice(2);
 
   await dataSource.initialize();
-  console.log(`Connected to ${dataSource.options.database}`);
+  console.log(`Connected to ${dataSource.options.database as string}`);
 
   try {
     const userRepo = dataSource.getRepository(User);
@@ -46,16 +46,16 @@ async function run() {
 
     // Resolve the Patient role, creating the row if it does not exist yet.
     let patientRole = await roleRepo.findOne({
-      where: { roleName: UserRole.PATIENT },
+      where: { roleName: UserRoleName.PATIENT },
     });
     if (!patientRole) {
       patientRole = await roleRepo.save(
         roleRepo.create({
-          roleName: UserRole.PATIENT,
+          roleName: UserRoleName.PATIENT,
           description: 'Patient (mobile app user)',
         }),
       );
-      console.log(`+ Created "${UserRole.PATIENT}" role (id=${patientRole.id})`);
+      console.log(`+ Created "${UserRoleName.PATIENT}" role (id=${patientRole.id})`);
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -63,10 +63,10 @@ async function run() {
     const user = await userRepo.save(
       userRepo.create({
         username,
-        password_hash: passwordHash,
-        full_name: fullName,
-        phone_number: phoneNumber || null,
-        is_active: true,
+        passwordHash: passwordHash,
+        fullName: fullName,
+        phoneNumber: phoneNumber || null,
+        isActive: true,
         roles: [patientRole],
       }),
     );
@@ -75,7 +75,7 @@ async function run() {
     console.log(`    id:       ${user.id}`);
     console.log(`    username: ${username}`);
     console.log(`    password: ${password}`);
-    console.log(`    role:     ${UserRole.PATIENT}`);
+    console.log(`    role:     ${UserRoleName.PATIENT}`);
   } finally {
     await dataSource.destroy();
   }

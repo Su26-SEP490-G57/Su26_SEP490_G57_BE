@@ -7,13 +7,13 @@ export class RefreshToken {
   id!: number;
 
   @Column({ type: 'int' })
-  user_id!: number;
+  userId!: number;
 
   @Column({ type: 'varchar', length: 500, unique: true })
   token!: string;
 
   @Column({ type: 'timestamp' })
-  expires_at!: Date;
+  expiresAt!: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

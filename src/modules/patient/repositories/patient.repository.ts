@@ -4,7 +4,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { Role } from '../../user/entities/role.entity';
 import { User } from '../../user/entities/user.entity';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { OperationType } from '../entities/operation-type.entity';
 import { Patient } from '../entities/patient.entity';
@@ -82,7 +82,7 @@ export class PatientRepository {
   }
 
   findById(caseId: string): Promise<Patient | null> {
-    return this.repo.findOne({ where: { case_id: caseId } });
+    return this.repo.findOne({ where: { caseId: caseId } });
   }
 
   async updateLockStatus(
@@ -91,25 +91,25 @@ export class PatientRepository {
     holdReason: string | null,
   ): Promise<void> {
     await this.repo.update(
-      { case_id: caseId },
-      { is_locked: isLocked, reason_hold_pod: isLocked ? holdReason : null },
+      { caseId: caseId },
+      { isLocked: isLocked, reasonHoldPod: isLocked ? holdReason : null },
     );
   }
 
   async setLockedAt(caseId: string, lockedAt: Date | null): Promise<void> {
-    await this.repo.update({ case_id: caseId }, { locked_at: lockedAt });
+    await this.repo.update({ caseId: caseId }, { lockedAt: lockedAt });
   }
 
   async shiftPodStartDate(caseId: string, newPodStartDate: Date): Promise<void> {
-    await this.repo.update({ case_id: caseId }, { pod_start_date: newPodStartDate });
+    await this.repo.update({ caseId: caseId }, { podStartDate: newPodStartDate });
   }
 
   async startEras(caseId: string, startTime: Date): Promise<void> {
-    await this.repo.update({ case_id: caseId }, { pod_start_date: startTime, current_pod: 0 });
+    await this.repo.update({ caseId: caseId }, { podStartDate: startTime, currentPod: 0 });
   }
 
   async updatePodLevel(caseId: string, newPodLevel: number): Promise<void> {
-    await this.repo.update({ case_id: caseId }, { current_pod: newPodLevel });
+    await this.repo.update({ caseId: caseId }, { currentPod: newPodLevel });
   }
 
   /** A single patient with all relations joined (same shape as the list endpoint). */
@@ -171,7 +171,7 @@ export class PatientRepository {
 
   async caseIdExists(caseId: string): Promise<boolean> {
     // withDeleted: the case_id primary key is still occupied by soft-deleted rows.
-    return (await this.repo.count({ where: { case_id: caseId }, withDeleted: true })) > 0;
+    return (await this.repo.count({ where: { caseId: caseId }, withDeleted: true })) > 0;
   }
 
   findUserByUsername(username: string): Promise<User | null> {
@@ -183,7 +183,7 @@ export class PatientRepository {
     return (
       (await this.dataSource
         .getRepository(OperationType)
-        .count({ where: { operation_type_id: id } })) > 0
+        .count({ where: { operationTypeId: id } })) > 0
     );
   }
 
@@ -250,23 +250,22 @@ export class PatientRepository {
     account: PatientAccountInput,
   ): Promise<Patient | null> {
     return this.dataSource.transaction(async (manager) => {
-      const patient = await manager.findOne(Patient, { where: { case_id: caseId } });
+      const patient = await manager.findOne(Patient, { where: { caseId: caseId } });
       if (!patient) return null;
 
       this.applyCaseFields(patient, caseFields);
       await manager.save(patient);
 
-      const linked = await manager.findOne(User, { where: { case_id: caseId } });
+      const linked = await manager.findOne(User, { where: { caseId: caseId } });
       if (linked) {
         if (account.username !== undefined) linked.username = account.username;
-        if (account.fullName !== undefined) linked.full_name = account.fullName;
-        if (account.phoneNumber !== undefined) linked.phone_number = account.phoneNumber;
-        if (account.cityProvince !== undefined) linked.city_province = account.cityProvince;
+        if (account.fullName !== undefined) linked.fullName = account.fullName;
+        if (account.phoneNumber !== undefined) linked.phoneNumber = account.phoneNumber;
+        if (account.cityProvince !== undefined) linked.cityProvince = account.cityProvince;
         if (account.ward !== undefined) linked.ward = account.ward;
-        if (account.detailedAddress !== undefined)
-          linked.detailed_address = account.detailedAddress;
-        if (account.passwordHash !== undefined) linked.password_hash = account.passwordHash;
-        if (account.isActive !== undefined) linked.is_active = account.isActive;
+        if (account.detailedAddress !== undefined) linked.detailedAddress = account.detailedAddress;
+        if (account.passwordHash !== undefined) linked.passwordHash = account.passwordHash;
+        if (account.isActive !== undefined) linked.isActive = account.isActive;
         await manager.save(linked);
       }
 
@@ -281,15 +280,15 @@ export class PatientRepository {
     if (f.weight !== undefined) patient.weight = f.weight;
     if (f.bmi !== undefined) patient.bmi = f.bmi;
     if (f.diagnosis !== undefined) patient.diagnosis = f.diagnosis;
-    if (f.operationTypeId !== undefined) patient.operation_type_id = f.operationTypeId;
+    if (f.operationTypeId !== undefined) patient.operationTypeId = f.operationTypeId;
     if (f.method !== undefined) patient.method = f.method;
-    if (f.hasGiAnastomosis !== undefined) patient.has_gi_anastomosis = f.hasGiAnastomosis;
-    if (f.surgeryDate !== undefined) patient.surgery_date = f.surgeryDate;
-    if (f.roomBed !== undefined) patient.room_bed = f.roomBed;
-    if (f.currentPod !== undefined) patient.current_pod = f.currentPod;
-    if (f.levelId !== undefined) patient.level_id = f.levelId;
+    if (f.hasGiAnastomosis !== undefined) patient.hasGiAnastomosis = f.hasGiAnastomosis;
+    if (f.surgeryDate !== undefined) patient.surgeryDate = f.surgeryDate;
+    if (f.roomBed !== undefined) patient.roomBed = f.roomBed;
+    if (f.currentPod !== undefined) patient.currentPod = f.currentPod;
+    if (f.levelId !== undefined) patient.levelId = f.levelId;
     if (f.assignedNurseId !== undefined) {
-      patient.assigned_nurse =
+      patient.assignedNurse =
         f.assignedNurseId != null ? ({ id: f.assignedNurseId } as User) : null;
     }
   }
@@ -308,16 +307,19 @@ export class PatientRepository {
 
   private async resolvePatientRole(manager: EntityManager): Promise<Role> {
     const roleRepo = manager.getRepository(Role);
-    let role = await roleRepo.findOne({ where: { roleName: UserRole.PATIENT } });
+    let role = await roleRepo.findOne({ where: { roleName: UserRoleName.PATIENT } });
     if (!role) {
       role = await roleRepo.save(
-        roleRepo.create({ roleName: UserRole.PATIENT, description: 'Patient (mobile app user)' }),
+        roleRepo.create({
+          roleName: UserRoleName.PATIENT,
+          description: 'Patient (mobile app user)',
+        }),
       );
     }
     return role;
   }
 
   listOperationTypes(): Promise<OperationType[]> {
-    return this.dataSource.getRepository(OperationType).find({ order: { operation_name: 'ASC' } });
+    return this.dataSource.getRepository(OperationType).find({ order: { operationName: 'ASC' } });
   }
 }

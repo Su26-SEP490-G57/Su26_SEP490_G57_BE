@@ -1,12 +1,6 @@
 name: 'Setup NestJS Environment with Cache'
 description: 'Initializes Node.js, configures smart npm caching, installs dependencies, and generates dynamic environment files.'
 
-inputs:
-  environment:
-    description: 'The environment to be used (e.g., dev, staging, prod)'
-    required: false
-    default: ''
-
 runs:
   using: 'composite'
   steps:

@@ -24,7 +24,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
 import { Roles } from '../../user/decorators/roles.decorator';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-response.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
@@ -117,7 +117,7 @@ export class PatientController {
 
   @Get(':id/assessments')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE, UserRole.NURSE)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
   @ApiOperation({ summary: 'Get assessment history for a patient (Nurse/Head Nurse only)' })
   @ApiResponse({ status: 200, type: PaginatedAssessmentHistoryDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -133,7 +133,7 @@ export class PatientController {
 
   @Post(':id/start-eras')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse only)' })
   @ApiResponse({ status: 201 })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -144,7 +144,7 @@ export class PatientController {
 
   @Patch(':id/pod-lock')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.NURSE, UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Lock or unlock POD progression for a patient',
     description:
@@ -159,7 +159,7 @@ export class PatientController {
 
   @Patch(':id/pod-level')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.NURSE, UserRole.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Manually adjust POD level for a patient (rollback only)',
     description:

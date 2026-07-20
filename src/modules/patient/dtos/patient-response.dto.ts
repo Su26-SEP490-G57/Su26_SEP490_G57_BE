@@ -54,10 +54,10 @@ class PatientOperationTypeDto {
 
 export class PatientListItemDto {
   @ApiProperty({ example: 'CASE-001' })
-  case_id!: string;
+  caseId!: string;
 
   @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
-  full_name!: string | null;
+  fullName!: string | null;
 
   @ApiPropertyOptional({ example: 55 })
   age!: number | null;
@@ -66,7 +66,7 @@ export class PatientListItemDto {
   gender!: string | null;
 
   @ApiPropertyOptional({ example: 2 })
-  current_pod!: number | null;
+  currentPod!: number | null;
 
   @ApiPropertyOptional({ type: PatientLevelDto })
   level!: PatientLevelDto | null;

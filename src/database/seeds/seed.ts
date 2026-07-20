@@ -1,12 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import * as bcrypt from 'bcrypt';
 import 'dotenv/config';
 import AppDataSource from '../../data-source';
+import { Role } from 'src/modules/user/entities/role.entity';
+import { User } from 'src/modules/user/entities/user.entity';
+import { UserRole } from 'src/modules/user/enums/user-role.enum';
+import { DeepPartial } from 'typeorm';
+import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
+import { Patient } from 'src/modules/patient/entities/patient.entity';
 
-const SCHEMA = process.env.DB_SCHEMA || 'public';
 const SALT_ROUNDS = 10;
 
 async function seed() {
@@ -19,10 +20,14 @@ async function seed() {
 
   console.log('🧹 [Seed] Wiping old data...');
 
-  // eslint-disable-next-line prettier/prettier
   const PROTECTED_TABLES = ['survey_questions', 'question_options', 'levels'];
 
   const entities = AppDataSource.entityMetadatas;
+  const rolesRepository = AppDataSource.getRepository(Role);
+  const usersRepository = AppDataSource.getRepository(User);
+  const operationTypesRepository = AppDataSource.getRepository(OperationType);
+  const patientsRepository = AppDataSource.getRepository(Patient);
+
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
   for (const entity of entities) {
@@ -39,179 +44,169 @@ async function seed() {
 
   console.log('📥 [Seed] Inserting fresh standard dataset...');
 
-  const schema = `"${SCHEMA}"`;
-
-  const roles = ['Admin', 'Head_Nurse', 'Nurse', 'Patient'];
-  for (const roleName of roles) {
-    await AppDataSource.query(
-      `
-      INSERT INTO ${schema}."roles" ("role_name")
-      VALUES ($1)
-      ON CONFLICT ("role_name") DO NOTHING
-    `,
-      [roleName],
-    );
-  }
-  console.log('✅ Roles seeded');
-
-  const users = [
+  const roles: DeepPartial<Role>[] = [
     {
-      username: 'admin',
-      password: 'Admin@123',
-      fullName: 'Quản trị viên',
-      role: 'Admin',
-      caseId: null,
+      id: 1,
+      ...UserRole.ADMIN,
     },
     {
-      username: 'head_nurse',
-      password: 'Nurse@123',
-      fullName: 'Điều dưỡng trưởng',
-      role: 'Head_Nurse',
-      caseId: null,
+      id: 2,
+      ...UserRole.HEAD_NURSE,
     },
     {
-      username: 'nurse01',
-      password: 'Nurse@123',
-      fullName: 'Điều dưỡng 01',
-      role: 'Nurse',
-      caseId: null,
+      id: 3,
+      ...UserRole.NURSE,
     },
     {
-      username: 'patient01',
-      password: 'Patient@123',
-      fullName: 'Nguyễn Văn An',
-      role: 'Patient',
-      caseId: 'CASE-001',
-    },
-    {
-      username: 'patient02',
-      password: 'Patient@123',
-      fullName: 'Trần Thị Bình',
-      role: 'Patient',
-      caseId: 'CASE-002',
-    },
-    {
-      username: 'patient03',
-      password: 'Patient@123',
-      fullName: 'Lê Văn Cường',
-      role: 'Patient',
-      caseId: 'CASE-003',
-    },
-    {
-      username: 'patient04',
-      password: 'Patient@123',
-      fullName: 'Phạm Thị Dung',
-      role: 'Patient',
-      caseId: 'CASE-004',
-    },
-    {
-      username: 'patient05',
-      password: 'Patient@123',
-      fullName: 'Hoàng Minh Đức',
-      role: 'Patient',
-      caseId: 'CASE-005',
-    },
-    {
-      username: 'patient06',
-      password: 'Patient@123',
-      fullName: 'Đặng Thị Hoa',
-      role: 'Patient',
-      caseId: 'CASE-006',
-    },
-    {
-      username: 'patient07',
-      password: 'Patient@123',
-      fullName: 'Vũ Văn Hùng',
-      role: 'Patient',
-      caseId: 'CASE-007',
-    },
-    {
-      username: 'patient08',
-      password: 'Patient@123',
-      fullName: 'Ngô Thị Lan',
-      role: 'Patient',
-      caseId: 'CASE-008',
-    },
-    {
-      username: 'patient09',
-      password: 'Patient@123',
-      fullName: 'Bùi Văn Minh',
-      role: 'Patient',
-      caseId: 'CASE-009',
-    },
-    {
-      username: 'patient10',
-      password: 'Patient@123',
-      fullName: 'Trương Mai Phương',
-      role: 'Patient',
-      caseId: 'CASE-010',
+      id: 4,
+      ...UserRole.PATIENT,
     },
   ];
 
-  for (const u of users) {
-    const hash = await bcrypt.hash(u.password, SALT_ROUNDS);
+  const savedRoles = await rolesRepository.save(roles);
+  console.log('✅ Roles seeded');
 
-    const result = await AppDataSource.query(
-      `
-      INSERT INTO ${schema}."users" ("username", "password_hash", "full_name", "is_active", "case_id")
-      VALUES ($1, $2, $3, TRUE, $4)
-      ON CONFLICT ("username") DO UPDATE SET "case_id" = EXCLUDED."case_id"
-      RETURNING "user_id"
-    `,
-      [u.username, hash, u.fullName, u.caseId],
-    );
+  const ADMIN_HASH = await bcrypt.hash('Admin@123', SALT_ROUNDS);
+  const NURSE_HASH = await bcrypt.hash('Nurse@123', SALT_ROUNDS);
+  const PATIENT_HASH = await bcrypt.hash('Patient@123', SALT_ROUNDS);
 
-    if (result.length === 0) {
-      console.log(`⏭️  User "${u.username}" skipped`);
-      continue;
-    }
+  const users: DeepPartial<User>[] = [
+    {
+      id: 1,
+      username: 'admin',
+      passwordHash: ADMIN_HASH,
+      fullName: 'Quản trị viên',
+      roles: [savedRoles[0]],
+      caseId: null,
+      isActive: true,
+    },
+    {
+      id: 2,
+      username: 'head_nurse',
+      passwordHash: NURSE_HASH,
+      fullName: 'Điều dưỡng trưởng',
+      roles: [savedRoles[1]],
+      caseId: null,
+      isActive: true,
+    },
+    {
+      id: 3,
+      username: 'nurse01',
+      passwordHash: NURSE_HASH,
+      fullName: 'Điều dưỡng 01',
+      roles: [savedRoles[2]],
+      caseId: null,
+      isActive: true,
+    },
+    {
+      id: 4,
+      username: 'patient01',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Nguyễn Văn An',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-001',
+      isActive: true,
+    },
+    {
+      id: 5,
+      username: 'patient02',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Trần Thị Bình',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-002',
+      isActive: true,
+    },
+    {
+      id: 6,
+      username: 'patient03',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Lê Văn Cường',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-003',
+      isActive: true,
+    },
+    {
+      id: 7,
+      username: 'patient04',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Phạm Thị Dung',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-004',
+      isActive: true,
+    },
+    {
+      id: 8,
+      username: 'patient05',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Hoàng Minh Đức',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-005',
+      isActive: true,
+    },
+    {
+      id: 9,
+      username: 'patient06',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Đặng Thị Hoa',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-006',
+      isActive: true,
+    },
+    {
+      id: 10,
+      username: 'patient07',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Vũ Văn Hùng',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-007',
+      isActive: true,
+    },
+    {
+      id: 11,
+      username: 'patient08',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Ngô Thị Lan',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-008',
+      isActive: true,
+    },
+    {
+      id: 12,
+      username: 'patient09',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Bùi Văn Minh',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-009',
+      isActive: true,
+    },
+    {
+      id: 13,
+      username: 'patient10',
+      passwordHash: PATIENT_HASH,
+      fullName: 'Trương Mai Phương',
+      roles: [savedRoles[3]],
+      caseId: 'CASE-010',
+      isActive: true,
+    },
+  ];
 
-    const userId = result[0].user_id;
-
-    // Link role
-    const roleResult = await AppDataSource.query(
-      `
-      SELECT "role_id" FROM ${schema}."roles" WHERE "role_name" = $1
-    `,
-      [u.role],
-    );
-
-    if (roleResult.length > 0) {
-      const roleId = roleResult[0].role_id;
-      await AppDataSource.query(
-        `
-        INSERT INTO ${schema}."user_roles" ("user_id", "role_id")
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-      `,
-        [userId, roleId],
-      );
-    }
-
-    console.log(`✅ User "${u.username}" (${u.role}) seeded`);
-  }
-
-  const nurseResult = await AppDataSource.query(`
-    SELECT "user_id" FROM ${schema}."users" WHERE "username" = 'nurse01'
-  `);
-  const nurseId = nurseResult[0]?.user_id ?? null;
-
-  const operationResult = await AppDataSource.query(
-    `
-    INSERT INTO ${schema}."operation_types" ("operation_name")
-    VALUES ($1), ($2)
-    ON CONFLICT ("operation_name") DO UPDATE SET "operation_name" = EXCLUDED."operation_name"
-    RETURNING "operation_type_id", "operation_name"
-  `,
-    ['Phẫu thuật dạ dày', 'Phẫu thuật đại trực tràng'],
+  const savedUsers = await usersRepository.save(users);
+  savedUsers.forEach((user) =>
+    console.log(
+      `✅ User "${user.username}" of roles [${user.roles?.map((role) => role.roleName).join(', ')}] seeded`,
+    ),
   );
-  const operationTypeByName: Record<string, number> = Object.fromEntries(
-    operationResult.map((o: { operation_type_id: number; operation_name: string }) => [
-      o.operation_name,
-      o.operation_type_id,
-    ]),
+
+  const operationTypes: DeepPartial<OperationType>[] = [
+    { operationTypeId: 1, operationName: 'Phẫu thuật dạ dày' },
+    { operationTypeId: 2, operationName: 'Phẫu thuật đại trực tràng' },
+  ];
+
+  const savedOperationTypes = await operationTypesRepository.save(operationTypes);
+
+  console.log(
+    `✅ Operation types seeded: [${operationTypes.map((operationType) => operationType.operationName).join(', ')}]`,
   );
-  console.log('✅ Operation types seeded: Phẫu thuật dạ dày, Phẫu thuật đại trực tràng');
 
   // Current time for realistic seed data
   const now = new Date();
@@ -225,7 +220,7 @@ async function seed() {
       weight: 62,
       bmi: 22.0,
       diagnosis: 'Ung thư đại tràng giai đoạn II',
-      operationType: 'Phẫu thuật đại trực tràng',
+      operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days ago
       roomBed: 'P101-B1',
@@ -242,7 +237,7 @@ async function seed() {
       weight: 52,
       bmi: 21.4,
       diagnosis: 'Loét dạ dày chảy máu',
-      operationType: 'Phẫu thuật dạ dày',
+      operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 10 days ago
       roomBed: 'P503-B1',
@@ -259,7 +254,7 @@ async function seed() {
       weight: 75,
       bmi: 25.4,
       diagnosis: 'Polyp đại tràng có nguy cơ ác tính',
-      operationType: 'Phẫu thuật đại trực tràng',
+      operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
       roomBed: 'P503-B2',
@@ -276,7 +271,7 @@ async function seed() {
       weight: 58,
       bmi: 22.7,
       diagnosis: 'U dạ dày lành tính kích thước lớn',
-      operationType: 'Phẫu thuật dạ dày',
+      operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 6 days ago
       roomBed: 'P504-B1',
@@ -293,7 +288,7 @@ async function seed() {
       weight: 82,
       bmi: 26.8,
       diagnosis: 'Viêm túi thừa đại tràng biến chứng',
-      operationType: 'Phẫu thuật đại trực tràng',
+      operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 8 days ago
       roomBed: 'P504-B2',
@@ -310,7 +305,7 @@ async function seed() {
       weight: 49,
       bmi: 19.6,
       diagnosis: 'Viêm loét dạ dày mạn tính không đáp ứng điều trị nội khoa',
-      operationType: 'Phẫu thuật dạ dày',
+      operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 4 days ago
       roomBed: 'P504-B3',
@@ -327,7 +322,7 @@ async function seed() {
       weight: 58,
       bmi: 21.3,
       diagnosis: 'Ung thư trực tràng giai đoạn III',
-      operationType: 'Phẫu thuật đại trực tràng',
+      operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 12 days ago
       roomBed: 'P504-B4',
@@ -344,7 +339,7 @@ async function seed() {
       weight: 55,
       bmi: 21.0,
       diagnosis: 'Chít hẹp môn vị do loét',
-      operationType: 'Phẫu thuật dạ dày',
+      operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days ago
       roomBed: 'P506-B1',
@@ -361,7 +356,7 @@ async function seed() {
       weight: 68,
       bmi: 23.5,
       diagnosis: 'Bệnh Crohn đại tràng không đáp ứng điều trị',
-      operationType: 'Phẫu thuật đại trực tràng',
+      operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 9 days ago
       roomBed: 'P506-B2',
@@ -378,7 +373,7 @@ async function seed() {
       weight: 60,
       bmi: 25.0,
       diagnosis: 'Ung thư dạ dày giai đoạn IB',
-      operationType: 'Phẫu thuật dạ dày',
+      operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 11 days ago
       roomBed: 'P506-B3',

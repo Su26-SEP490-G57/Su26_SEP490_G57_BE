@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
   CreateQuestionOptionDto,
@@ -55,28 +55,28 @@ export class SymptomSurveyService {
     includeRecommendation = false,
   ): SymptomSurveyResponseDto {
     const dto: SymptomSurveyResponseDto = {
-      assessment_id: survey.assessment_id,
-      case_id: survey.case_id,
-      evaluation_datetime: survey.evaluation_datetime,
-      pod_context: survey.pod_context,
-      total_score: survey.total_score,
-      triage_color: survey.triage_color,
+      assessmentId: survey.assessmentId,
+      caseId: survey.caseId,
+      evaluationDatetime: survey.evaluationDatetime,
+      podContext: survey.podContext,
+      totalScore: survey.totalScore,
+      triageColor: survey.triageColor,
     };
 
     if (details && details.length > 0) {
       dto.details = details.map(
         (d): AnswerDetailDto => ({
-          question_id: d.question_id,
-          question_text: d.question.question_text,
-          selected_option_id: d.selected_option_id,
-          option_text: d.selected_option.option_text,
-          score_earned: d.score_earned,
+          questionId: d.questionId,
+          questionText: d.question.questionText,
+          selectedOptionId: d.selectedOptionId,
+          optionText: d.selectedOption.optionText,
+          scoreEarned: d.scoreEarned,
         }),
       );
     }
 
-    if (includeRecommendation && survey.triage_color) {
-      dto.recommendation = TRIAGE_RECOMMENDATIONS[survey.triage_color];
+    if (includeRecommendation && survey.triageColor) {
+      dto.recommendation = TRIAGE_RECOMMENDATIONS[survey.triageColor];
     }
 
     return dto;
@@ -84,19 +84,19 @@ export class SymptomSurveyService {
 
   private toQuestionResponse(question: SurveyQuestion): SurveyQuestionDto {
     return {
-      question_id: question.question_id,
-      question_text: question.question_text,
-      order_number: question.order_number,
-      is_default: question.is_default,
+      questionId: question.questionId,
+      questionText: question.questionText,
+      orderNumber: question.orderNumber,
+      isDefault: question.isDefault,
       options: (question.options ?? []).map((o) => this.toOptionResponse(o)),
     };
   }
 
   private toOptionResponse(option: QuestionOption): QuestionOptionDto {
     return {
-      option_id: option.option_id,
-      option_text: option.option_text,
-      score_value: option.score_value,
+      optionId: option.optionId,
+      optionText: option.optionText,
+      scoreValue: option.scoreValue,
     };
   }
 
@@ -113,22 +113,22 @@ export class SymptomSurveyService {
 
   async createQuestion(dto: CreateSurveyQuestionDto): Promise<SurveyQuestionDto> {
     const saved = await this.repository.saveQuestion({
-      question_text: dto.question_text,
-      order_number: dto.order_number ?? null,
-      is_default: dto.is_default,
+      questionText: dto.questionText,
+      orderNumber: dto.orderNumber ?? null,
+      isDefault: dto.isDefault,
     });
 
     if (dto.options?.length) {
       await this.repository.saveOptions(
         dto.options.map((o) => ({
-          question_id: saved.question_id,
-          option_text: o.option_text,
-          score_value: o.score_value,
+          questionId: saved.questionId,
+          optionText: o.optionText,
+          scoreValue: o.scoreValue,
         })),
       );
     }
 
-    return this.getQuestionById(saved.question_id);
+    return this.getQuestionById(saved.questionId);
   }
 
   async updateQuestion(
@@ -138,15 +138,15 @@ export class SymptomSurveyService {
     const question = await this.repository.findQuestionById(questionId);
     if (!question) throw new NotFoundException(`Question #${questionId} not found`);
 
-    if (dto.question_text !== undefined) question.question_text = dto.question_text;
-    if (dto.order_number !== undefined) question.order_number = dto.order_number;
-    if (dto.is_default !== undefined) question.is_default = dto.is_default;
+    if (dto.questionText !== undefined) question.questionText = dto.questionText;
+    if (dto.order_number !== undefined) question.orderNumber = dto.order_number;
+    if (dto.isDefault !== undefined) question.isDefault = dto.isDefault;
 
     await this.repository.saveQuestion({
-      question_id: question.question_id,
-      question_text: question.question_text,
-      order_number: question.order_number,
-      is_default: question.is_default,
+      questionId: question.questionId,
+      questionText: question.questionText,
+      orderNumber: question.orderNumber,
+      isDefault: question.isDefault,
     });
     return this.getQuestionById(questionId);
   }
@@ -171,9 +171,9 @@ export class SymptomSurveyService {
     if (!question) throw new NotFoundException(`Question #${questionId} not found`);
 
     const saved = await this.repository.saveOption({
-      question_id: questionId,
-      option_text: dto.option_text,
-      score_value: dto.score_value,
+      questionId: questionId,
+      optionText: dto.optionText,
+      scoreValue: dto.scoreValue,
     });
     return this.toOptionResponse(saved);
   }
@@ -184,12 +184,12 @@ export class SymptomSurveyService {
     dto: UpdateQuestionOptionDto,
   ): Promise<QuestionOptionDto> {
     const option = await this.repository.findOptionById(optionId);
-    if (!option || option.question_id !== questionId) {
+    if (!option || option.questionId !== questionId) {
       throw new NotFoundException(`Option #${optionId} not found`);
     }
 
-    if (dto.option_text !== undefined) option.option_text = dto.option_text;
-    if (dto.score_value !== undefined) option.score_value = dto.score_value;
+    if (dto.optionText !== undefined) option.optionText = dto.optionText;
+    if (dto.scoreValue !== undefined) option.scoreValue = dto.scoreValue;
 
     const saved = await this.repository.saveOption(option);
     return this.toOptionResponse(saved);
@@ -197,7 +197,7 @@ export class SymptomSurveyService {
 
   async deleteOption(questionId: number, optionId: number): Promise<void> {
     const option = await this.repository.findOptionById(optionId);
-    if (!option || option.question_id !== questionId) {
+    if (!option || option.questionId !== questionId) {
       throw new NotFoundException(`Option #${optionId} not found`);
     }
 
@@ -214,58 +214,58 @@ export class SymptomSurveyService {
     dto: CreateSymptomSurveyDto,
     caller: UserResponseDto,
   ): Promise<SymptomSurveyResponseDto> {
-    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== dto.case_id) {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== dto.caseId) {
       throw new ForbiddenException('You can only submit surveys for your own case');
     }
 
     // Load options to get score_value
-    const optionIds = dto.answers.map((a) => a.selected_option_id);
+    const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
-    const optionMap = new Map(options.map((o) => [o.option_id, o]));
+    const optionMap = new Map(options.map((o) => [o.optionId, o]));
 
     // Validate all options exist
     for (const answer of dto.answers) {
-      if (!optionMap.has(answer.selected_option_id)) {
-        throw new BadRequestException(`Option ID ${answer.selected_option_id} not found`);
+      if (!optionMap.has(answer.selectedOptionId)) {
+        throw new BadRequestException(`Option ID ${answer.selectedOptionId} not found`);
       }
     }
 
     const totalScore = dto.answers.reduce((sum, answer) => {
-      return sum + (optionMap.get(answer.selected_option_id)?.score_value ?? 0);
+      return sum + (optionMap.get(answer.selectedOptionId)?.scoreValue ?? 0);
     }, 0);
 
     const triage_color = this.calculateTriageColor(totalScore);
 
     // Resolve current POD from DB — not trusted from client
-    const currentPod = await this.repository.findCurrentPod(dto.case_id);
+    const currentPod = await this.repository.findCurrentPod(dto.caseId);
 
     // Save assessment header
     const saved = await this.repository.saveSurvey({
-      case_id: dto.case_id,
-      evaluation_datetime: new Date(),
-      pod_context: currentPod,
-      total_score: totalScore,
-      triage_color,
+      caseId: dto.caseId,
+      evaluationDatetime: new Date(),
+      podContext: currentPod,
+      totalScore: totalScore,
+      triageColor: triage_color,
     });
 
     // Save detail rows
     const detailData = dto.answers.map((answer) => ({
-      assessment_id: saved.assessment_id,
-      question_id: answer.question_id,
-      selected_option_id: answer.selected_option_id,
-      score_earned: optionMap.get(answer.selected_option_id)?.score_value ?? 0,
+      assessmentId: saved.assessmentId,
+      questionId: answer.questionId,
+      selectedOptionId: answer.selectedOptionId,
+      scoreEarned: optionMap.get(answer.selectedOptionId)?.scoreValue ?? 0,
     }));
     await this.repository.saveDetails(detailData);
 
     // Sync patient level based on latest triage result
-    await this.repository.syncPatientLevel(saved.case_id, triage_color);
+    await this.repository.syncPatientLevel(saved.caseId, triage_color);
 
     // Auto-generate alert for YELLOW or RED
     if (triage_color === 'YELLOW' || triage_color === 'RED') {
       await this.alertService.createAlert({
-        caseId: saved.case_id,
-        assessmentId: saved.assessment_id,
-        surveyScore: saved.total_score,
+        caseId: saved.caseId,
+        assessmentId: saved.assessmentId,
+        surveyScore: saved.totalScore,
         alertType: triage_color,
       });
     }
@@ -277,7 +277,7 @@ export class SymptomSurveyService {
     caseId: string,
     caller: UserResponseDto,
   ): Promise<SymptomSurveyResponseDto> {
-    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== caseId) {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== caseId) {
       throw new ForbiddenException('You can only view your own survey results');
     }
     const survey = await this.repository.findLatestByPatient(caseId);
@@ -291,7 +291,7 @@ export class SymptomSurveyService {
   ): Promise<SymptomSurveyResponseDto> {
     const survey = await this.repository.findById(assessmentId);
     if (!survey) throw new NotFoundException(`Survey #${assessmentId} not found`);
-    if (caller.roles.includes(UserRole.PATIENT) && caller.caseId !== survey.case_id) {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== survey.caseId) {
       throw new ForbiddenException('You can only view your own survey results');
     }
     const details = await this.repository.findDetailsById(assessmentId);
@@ -307,20 +307,20 @@ export class SymptomSurveyService {
 
     const data: AssessmentHistoryItemDto[] = await Promise.all(
       surveys.map(async (survey) => {
-        const details = await this.repository.findDetailsById(survey.assessment_id);
+        const details = await this.repository.findDetailsById(survey.assessmentId);
         return {
-          assessment_id: survey.assessment_id,
-          evaluation_datetime: survey.evaluation_datetime,
-          pod_context: survey.pod_context,
-          total_score: survey.total_score,
-          triage_color: survey.triage_color,
+          assessmentId: survey.assessmentId,
+          evaluationDatetime: survey.evaluationDatetime,
+          podContext: survey.podContext,
+          totalScore: survey.totalScore,
+          triageColor: survey.triageColor,
           details: details.map(
             (d): AnswerDetailDto => ({
-              question_id: d.question_id,
-              question_text: d.question.question_text,
-              selected_option_id: d.selected_option_id,
-              option_text: d.selected_option.option_text,
-              score_earned: d.score_earned,
+              questionId: d.questionId,
+              questionText: d.question.questionText,
+              selectedOptionId: d.selectedOptionId,
+              optionText: d.selectedOption.optionText,
+              scoreEarned: d.scoreEarned,
             }),
           ),
         };

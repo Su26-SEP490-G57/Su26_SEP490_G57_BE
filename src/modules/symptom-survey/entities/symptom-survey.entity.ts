@@ -5,26 +5,26 @@ import { AssessmentDetail } from './assessment-detail.entity';
 @Entity('patient_assessments')
 export class SymptomSurvey {
   @PrimaryGeneratedColumn({ name: 'assessment_id', type: 'int' })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @Column({ name: 'case_id', type: 'varchar' })
-  case_id!: string;
+  caseId!: string;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'case_id' })
   patient!: Patient;
 
   @Column({ name: 'evaluation_datetime', type: 'timestamp' })
-  evaluation_datetime!: Date;
+  evaluationDatetime!: Date;
 
   @Column({ name: 'pod_context', type: 'int', nullable: true })
-  pod_context!: number | null;
+  podContext!: number | null;
 
   @Column({ name: 'total_score', type: 'int', default: 0 })
-  total_score!: number;
+  totalScore!: number;
 
   @Column({ name: 'triage_color', type: 'varchar', length: 20, nullable: true })
-  triage_color!: string | null;
+  triageColor!: string | null;
 
   @OneToMany(() => AssessmentDetail, (detail) => detail.assessment, { eager: false })
   details!: AssessmentDetail[];

@@ -1,9 +1,26 @@
 name: Main Branch CI/CD Workflow
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'nest-cli.json'
+      - 'resources/docker/Dockerfile'
+      - 'resources/docker/docker-compose.staging.yml'
+      - 'resources/scripts/check-health.sh'
+      - '.github/workflows/main-workflow.yml'
+      - '.github/workflows/deploy-workflow.yml'
+      - '.github/actions/**'
 
 jobs:
   code_quality:
@@ -16,8 +33,6 @@ jobs:
 
       - name: Setup Project
         uses: ./.github/actions/setup-project
-        with:
-          environment: staging
 
       - name: Static Check
         run: |
@@ -25,6 +40,7 @@ jobs:
           npm run lint
 
   deploy_staging:
+    name: Deploy to Staging
     needs: code_quality
     uses: ./.github/workflows/deploy-workflow.yml
     with:

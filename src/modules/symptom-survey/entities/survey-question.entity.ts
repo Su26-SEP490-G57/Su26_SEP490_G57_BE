@@ -4,16 +4,16 @@ import { QuestionOption } from './question-option.entity';
 @Entity('survey_questions')
 export class SurveyQuestion {
   @PrimaryGeneratedColumn({ name: 'question_id', type: 'int' })
-  question_id!: number;
+  questionId!: number;
 
   @Column({ name: 'question_text', type: 'text' })
-  question_text!: string;
+  questionText!: string;
 
   @Column({ name: 'order_number', type: 'int', nullable: true })
-  order_number!: number | null;
+  orderNumber!: number | null;
 
   @Column({ name: 'is_default', type: 'boolean', default: false })
-  is_default!: boolean;
+  isDefault!: boolean;
 
   @OneToMany(() => QuestionOption, (option) => option.question, { eager: true })
   options!: QuestionOption[];

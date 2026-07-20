@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { User } from '../../user/entities/user.entity';
-import { UserRole } from '../../user/enums/user-role.enum';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { UsersService } from '../../user/services/users.service';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
@@ -19,16 +19,16 @@ export class NurseService {
     return {
       id: user.id,
       username: user.username,
-      fullName: user.full_name,
-      phoneNumber: user.phone_number,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
       dob: user.dob,
-      cityProvince: user.city_province,
+      cityProvince: user.cityProvince,
       ward: user.ward,
-      detailedAddress: user.detailed_address,
+      detailedAddress: user.detailedAddress,
       roles: (user.roles ?? []).map((r) => r.roleName),
-      isActive: user.is_active,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 
@@ -51,7 +51,9 @@ export class NurseService {
     if (!user) throw new NotFoundException(`Nurse #${id} not found`);
 
     const isNurse = (user.roles ?? []).some(
-      (r) => r.roleName === UserRole.NURSE || r.roleName === UserRole.HEAD_NURSE,
+      (r) =>
+        r.roleName === UserRoleName.NURSE.toString() ||
+        r.roleName === UserRoleName.HEAD_NURSE.toString(),
     );
     if (!isNurse) throw new NotFoundException(`Nurse #${id} not found`);
 

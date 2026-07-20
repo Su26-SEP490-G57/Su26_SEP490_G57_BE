@@ -18,43 +18,43 @@ export type AlertStatus = (typeof ALERT_STATUSES)[number];
 @Entity('monitoring_alerts')
 export class Alert {
   @PrimaryGeneratedColumn({ name: 'alert_id', type: 'int' })
-  alert_id!: number;
+  alertId!: number;
 
   @Column({ name: 'case_id', type: 'varchar' })
-  case_id!: string;
+  caseId!: string;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'case_id' })
   patient!: Patient;
 
   @Column({ name: 'assessment_id', type: 'int' })
-  assessment_id!: number;
+  assessmentId!: number;
 
   @ManyToOne(() => SymptomSurvey, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'assessment_id' })
   survey!: SymptomSurvey;
 
   @Column({ name: 'survey_score', type: 'int', nullable: true })
-  survey_score!: number | null;
+  surveyScore!: number | null;
 
   @Column({ name: 'alert_type', type: 'varchar', length: 10 })
-  alert_type!: AlertType;
+  alertType!: AlertType;
 
   @Column({ type: 'varchar', length: 50, default: 'Pending' })
   status!: AlertStatus;
 
   @Column({ name: 'is_auto_progression', type: 'boolean', nullable: true })
-  is_auto_progression!: boolean | null;
+  isAutoProgression!: boolean | null;
 
   @Column({ name: 'triggered_at', type: 'timestamp', nullable: true })
-  triggered_at!: Date | null;
+  triggeredAt!: Date | null;
 
   @Column({ name: 'nurse_action', type: 'varchar', length: 100, nullable: true })
-  nurse_action!: string | null;
+  nurseAction!: string | null;
 
   @Column({ name: 'nursing_note', type: 'text', nullable: true })
-  nursing_note!: string | null;
+  nursingNote!: string | null;
 
   @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
-  closed_at!: Date | null;
+  closedAt!: Date | null;
 }

@@ -38,10 +38,10 @@ export class UsersRepository {
   }): User {
     return this.userRepo.create({
       username: data.username,
-      password_hash: data.password_hash,
-      full_name: data.full_name,
-      phone_number: data.phone_number ?? null,
-      is_active: true,
+      passwordHash: data.password_hash,
+      fullName: data.full_name,
+      phoneNumber: data.phone_number ?? null,
+      isActive: true,
       roles: data.roles,
     });
   }

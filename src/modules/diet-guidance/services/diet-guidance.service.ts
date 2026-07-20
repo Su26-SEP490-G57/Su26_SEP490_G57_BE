@@ -21,8 +21,8 @@ export class DietGuidanceService {
 
   private toOpTypeResponse(op: OperationType, podCount = 0): OperationTypeResponseDto {
     return {
-      id: op.operation_type_id,
-      name: op.operation_name,
+      id: op.operationTypeId,
+      name: op.operationName,
       description: op.description,
       podCount,
     };
@@ -30,19 +30,19 @@ export class DietGuidanceService {
 
   private toPodResponse(pod: PodProtocol): PodProtocolResponseDto {
     return {
-      podId: pod.pod_id,
-      operationTypeId: pod.operation_type_id,
+      podId: pod.podId,
+      operationTypeId: pod.operationTypeId,
       label: pod.label,
-      mealsPerDayMin: pod.meals_per_day_min,
-      mealsPerDayMax: pod.meals_per_day_max,
-      mealInstruction: pod.meal_instruction,
-      volumePerMealMin: pod.volume_per_meal_min,
-      volumePerMealMax: pod.volume_per_meal_max,
-      volumeInstruction: pod.volume_instruction,
-      recommendedFoods: pod.recommended_foods,
-      recommendedDrinks: pod.recommended_drinks,
-      updatedAt: pod.updated_at,
-      createdAt: pod.created_at,
+      mealsPerDayMin: pod.mealsPerDayMin,
+      mealsPerDayMax: pod.mealsPerDayMax,
+      mealInstruction: pod.mealInstruction,
+      volumePerMealMin: pod.volumnPerMealMin,
+      volumePerMealMax: pod.volumePerMealMax,
+      volumeInstruction: pod.volumeInstruction,
+      recommendedFoods: pod.recommendedFoods,
+      recommendedDrinks: pod.recommendedDrinks,
+      updatedAt: pod.updatedAt,
+      createdAt: pod.createdAt,
     };
   }
 
@@ -52,7 +52,7 @@ export class DietGuidanceService {
     const types = await this.repository.findAllOperationTypes();
     return Promise.all(
       types.map(async (t) => {
-        const count = await this.repository.countPodsByOperationType(t.operation_type_id);
+        const count = await this.repository.countPodsByOperationType(t.operationTypeId);
         return this.toOpTypeResponse(t, count);
       }),
     );
@@ -60,7 +60,7 @@ export class DietGuidanceService {
 
   async createOperationType(dto: CreateOperationTypeDto): Promise<OperationTypeResponseDto> {
     const saved = await this.repository.saveOperationType({
-      operation_name: dto.name,
+      operationName: dto.name,
       description: dto.description ?? null,
     });
     return this.toOpTypeResponse(saved, 0);
@@ -72,7 +72,7 @@ export class DietGuidanceService {
   ): Promise<OperationTypeResponseDto> {
     const op = await this.repository.findOperationTypeById(id);
     if (!op) throw new NotFoundException(`Operation type #${id} not found`);
-    if (dto.name) op.operation_name = dto.name;
+    if (dto.name) op.operationName = dto.name;
     if (dto.description !== undefined) op.description = dto.description ?? null;
     const saved = await this.repository.saveOperationType(op);
     const count = await this.repository.countPodsByOperationType(id);
@@ -96,7 +96,7 @@ export class DietGuidanceService {
 
   async getPodById(operationTypeId: number, podId: number): Promise<PodProtocolResponseDto> {
     const pod = await this.repository.findPodById(podId);
-    if (!pod || pod.operation_type_id !== operationTypeId) {
+    if (!pod || pod.operationTypeId !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);
     }
     return this.toPodResponse(pod);
@@ -111,17 +111,17 @@ export class DietGuidanceService {
     if (!op) throw new NotFoundException(`Operation type #${operationTypeId} not found`);
 
     const saved = await this.repository.savePod({
-      operation_type_id: operationTypeId,
+      operationTypeId,
       label: dto.label,
-      meals_per_day_min: dto.mealsPerDayMin ?? null,
-      meals_per_day_max: dto.mealsPerDayMax ?? null,
-      meal_instruction: dto.mealInstruction ?? null,
-      volume_per_meal_min: dto.volumePerMealMin ?? null,
-      volume_per_meal_max: dto.volumePerMealMax ?? null,
-      volume_instruction: dto.volumeInstruction ?? null,
-      recommended_foods: dto.recommendedFoods ?? [],
-      recommended_drinks: dto.recommendedDrinks ?? [],
-      updatedBy: { id: userId } as any,
+      mealsPerDayMin: dto.mealsPerDayMin ?? null,
+      mealsPerDayMax: dto.mealsPerDayMax ?? null,
+      mealInstruction: dto.mealInstruction ?? null,
+      volumnPerMealMin: dto.volumePerMealMin ?? null,
+      volumePerMealMax: dto.volumePerMealMax ?? null,
+      volumeInstruction: dto.volumeInstruction ?? null,
+      recommendedFoods: dto.recommendedFoods ?? [],
+      recommendedDrinks: dto.recommendedDrinks ?? [],
+      updatedBy: { id: userId },
     });
     return this.toPodResponse(saved);
   }
@@ -133,20 +133,26 @@ export class DietGuidanceService {
     userId: number,
   ): Promise<PodProtocolResponseDto> {
     const pod = await this.repository.findPodById(podId);
-    if (!pod || pod.operation_type_id !== operationTypeId) {
+    if (!pod || pod.operationTypeId !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);
     }
 
-    if (dto.label) pod.label = dto.label;
-    if (dto.mealsPerDayMin !== undefined) pod.meals_per_day_min = dto.mealsPerDayMin ?? null;
-    if (dto.mealsPerDayMax !== undefined) pod.meals_per_day_max = dto.mealsPerDayMax ?? null;
-    if (dto.mealInstruction !== undefined) pod.meal_instruction = dto.mealInstruction ?? null;
-    if (dto.volumePerMealMin !== undefined) pod.volume_per_meal_min = dto.volumePerMealMin ?? null;
-    if (dto.volumePerMealMax !== undefined) pod.volume_per_meal_max = dto.volumePerMealMax ?? null;
-    if (dto.volumeInstruction !== undefined) pod.volume_instruction = dto.volumeInstruction ?? null;
-    if (dto.recommendedFoods !== undefined) pod.recommended_foods = dto.recommendedFoods;
-    if (dto.recommendedDrinks !== undefined) pod.recommended_drinks = dto.recommendedDrinks;
-    pod.updatedBy = { id: userId } as any;
+    const updates = {
+      ...(dto.label && { label: dto.label }),
+      ...(dto.mealsPerDayMin !== undefined && { mealsPerDayMin: dto.mealsPerDayMin ?? null }),
+      ...(dto.mealsPerDayMax !== undefined && { mealsPerDayMax: dto.mealsPerDayMax ?? null }),
+      ...(dto.mealInstruction !== undefined && { mealInstruction: dto.mealInstruction ?? null }),
+      ...(dto.volumePerMealMin !== undefined && { volumnPerMealMin: dto.volumePerMealMin ?? null }), // Lưu ý chữ 'volumn' ở đây
+      ...(dto.volumePerMealMax !== undefined && { volumePerMealMax: dto.volumePerMealMax ?? null }),
+      ...(dto.volumeInstruction !== undefined && {
+        volumeInstruction: dto.volumeInstruction ?? null,
+      }),
+      ...(dto.recommendedFoods !== undefined && { recommendedFoods: dto.recommendedFoods }),
+      ...(dto.recommendedDrinks !== undefined && { recommendedDrinks: dto.recommendedDrinks }),
+      updatedBy: { id: userId },
+    };
+
+    Object.assign(pod, updates);
 
     const saved = await this.repository.savePod(pod);
     return this.toPodResponse(saved);
@@ -154,7 +160,7 @@ export class DietGuidanceService {
 
   async deletePod(operationTypeId: number, podId: number): Promise<void> {
     const pod = await this.repository.findPodById(podId);
-    if (!pod || pod.operation_type_id !== operationTypeId) {
+    if (!pod || pod.operationTypeId !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);
     }
     await this.repository.deletePod(podId);
