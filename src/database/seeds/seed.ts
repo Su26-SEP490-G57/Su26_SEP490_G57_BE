@@ -7,6 +7,7 @@ import { UserRole } from 'src/modules/user/enums/user-role.enum';
 import { DeepPartial } from 'typeorm';
 import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
+import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
 
 const SALT_ROUNDS = 10;
 
@@ -27,6 +28,7 @@ async function seed() {
   const usersRepository = AppDataSource.getRepository(User);
   const operationTypesRepository = AppDataSource.getRepository(OperationType);
   const patientsRepository = AppDataSource.getRepository(Patient);
+  const podProtocolsRepository = AppDataSource.getRepository(PodProtocol);
 
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
@@ -207,6 +209,157 @@ async function seed() {
   console.log(
     `✅ Operation types seeded: [${operationTypes.map((operationType) => operationType.operationName).join(', ')}]`,
   );
+
+  const podProtocols: DeepPartial<PodProtocol>[] = [
+    // Gastric Pathway (OperationType 1)
+    {
+      operationType: savedOperationTypes[0],
+      podId: 0,
+      label: 'POD0',
+      mealsPerDayMin: null,
+      mealsPerDayMax: null,
+      mealInstruction: 'Mỗi lần khoảng 10–20 ml. Nghỉ 10–15 phút giữa các lần. Tăng dần nếu dung nạp tốt.',
+      volumnPerMealMin: 10,
+      volumePerMealMax: 20,
+      volumeInstruction: 'Mỗi lần khoảng 10–20 ml',
+      recommendedFoods: [],
+      recommendedDrinks: ['nước ấm', 'nước điện giải', 'nước oresol pha đúng hướng dẫn', 'nước cháo loãng', 'nước súp trong'],
+    },
+    {
+      operationType: savedOperationTypes[0],
+      podId: 1,
+      label: 'POD1',
+      mealsPerDayMin: 6,
+      mealsPerDayMax: 8,
+      mealInstruction: 'Chia 6–8 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
+      volumnPerMealMin: 30,
+      volumePerMealMax: 50,
+      volumeInstruction: 'Mỗi lần khoảng 30–50 ml',
+      recommendedFoods: ['nước cháo loãng', 'súp lọc', 'sữa dinh dưỡng lượng nhỏ', 'sữa không lactose nếu dễ đầy bụng'],
+      recommendedDrinks: ['nước điện giải'],
+    },
+    {
+      operationType: savedOperationTypes[0],
+      podId: 2,
+      label: 'POD2',
+      mealsPerDayMin: 6,
+      mealsPerDayMax: 6,
+      mealInstruction: '6 bữa nhỏ/ngày. Tăng dần nếu không đầy bụng hoặc buồn nôn.',
+      volumnPerMealMin: 50,
+      volumePerMealMax: 100,
+      volumeInstruction: 'Mỗi lần khoảng 50–100 ml',
+      recommendedFoods: ['cháo xay loãng', 'súp xay', 'sữa giàu protein', 'sữa dinh dưỡng y học', 'khoai nghiền loãng'],
+      recommendedDrinks: ['sữa chua uống'],
+    },
+    {
+      operationType: savedOperationTypes[0],
+      podId: 3,
+      label: 'POD3',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 6,
+      mealInstruction: '5–6 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
+      volumnPerMealMin: 100,
+      volumePerMealMax: 150,
+      volumeInstruction: 'Mỗi lần khoảng 100–150 ml hoặc lượng nhỏ phù hợp',
+      recommendedFoods: ['cháo xay đặc hơn', 'súp đặc', 'trứng hấp mềm', 'thịt/cá xay nhuyễn', 'đậu phụ non', 'sữa giàu protein'],
+      recommendedDrinks: [],
+    },
+    {
+      operationType: savedOperationTypes[0],
+      podId: 4,
+      label: 'POD4',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 6,
+      mealInstruction: '5–6 bữa nhỏ/ngày. Lượng ăn tăng dần theo khả năng dung nạp.',
+      volumnPerMealMin: null,
+      volumePerMealMax: null,
+      volumeInstruction: null,
+      recommendedFoods: ['cháo đặc mềm', 'mì mềm', 'cơm nhão lượng nhỏ', 'cá hấp mềm', 'thịt xay mềm', 'rau củ hầm mềm'],
+      recommendedDrinks: [],
+    },
+    {
+      operationType: savedOperationTypes[0],
+      podId: 5,
+      label: 'POD5',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 6,
+      mealInstruction: '3 bữa chính. 2–3 bữa phụ. Tăng lượng ăn từ từ.',
+      volumnPerMealMin: null,
+      volumePerMealMax: null,
+      volumeInstruction: null,
+      recommendedFoods: ['cơm mềm lượng nhỏ', 'thức ăn mềm dễ tiêu', 'cá hấp', 'thịt nạc mềm', 'trứng', 'sữa dinh dưỡng'],
+      recommendedDrinks: [],
+    },
+    // Colorectal Pathway (OperationType 2)
+    {
+      operationType: savedOperationTypes[1],
+      podId: 0,
+      label: 'POD0',
+      mealsPerDayMin: null,
+      mealsPerDayMax: null,
+      mealInstruction: 'Nghỉ 10–15 phút giữa các lần. Tăng dần nếu dung nạp tốt.',
+      volumnPerMealMin: 20,
+      volumePerMealMax: 30,
+      volumeInstruction: 'Mỗi lần khoảng 20–30 ml',
+      recommendedFoods: [],
+      recommendedDrinks: ['nước ấm', 'nước điện giải', 'nước oresol pha đúng hướng dẫn', 'nước cháo loãng', 'nước súp trong'],
+    },
+    {
+      operationType: savedOperationTypes[1],
+      podId: 1,
+      label: 'POD1',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 6,
+      mealInstruction: 'Chia 5–6 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
+      volumnPerMealMin: 50,
+      volumePerMealMax: 100,
+      volumeInstruction: 'Mỗi lần khoảng 50–100 ml',
+      recommendedFoods: ['cháo loãng', 'súp', 'sữa dinh dưỡng'],
+      recommendedDrinks: ['nước cháo', 'nước điện giải'],
+    },
+    {
+      operationType: savedOperationTypes[1],
+      podId: 2,
+      label: 'POD2',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 6,
+      mealInstruction: '5–6 bữa/ngày. Tăng dần theo dung nạp.',
+      volumnPerMealMin: 100,
+      volumePerMealMax: 150,
+      volumeInstruction: 'Mỗi lần khoảng 100–150 ml',
+      recommendedFoods: ['cháo xay đặc hơn', 'súp đặc', 'khoai nghiền', 'sữa giàu protein'],
+      recommendedDrinks: ['sữa chua uống'],
+    },
+    {
+      operationType: savedOperationTypes[1],
+      podId: 3,
+      label: 'POD3',
+      mealsPerDayMin: 4,
+      mealsPerDayMax: 5,
+      mealInstruction: '4–5 bữa/ngày. Lượng ăn tăng dần theo khả năng dung nạp.',
+      volumnPerMealMin: null,
+      volumePerMealMax: null,
+      volumeInstruction: null,
+      recommendedFoods: ['cháo đặc mềm', 'mì mềm', 'trứng hấp', 'thịt/cá xay mềm', 'đậu phụ non'],
+      recommendedDrinks: [],
+    },
+    {
+      operationType: savedOperationTypes[1],
+      podId: 4,
+      label: 'POD4',
+      mealsPerDayMin: 5,
+      mealsPerDayMax: 5,
+      mealInstruction: '3 bữa chính. 2 bữa phụ. Tăng lượng ăn từ từ.',
+      volumnPerMealMin: null,
+      volumePerMealMax: null,
+      volumeInstruction: null,
+      recommendedFoods: ['cơm mềm lượng nhỏ', 'cá hấp', 'thịt mềm', 'rau củ hầm mềm', 'cháo đặc'],
+      recommendedDrinks: [],
+    },
+  ];
+
+  await podProtocolsRepository.save(podProtocols);
+  console.log(`✅ ${podProtocols.length} PodProtocols (Diet Guidance) seeded`);
 
   const patientCases: DeepPartial<Patient>[] = [
     {
