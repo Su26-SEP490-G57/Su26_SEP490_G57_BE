@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
@@ -75,6 +77,8 @@ export class PatientService {
   constructor(
     private readonly repository: PatientRepository,
     private readonly patientGateway: PatientGateway,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   private toResponse({
@@ -126,6 +130,25 @@ export class PatientService {
       page: query.page ?? 1,
       limit: query.limit ?? 10,
     };
+  }
+
+  /**
+   * Get the maximum POD level for a given operation type based on pod_protocols table.
+   * Returns the count of POD protocols - 1 (since POD starts from 0).
+   * Returns null if no protocols found for the operation type.
+   */
+  async getMaxPodForOperationType(operationTypeId: number): Promise<number | null> {
+    const result = await this.dataSource.query<Array<{ count: string }>>(
+      `
+      SELECT COUNT(*) as count
+      FROM pod_protocols
+      WHERE operation_type_id = $1
+    `,
+      [operationTypeId],
+    );
+
+    const count = parseInt(result[0]?.count ?? '0', 10);
+    return count > 0 ? count - 1 : null;
   }
 
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {

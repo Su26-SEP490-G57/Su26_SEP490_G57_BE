@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
@@ -70,15 +68,6 @@ export class PatientRepository {
         .leftJoinAndSelect('account.roles', 'role')
         .leftJoinAndSelect('patient.level', 'level')
         .leftJoinAndSelect('patient.operationType', 'operationType')
-        // Add subquery to get last assessment time
-        .addSelect(
-          (subQuery) =>
-            subQuery
-              .select('MAX(assessment.evaluation_datetime)')
-              .from('patient_assessments', 'assessment')
-              .where('assessment.case_id = patient.case_id'),
-          'lastAssessmentTime',
-        )
     );
   }
 
@@ -119,7 +108,19 @@ export class PatientRepository {
   }
 
   async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
-    const qb = this.baseQuery();
+    // Build base query without the lastAssessmentTime subquery to avoid TypeORM issues
+    const repo = this.repo;
+    const qb = repo
+      .createQueryBuilder('patient')
+      .leftJoinAndMapOne(
+        'patient.account',
+        User,
+        'account',
+        'account.case_id = patient.case_id AND account.deleted_at IS NULL',
+      )
+      .leftJoinAndSelect('account.roles', 'role')
+      .leftJoinAndSelect('patient.level', 'level')
+      .leftJoinAndSelect('patient.operationType', 'operationType');
 
     // Search by case_id or patient full name
     if (query.search) {
@@ -140,28 +141,56 @@ export class PatientRepository {
 
     // Sorting
     if (query.sortBy === 'pod') {
-      qb.orderBy('patient.current_pod', query.sortOrder ?? 'ASC', 'NULLS LAST');
+      qb.orderBy('patient.currentPod', query.sortOrder ?? 'ASC', 'NULLS LAST');
     } else {
       // Default: Red → Yellow → Green, then oldest case to the newest (by account creation)
-      qb.orderBy('level.sort_order', 'ASC', 'NULLS LAST')
-        .addOrderBy('account.created_at', 'ASC', 'NULLS LAST')
-        .addOrderBy('patient.case_id', 'ASC');
+      qb.orderBy('level.sortOrder', 'ASC', 'NULLS LAST')
+        .addOrderBy('account.createdAt', 'ASC', 'NULLS LAST')
+        .addOrderBy('patient.caseId', 'ASC');
     }
+
+    // Get total count before pagination
+    const total = await qb.getCount();
 
     // Pagination
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
-    // Get both raw and entity results to access the calculated lastAssessmentTime
-    const rawAndEntities = await qb.getRawAndEntities();
-    const total = await qb.getCount();
+    // Get patients
+    const patients = await qb.getMany();
 
-    // Map lastAssessmentTime from raw results to entities
-    const patients = rawAndEntities.entities.map((patient, index) => {
+    // If no patients, return early
+    if (patients.length === 0) {
+      return [[], total];
+    }
+
+    // Fetch lastAssessmentTime for all patients in one query
+    const caseIds = patients.map((p) => p.caseId);
+    const assessmentTimes = await this.dataSource.query<
+      Array<{ case_id: string; last_assessment_time: Date | null }>
+    >(
+      `
+      SELECT
+        pa.case_id,
+        MAX(pa.evaluation_datetime) as last_assessment_time
+      FROM patient_assessments pa
+      WHERE pa.case_id = ANY($1)
+      GROUP BY pa.case_id
+    `,
+      [caseIds],
+    );
+
+    // Create a map for quick lookup
+    const assessmentTimeMap = new Map<string, Date | null>();
+    assessmentTimes.forEach((row) => {
+      assessmentTimeMap.set(row.case_id, row.last_assessment_time);
+    });
+
+    // Attach lastAssessmentTime to each patient
+    patients.forEach((patient) => {
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
-        rawAndEntities.raw[index]?.lastAssessmentTime || null;
-      return patient;
+        assessmentTimeMap.get(patient.caseId) ?? null;
     });
 
     return [patients, total];

@@ -240,11 +240,11 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days ago
-      roomBed: 'P101-B1',
+      roomBed: 'P502',
       currentPod: 2,
       podStartDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-      assessmentTimeAgo: 45, // 45 minutes ago
-      levelId: 3, // Green - stable
+      assessmentTimeAgo: 15,
+      levelId: 2, // Yellow
     },
     {
       caseId: 'CASE-002',
@@ -257,11 +257,11 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 10 days ago
-      roomBed: 'P503-B1',
+      roomBed: 'P502',
       currentPod: 1,
       podStartDate: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      assessmentTimeAgo: 120, // 2 hours ago
-      levelId: 2, // Yellow - moderate
+      assessmentTimeAgo: 25,
+      levelId: 3, // Green
     },
     {
       caseId: 'CASE-003',
@@ -274,11 +274,11 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
-      roomBed: 'P503-B2',
+      roomBed: 'P502',
       currentPod: 3,
       podStartDate: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
-      assessmentTimeAgo: 30, // 30 minutes ago
-      levelId: 3, // Green - stable
+      assessmentTimeAgo: 8,
+      levelId: 1, // Red
     },
     {
       caseId: 'CASE-004',
@@ -291,11 +291,11 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 6 days ago
-      roomBed: 'P504-B1',
+      roomBed: 'P504',
       currentPod: 2,
       podStartDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      assessmentTimeAgo: 180, // 3 hours ago
-      levelId: 2, // Yellow - moderate
+      assessmentTimeAgo: 12,
+      levelId: 3, // Green
     },
     {
       caseId: 'CASE-005',
@@ -308,11 +308,11 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 8 days ago
-      roomBed: 'P504-B2',
+      roomBed: 'P504',
       currentPod: 4,
       podStartDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), // 6 days ago
-      assessmentTimeAgo: 15, // 15 minutes ago
-      levelId: 1, // Red - high risk
+      assessmentTimeAgo: 5,
+      levelId: 2, // Yellow
     },
     {
       caseId: 'CASE-006',
@@ -325,11 +325,11 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 4 days ago
-      roomBed: 'P504-B3',
+      roomBed: 'P504',
       currentPod: 1,
       podStartDate: new Date(now.getTime() - 24 * 60 * 60 * 1000), // 1 day ago
-      assessmentTimeAgo: 60, // 1 hour ago
-      levelId: 3, // Green - stable
+      assessmentTimeAgo: 18,
+      levelId: 1, // Red
     },
     {
       caseId: 'CASE-007',
@@ -342,11 +342,11 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 12 days ago
-      roomBed: 'P504-B4',
+      roomBed: 'P502',
       currentPod: 5,
       podStartDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
-      assessmentTimeAgo: 90, // 1.5 hours ago
-      levelId: 2, // Yellow - moderate
+      assessmentTimeAgo: 22,
+      levelId: 3, // Green
     },
     {
       caseId: 'CASE-008',
@@ -359,11 +359,11 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days ago
-      roomBed: 'P506-B1',
+      roomBed: 'P506',
       currentPod: 0,
       podStartDate: new Date(now.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
-      assessmentTimeAgo: 10, // 10 minutes ago
-      levelId: 3, // Green - stable
+      assessmentTimeAgo: 10,
+      levelId: 2, // Yellow
     },
     {
       caseId: 'CASE-009',
@@ -376,11 +376,11 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 9 days ago
-      roomBed: 'P506-B2',
+      roomBed: 'P506',
       currentPod: 3,
       podStartDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-      assessmentTimeAgo: 20, // 20 minutes ago
-      levelId: 1, // Red - high risk
+      assessmentTimeAgo: 20,
+      levelId: 1, // Red
     },
     {
       caseId: 'CASE-010',
@@ -393,11 +393,11 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 11 days ago
-      roomBed: 'P506-B3',
+      roomBed: 'P506',
       currentPod: 4,
       podStartDate: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000), // 8 days ago
-      assessmentTimeAgo: 150, // 2.5 hours ago
-      levelId: 2, // Yellow - moderate
+      assessmentTimeAgo: 28,
+      levelId: 3, // Green
     },
   ];
 
@@ -433,8 +433,8 @@ async function seed() {
     );
   }
   console.log('✅ 10 patient cases seeded with ERAS started + assessment completed');
-  console.log('   - Room distribution: P101(1), P503(2), P504(4), P506(3)');
-  console.log('   - Level distribution: Red(2), Yellow(4), Green(4)');
+  console.log('   - Room distribution: P502(3), P504(3), P506(4)');
+  console.log('   - Level distribution: Red(3), Yellow(3), Green(4)');
 
   // Seed patient assessments (1 per patient)
   console.log('🔬 Seeding patient assessments...');
@@ -476,6 +476,83 @@ async function seed() {
   }
 
   console.log('✅ 10 patient assessments seeded');
+
+  // Seed POD protocols (POD 0-5 for both operation types)
+  console.log('🔬 Seeding POD protocols...');
+
+  const podProtocols: Array<{
+    operationTypeId: number;
+    label: string;
+    mealsPerDayMin: number;
+    mealsPerDayMax: number;
+    mealInstruction: string;
+    volumePerMealMin: number;
+    volumePerMealMax: number;
+    volumeInstruction: string;
+    recommendedFoods: string[];
+    recommendedDrinks: string[];
+  }> = [];
+
+  // POD 0-5 for "Phẫu thuật dạ dày" (operation_type_id = 1)
+  for (let pod = 0; pod <= 5; pod++) {
+    podProtocols.push({
+      operationTypeId: 1,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật dạ dày`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    });
+  }
+
+  // POD 0-5 for "Phẫu thuật đại trực tràng" (operation_type_id = 2)
+  for (let pod = 0; pod <= 5; pod++) {
+    podProtocols.push({
+      operationTypeId: 2,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật đại trực tràng`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    });
+  }
+
+  for (const protocol of podProtocols) {
+    await AppDataSource.query(
+      `
+      INSERT INTO ${schema}."pod_protocols" (
+        "operation_type_id", "label",
+        "meals_per_day_min", "meals_per_day_max", "meal_instruction",
+        "volume_per_meal_min", "volume_per_meal_max", "volume_instruction",
+        "recommended_foods", "recommended_drinks"
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT DO NOTHING
+    `,
+      [
+        protocol.operationTypeId,
+        protocol.label,
+        protocol.mealsPerDayMin,
+        protocol.mealsPerDayMax,
+        protocol.mealInstruction,
+        protocol.volumePerMealMin,
+        protocol.volumePerMealMax,
+        protocol.volumeInstruction,
+        protocol.recommendedFoods,
+        protocol.recommendedDrinks,
+      ],
+    );
+  }
+
+  console.log('✅ POD protocols seeded (POD 0-5 for both operation types)');
 
   await queryRunner.release();
   await AppDataSource.destroy();
