@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LEVEL_NAMES } from '../entities/level.entity';
+import { LevelNames, Levels } from '../constants/levels.constant';
 
 class PatientAccountDto {
   @ApiProperty({ example: 5 })
@@ -37,7 +37,7 @@ class PatientLevelDto {
   @ApiProperty({ example: 1 })
   id!: number;
 
-  @ApiProperty({ example: 'Red', enum: LEVEL_NAMES })
+  @ApiProperty({ example: Levels.RED.levelName, enum: LevelNames })
   name!: string;
 
   @ApiPropertyOptional({ example: 'High risk - immediate attention required' })

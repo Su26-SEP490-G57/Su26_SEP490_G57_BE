@@ -34,13 +34,13 @@ export class UsersService {
 
     const roleNames = dto.roles?.length ? dto.roles : [UserRoleName.NURSE];
     const roles = await this.usersRepository.resolveRoles(roleNames);
-    const password_hash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
     const user = this.usersRepository.createEntity({
       username: dto.username,
-      password_hash,
-      full_name: dto.fullName,
-      phone_number: dto.phoneNumber ?? null,
+      passwordHash,
+      fullName: dto.fullName,
+      phoneNumber: dto.phoneNumber ?? null,
       roles,
     });
 

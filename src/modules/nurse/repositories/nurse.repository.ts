@@ -32,7 +32,7 @@ export class NurseRepository {
 
     const applyFilters = (qb: ReturnType<typeof this.userRepo.createQueryBuilder>) => {
       if (userId) qb.andWhere('u.id = :userId', { userId });
-      if (search) qb.andWhere('u.full_name ILIKE :search', { search: `%${search}%` });
+      if (search) qb.andWhere('u.fullName ILIKE :search', { search: `%${search}%` });
       if (isActive !== undefined) qb.andWhere('u.is_active = :isActive', { isActive });
     };
 

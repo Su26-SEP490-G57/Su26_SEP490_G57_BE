@@ -1,8 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import type { LevelName } from '../entities/level.entity';
-import { LEVEL_NAMES } from '../entities/level.entity';
+import { LevelNames, Levels } from '../constants/levels.constant';
 
 export const PATIENT_SORT_FIELDS = ['pod'] as const;
 export type PatientSortField = (typeof PATIENT_SORT_FIELDS)[number];
@@ -20,13 +19,13 @@ export class QueryPatientDto {
   search?: string;
 
   @ApiPropertyOptional({
-    enum: LEVEL_NAMES,
+    enum: LevelNames,
     description: 'Filter by care/risk level',
-    example: 'Red',
+    example: Levels.RED.levelName,
   })
   @IsOptional()
-  @IsIn(LEVEL_NAMES)
-  level?: LevelName;
+  @IsIn(LevelNames)
+  level?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by operation type id',
