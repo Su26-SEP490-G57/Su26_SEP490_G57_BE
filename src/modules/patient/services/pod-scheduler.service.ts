@@ -18,24 +18,38 @@ export class PodSchedulerService {
    * Recalculates current_pod = floor((NOW - pod_start_date) / 24h) for all
    * non-locked patients whose ERAS has been started (pod_start_date IS NOT NULL).
    * POD is capped at the maximum POD defined in pod_protocols for each operation type.
+   * When a patient reaches max POD, eras_completed is set to true.
    */
   @Cron('0 */15 * * * *')
   async syncPod(): Promise<void> {
     // Calculate POD based on time elapsed, but cap it at max POD from pod_protocols
+    // Also mark eras_completed = true when POD reaches max
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = await this.patientRepo.query(`
       UPDATE patient_cases pc
-      SET current_pod = LEAST(
-        FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
-        COALESCE(
-          (
-            SELECT COUNT(*) - 1
-            FROM pod_protocols pp
-            WHERE pp.operation_type_id = pc.operation_type_id
-          ),
-          999
+      SET
+        current_pod = LEAST(
+          FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
+          COALESCE(
+            (
+              SELECT COUNT(*) - 1
+              FROM pod_protocols pp
+              WHERE pp.operation_type_id = pc.operation_type_id
+            ),
+            999
+          )
+        ),
+        eras_completed = (
+          FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int >=
+          COALESCE(
+            (
+              SELECT COUNT(*) - 1
+              FROM pod_protocols pp
+              WHERE pp.operation_type_id = pc.operation_type_id
+            ),
+            999
+          )
         )
-      )
       WHERE pc.is_locked = false
         AND pc.deleted_at IS NULL
         AND pc.pod_start_date IS NOT NULL

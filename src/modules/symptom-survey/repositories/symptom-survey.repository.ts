@@ -72,6 +72,15 @@ export class SymptomSurveyRepository {
     return patient?.currentPod ?? null;
   }
 
+  async isErasCompleted(caseId: string): Promise<boolean> {
+    const patient = await this.patientRepo.findOne({
+      where: { caseId: caseId },
+      select: ['erasCompleted'],
+    });
+    if (!patient) return false;
+    return Boolean(patient.erasCompleted);
+  }
+
   async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
     console.log(`[syncPatientLevel] START - caseId: ${caseId}, triageColor: ${triageColor}`);
 
@@ -119,7 +128,7 @@ export class SymptomSurveyRepository {
   findDetailsById(assessmentId: number): Promise<AssessmentDetail[]> {
     return this.detailRepo.find({
       where: { assessmentId: assessmentId },
-      relations: ['question', 'selected_option'],
+      relations: ['question', 'selectedOption'],
     });
   }
 
