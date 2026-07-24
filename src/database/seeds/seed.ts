@@ -1,4 +1,5 @@
 import * as bcrypt from 'bcrypt';
+import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
 import AppDataSource from '../../data-source';
 import { Role } from 'src/modules/user/entities/role.entity';
@@ -7,6 +8,12 @@ import { UserRole } from 'src/modules/user/enums/user-role.enum';
 import { DeepPartial } from 'typeorm';
 import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
+import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
+import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
+import { Level } from 'src/modules/patient/entities/level.entity';
+import { Levels } from 'src/modules/patient/constants/levels.constant';
+import { SurveyQuestion } from 'src/modules/symptom-survey/entities/survey-question.entity';
+import { QuestionOption } from 'src/modules/symptom-survey/entities/question-option.entity';
 
 const SALT_ROUNDS = 10;
 
@@ -20,13 +27,19 @@ async function seed() {
 
   console.log('🧹 [Seed] Wiping old data...');
 
-  const PROTECTED_TABLES = ['survey_questions', 'question_options', 'levels'];
-
   const entities = AppDataSource.entityMetadatas;
+  const PROTECTED_TABLES = [
+    AppDataSource.getMetadata(SurveyQuestion).tableName,
+    AppDataSource.getMetadata(QuestionOption).tableName,
+    AppDataSource.getMetadata(Level).tableName,
+  ];
+
   const rolesRepository = AppDataSource.getRepository(Role);
   const usersRepository = AppDataSource.getRepository(User);
   const operationTypesRepository = AppDataSource.getRepository(OperationType);
   const patientsRepository = AppDataSource.getRepository(Patient);
+  const symptomSurveysRepository = AppDataSource.getRepository(SymptomSurvey);
+  const podProtocolsRepository = AppDataSource.getRepository(PodProtocol);
 
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
@@ -203,12 +216,48 @@ async function seed() {
   ];
 
   const savedOperationTypes = await operationTypesRepository.save(operationTypes);
-
   console.log(
     `✅ Operation types seeded: [${operationTypes.map((operationType) => operationType.operationName).join(', ')}]`,
   );
 
-  const patientCases: DeepPartial<Patient>[] = [
+  const podProtocols: DeepPartial<PodProtocol>[] = [
+    ...Array.from({ length: 6 }).map((_, pod) => ({
+      operationTypeId: 1,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật dạ dày`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    })),
+    ...Array.from({ length: 6 }).map((_, pod) => ({
+      operationTypeId: 2,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật đại trực tràng`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    })),
+  ];
+
+  await podProtocolsRepository.save(podProtocols);
+  console.log('✅ POD protocols seeded (POD 0-5 for both operation types)');
+
+  const now = new Date();
+  const levelToScore = {
+    RED: 5,
+    YELLOW: 3,
+    GREEN: 1,
+  } satisfies Record<string, number>;
+
+  const patientCases: (DeepPartial<Patient> & { assessmentTimeAgo: number })[] = [
     {
       caseId: 'CASE-001',
       age: 55,
@@ -219,10 +268,13 @@ async function seed() {
       diagnosis: 'Ung thư đại tràng giai đoạn II',
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
-      surgeryDate: '2026-06-10',
-      roomBed: 'P101-B1',
+      surgeryDate: formatISO(subDays(now, 7), { representation: 'date' }),
+      roomBed: 'P502',
       currentPod: 2,
+      podStartDate: formatISO(subDays(now, 5), { representation: 'date' }),
+      assessmentTimeAgo: 15,
       assignedNurse: savedUsers[2],
+      level: Levels.YELLOW,
     },
     {
       caseId: 'CASE-002',
@@ -234,10 +286,13 @@ async function seed() {
       diagnosis: 'Loét dạ dày chảy máu',
       operationType: savedOperationTypes[0],
       method: 'Mở',
-      surgeryDate: '2026-07-01',
-      roomBed: 'P503-B1',
+      surgeryDate: formatISO(subDays(now, 10), { representation: 'date' }),
+      roomBed: 'P502',
       currentPod: 1,
+      podStartDate: formatISO(subDays(now, 3), { representation: 'date' }),
+      assessmentTimeAgo: 8,
       assignedNurse: savedUsers[2],
+      level: Levels.GREEN,
     },
     {
       caseId: 'CASE-003',
@@ -249,10 +304,13 @@ async function seed() {
       diagnosis: 'Polyp đại tràng có nguy cơ ác tính',
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
-      surgeryDate: '2026-07-05',
-      roomBed: 'P503-B2',
+      surgeryDate: formatISO(subDays(now, 5), { representation: 'date' }),
+      roomBed: 'P502',
       currentPod: 3,
+      podStartDate: formatISO(subDays(now, 4), { representation: 'date' }),
+      assessmentTimeAgo: 8,
       assignedNurse: savedUsers[2],
+      level: Levels.RED,
     },
     {
       caseId: 'CASE-004',
@@ -264,10 +322,13 @@ async function seed() {
       diagnosis: 'U dạ dày lành tính kích thước lớn',
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
-      surgeryDate: '2026-07-08',
-      roomBed: 'P504-B1',
+      surgeryDate: formatISO(subDays(now, 6), { representation: 'date' }),
+      roomBed: 'P502',
       currentPod: 2,
+      podStartDate: formatISO(subDays(now, 2), { representation: 'date' }),
+      assessmentTimeAgo: 12,
       assignedNurse: savedUsers[2],
+      level: Levels.GREEN,
     },
     {
       caseId: 'CASE-005',
@@ -279,10 +340,13 @@ async function seed() {
       diagnosis: 'Viêm túi thừa đại tràng biến chứng',
       operationType: savedOperationTypes[1],
       method: 'Mở',
-      surgeryDate: '2026-07-02',
+      surgeryDate: formatISO(subDays(now, 8), { representation: 'date' }),
       roomBed: 'P504-B2',
       currentPod: 4,
+      podStartDate: formatISO(subDays(now, 6), { representation: 'date' }),
+      assessmentTimeAgo: 5,
       assignedNurse: savedUsers[2],
+      level: Levels.YELLOW,
     },
     {
       caseId: 'CASE-006',
@@ -294,10 +358,13 @@ async function seed() {
       diagnosis: 'Viêm loét dạ dày mạn tính không đáp ứng điều trị nội khoa',
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
-      surgeryDate: '2026-07-10',
+      surgeryDate: formatISO(subDays(now, 4), { representation: 'date' }),
       roomBed: 'P504-B3',
       currentPod: 1,
+      podStartDate: formatISO(subDays(now, 24), { representation: 'date' }),
+      assessmentTimeAgo: 18,
       assignedNurse: savedUsers[2],
+      level: Levels.RED,
     },
     {
       caseId: 'CASE-007',
@@ -309,10 +376,13 @@ async function seed() {
       diagnosis: 'Ung thư trực tràng giai đoạn III',
       operationType: savedOperationTypes[1],
       method: 'Mở',
-      surgeryDate: '2026-06-28',
+      surgeryDate: formatISO(subDays(now, 12), { representation: 'date' }),
       roomBed: 'P504-B4',
       currentPod: 5,
+      podStartDate: formatISO(subDays(now, 10), { representation: 'date' }),
+      assessmentTimeAgo: 22,
       assignedNurse: savedUsers[2],
+      level: Levels.GREEN,
     },
     {
       caseId: 'CASE-008',
@@ -324,10 +394,13 @@ async function seed() {
       diagnosis: 'Chít hẹp môn vị do loét',
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
-      surgeryDate: '2026-07-12',
+      surgeryDate: formatISO(subDays(now, 2), { representation: 'date' }),
       roomBed: 'P506-B1',
       currentPod: 0,
+      podStartDate: formatISO(subDays(now, 12), { representation: 'date' }),
+      assessmentTimeAgo: 10,
       assignedNurse: savedUsers[2],
+      level: Levels.YELLOW,
     },
     {
       caseId: 'CASE-009',
@@ -339,10 +412,13 @@ async function seed() {
       diagnosis: 'Bệnh Crohn đại tràng không đáp ứng điều trị',
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
-      surgeryDate: '2026-07-06',
+      surgeryDate: formatISO(subDays(now, 9), { representation: 'date' }),
       roomBed: 'P506-B2',
       currentPod: 3,
+      podStartDate: formatISO(subDays(now, 7), { representation: 'date' }),
+      assessmentTimeAgo: 20,
       assignedNurse: savedUsers[2],
+      level: Levels.RED,
     },
     {
       caseId: 'CASE-010',
@@ -354,15 +430,41 @@ async function seed() {
       diagnosis: 'Ung thư dạ dày giai đoạn IB',
       operationType: savedOperationTypes[0],
       method: 'Mở',
-      surgeryDate: '2026-07-03',
+      surgeryDate: formatISO(subDays(now, 11), { representation: 'date' }),
       roomBed: 'P506-B3',
       currentPod: 4,
+      podStartDate: formatISO(subDays(now, 8), { representation: 'date' }),
       assignedNurse: savedUsers[2],
+      assessmentTimeAgo: 28,
+      level: Levels.GREEN,
     },
   ];
 
-  await patientsRepository.save(patientCases);
-  console.log('✅ 10 patient cases seeded (P101: 1, P503: 2, P504: 4, P506: 3)');
+  const savedPatientCases = await patientsRepository.save(patientCases);
+  console.log('✅ 10 patient cases seeded with ERAS started + assessment completed');
+  console.log('   - Room distribution: P502(3), P504(3), P506(4)');
+  console.log('   - Level distribution: Red(3), Yellow(3), Green(4)');
+
+  const symptomSurveys: DeepPartial<SymptomSurvey>[] = savedPatientCases.map((patient) => {
+    const levelName = patient.level!.levelName;
+
+    const survey = {
+      caseId: patient.caseId,
+      evaluationDatetime: subMinutes(now, patient.assessmentTimeAgo),
+      podContext: patient.currentPod,
+      totalScore: levelToScore[levelName.toUpperCase() as keyof typeof levelToScore],
+      triageColor: levelName,
+    };
+
+    console.log(
+      `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} (score: ${survey.totalScore}) - ${patient.assessmentTimeAgo} minute(s) ago`,
+    );
+
+    return survey;
+  });
+
+  await symptomSurveysRepository.save(symptomSurveys);
+  console.log('✅ 10 patient assessments seeded');
 
   await queryRunner.release();
   await AppDataSource.destroy();

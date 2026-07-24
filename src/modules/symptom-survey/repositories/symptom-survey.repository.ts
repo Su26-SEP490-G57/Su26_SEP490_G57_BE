@@ -119,7 +119,7 @@ export class SymptomSurveyRepository {
   findDetailsById(assessmentId: number): Promise<AssessmentDetail[]> {
     return this.detailRepo.find({
       where: { assessmentId: assessmentId },
-      relations: ['question', 'selected_option'],
+      relations: ['question', 'selectedOption'],
     });
   }
 
