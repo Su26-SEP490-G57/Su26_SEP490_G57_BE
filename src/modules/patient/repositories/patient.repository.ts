@@ -108,7 +108,10 @@ export class PatientRepository {
     return this.baseQuery(manager).where('patient.caseId = :caseId', { caseId }).getOne();
   }
 
-  async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
+  async findAll(
+    query: QueryPatientDto = {},
+    archived: boolean = false,
+  ): Promise<[Patient[], number]> {
     // Build base query without the lastAssessmentTime subquery to avoid TypeORM issues
     const repo = this.repo;
     const qb = repo
@@ -122,6 +125,9 @@ export class PatientRepository {
       .leftJoinAndSelect('account.roles', 'role')
       .leftJoinAndSelect('patient.level', 'level')
       .leftJoinAndSelect('patient.operationType', 'operationType');
+
+    // Filter by archived status
+    qb.andWhere('patient.isArchived = :archived', { archived });
 
     // Search by caseId or patient full name
     if (query.search) {
@@ -346,5 +352,10 @@ export class PatientRepository {
 
   listOperationTypes(): Promise<OperationType[]> {
     return this.dataSource.getRepository(OperationType).find({ order: { operationName: 'ASC' } });
+  }
+
+  /** Archive or unarchive a patient record */
+  async archivePatient(caseId: string, archived: boolean): Promise<void> {
+    await this.repo.update({ caseId: caseId }, { isArchived: archived });
   }
 }
