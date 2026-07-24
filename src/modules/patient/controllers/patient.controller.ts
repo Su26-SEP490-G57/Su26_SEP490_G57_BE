@@ -212,4 +212,37 @@ export class PatientController {
   ): Promise<{ userId: number; caseId: string | null; deleted: true }> {
     return this.patientService.deletePatient(id);
   }
+
+  @Patch(':caseId/archive')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Archive or unarchive a patient record',
+    description:
+      'Archive a completed patient (erasCompleted = true) to move them to the archive view. ' +
+      'Can also unarchive to restore them to the active patient list.',
+  })
+  @ApiResponse({ status: 200, type: PatientListItemDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiResponse({ status: 400, description: 'Only completed patients can be archived' })
+  archivePatient(
+    @Param('caseId') caseId: string,
+    @Body() dto: { archived: boolean },
+  ): Promise<PatientWithAccount> {
+    return this.patientService.archivePatient(caseId, dto.archived);
+  }
+
+  @Get('archived/list')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Get archived patients grouped by operation type',
+    description:
+      'Returns archived patient records grouped by operation type name. ' +
+      'Used for the archive view where patients are organized by surgery type.',
+  })
+  @ApiResponse({ status: 200, description: 'Archived patients grouped by operation type' })
+  getArchivedPatients(@Query() query: QueryPatientDto) {
+    return this.patientService.getArchivedPatientsGrouped(query);
+  }
 }

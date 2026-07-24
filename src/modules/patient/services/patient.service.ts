@@ -122,8 +122,11 @@ export class PatientService {
     };
   }
 
-  async getAllPatients(query: QueryPatientDto = {}): Promise<PaginatedPatients> {
-    const [patients, total] = await this.repository.findAll(query);
+  async getAllPatients(
+    query: QueryPatientDto = {},
+    archived: boolean = false,
+  ): Promise<PaginatedPatients> {
+    const [patients, total] = await this.repository.findAll(query, archived);
     return {
       data: patients.map((p) => this.toResponse(p)),
       total,
@@ -216,6 +219,7 @@ export class PatientService {
   /**
    * Manually adjust POD level for a patient (rollback only).
    * The new POD level must be >= 0 and < current_pod.
+   * If rolling back from completed status, reset erasCompleted to false.
    */
   async updatePodLevel(caseId: string, newPodLevel: number): Promise<PatientWithAccount> {
     const patient = await this.repository.findById(caseId);
@@ -235,7 +239,18 @@ export class PatientService {
       );
     }
 
+    // Get max POD for the operation type
+    const maxPod = await this.getMaxPodForOperationType(patient.operationTypeId!);
+
+    // Update POD level
     await this.repository.updatePodLevel(caseId, newPodLevel);
+
+    // If rolling back from max POD (completed status), reset erasCompleted to false
+    if (patient.erasCompleted && maxPod !== null && newPodLevel < maxPod) {
+      await this.dataSource
+        .getRepository(Patient)
+        .update({ caseId: caseId }, { erasCompleted: false });
+    }
 
     const updated = await this.repository.findByIdWithRelations(caseId);
     if (!updated) throw new NotFoundException(`Patient ${caseId} not found after update`);
@@ -372,5 +387,52 @@ export class PatientService {
       assignedNurseId: dto.assignedNurseId,
       levelId: dto.levelId,
     };
+  }
+
+  /**
+   * Archive or unarchive a patient record.
+   * Only patients with erasCompleted = true can be archived.
+   */
+  async archivePatient(caseId: string, archived: boolean): Promise<PatientWithAccount> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) {
+      throw new NotFoundException(`Patient ${caseId} not found`);
+    }
+
+    if (archived && !patient.erasCompleted) {
+      throw new BadRequestException(
+        'Only completed patients (erasCompleted = true) can be archived',
+      );
+    }
+
+    await this.repository.archivePatient(caseId, archived);
+
+    const updated = await this.repository.findByIdWithRelations(caseId);
+    if (!updated) throw new NotFoundException(`Patient ${caseId} not found after archive`);
+
+    return this.toResponse(updated);
+  }
+
+  /**
+   * Get archived patients grouped by operation type.
+   * Returns a map where key = operation type name, value = array of patients.
+   */
+  async getArchivedPatientsGrouped(query: QueryPatientDto = {}): Promise<{
+    data: Record<string, PatientWithAccount[]>;
+    total: number;
+  }> {
+    const [patients, total] = await this.repository.findAll(query, true); // archived = true
+
+    // Group by operation type
+    const grouped: Record<string, PatientWithAccount[]> = {};
+    patients.forEach((patient) => {
+      const opTypeName = patient.operationType?.operationName ?? 'Unknown';
+      if (!grouped[opTypeName]) {
+        grouped[opTypeName] = [];
+      }
+      grouped[opTypeName].push(this.toResponse(patient));
+    });
+
+    return { data: grouped, total };
   }
 }

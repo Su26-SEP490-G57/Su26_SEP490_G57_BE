@@ -20,6 +20,8 @@ export class PodSchedulerService {
    * Runs every 15 minutes.
    * Recalculates currentPod = floor((NOW - podStartDate) / 24h) for all
    * non-locked patients whose ERAS has been started (podStartDate IS NOT NULL).
+   * POD is capped at the maximum POD defined in pod_protocols for each operation type.
+   * When a patient reaches max POD, erasCompleted is set to true.
    */
   @Cron('0 */15 * * * *')
   async syncPod(): Promise<void> {
@@ -30,16 +32,15 @@ export class PodSchedulerService {
       .where('pp.operationTypeId = pc.operation_type_id')
       .getQuery();
 
+    const floorExpr = 'FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int';
+    const maxPodExpr = `COALESCE((${protocolCountSubQuery}), 999)`;
+
     const result = await this.patientRepo
       .createQueryBuilder('pc')
       .update(Patient)
       .set({
-        currentPod: () => `
-          LEAST(
-            FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
-            COALESCE((${protocolCountSubQuery}), 999)
-          )
-        `,
+        currentPod: () => `LEAST(${floorExpr}, ${maxPodExpr})`,
+        erasCompleted: () => `(${floorExpr}) >= (${maxPodExpr})`,
       })
       .where('pc.isLocked = :isLocked', { isLocked: false })
       .andWhere('pc.podStartDate IS NOT NULL')
