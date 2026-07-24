@@ -31,16 +31,16 @@ export class UsersRepository {
 
   createEntity(data: {
     username: string;
-    password_hash: string;
-    full_name: string;
-    phone_number?: string | null;
+    passwordHash: string;
+    fullName: string;
+    phoneNumber?: string | null;
     roles: Role[];
   }): User {
     return this.userRepo.create({
       username: data.username,
-      passwordHash: data.password_hash,
-      fullName: data.full_name,
-      phoneNumber: data.phone_number ?? null,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName,
+      phoneNumber: data.phoneNumber ?? null,
       isActive: true,
       roles: data.roles,
     });
@@ -67,11 +67,11 @@ export class UsersRepository {
       .select([
         'u.id',
         'u.username',
-        'u.full_name',
-        'u.phone_number',
-        'u.is_active',
-        'u.created_at',
-        'u.updated_at',
+        'u.fullName',
+        'u.phoneNumber',
+        'u.isActive',
+        'u.createdAt',
+        'u.updatedAt',
         'role.id',
         'role.roleName',
       ]);
@@ -80,16 +80,16 @@ export class UsersRepository {
       qb.andWhere('role.roleName = :role', { role });
     }
     if (isActive !== undefined) {
-      qb.andWhere('u.is_active = :isActive', { isActive });
+      qb.andWhere('u.isActive = :isActive', { isActive });
     }
     if (search) {
-      qb.andWhere('u.full_name ILIKE :search', { search: `%${search}%` });
+      qb.andWhere('u.fullName ILIKE :search', { search: `%${search}%` });
     }
     if (userId) {
       qb.andWhere('u.id = :userId', { userId });
     }
 
-    qb.orderBy('u.created_at', 'DESC')
+    qb.orderBy('u.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

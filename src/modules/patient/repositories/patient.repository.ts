@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
@@ -8,6 +7,7 @@ import { UserRoleName } from '../../user/enums/user-role.enum';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { OperationType } from '../entities/operation-type.entity';
 import { Patient } from '../entities/patient.entity';
+import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 
 /** Login account fields for the patient's linked `users` row. */
 export interface PatientAccountInput {
@@ -21,7 +21,7 @@ export interface PatientAccountInput {
   isActive?: boolean;
 }
 
-/** Clinical fields for the patient_cases row. `undefined` means "leave unchanged" on update. */
+/** Clinical fields for the patientCases row. `undefined` means "leave unchanged" on update. */
 export interface PatientCaseInput {
   age?: number | null;
   gender?: string | null;
@@ -64,20 +64,11 @@ export class PatientRepository {
           'patient.account',
           User,
           'account',
-          'account.case_id = patient.case_id AND account.deleted_at IS NULL',
+          'account.caseId = patient.caseId AND account.deletedAt IS NULL',
         )
         .leftJoinAndSelect('account.roles', 'role')
         .leftJoinAndSelect('patient.level', 'level')
         .leftJoinAndSelect('patient.operationType', 'operationType')
-        // Add subquery to get last assessment time
-        .addSelect(
-          (subQuery) =>
-            subQuery
-              .select('MAX(assessment.evaluation_datetime)')
-              .from('patient_assessments', 'assessment')
-              .where('assessment.case_id = patient.case_id'),
-          'lastAssessmentTime',
-        )
     );
   }
 
@@ -114,25 +105,37 @@ export class PatientRepository {
 
   /** A single patient with all relations joined (same shape as the list endpoint). */
   findByIdWithRelations(caseId: string, manager?: EntityManager): Promise<Patient | null> {
-    return this.baseQuery(manager).where('patient.case_id = :caseId', { caseId }).getOne();
+    return this.baseQuery(manager).where('patient.caseId = :caseId', { caseId }).getOne();
   }
 
   async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
-    const qb = this.baseQuery();
+    // Build base query without the lastAssessmentTime subquery to avoid TypeORM issues
+    const repo = this.repo;
+    const qb = repo
+      .createQueryBuilder('patient')
+      .leftJoinAndMapOne(
+        'patient.account',
+        User,
+        'account',
+        'account.caseId = patient.caseId AND account.deletedAt IS NULL',
+      )
+      .leftJoinAndSelect('account.roles', 'role')
+      .leftJoinAndSelect('patient.level', 'level')
+      .leftJoinAndSelect('patient.operationType', 'operationType');
 
-    // Search by case_id or patient full name
+    // Search by caseId or patient full name
     if (query.search) {
-      qb.andWhere('(patient.case_id ILIKE :search OR account.full_name ILIKE :search)', {
+      qb.andWhere('(patient.caseId ILIKE :search OR account.fullName ILIKE :search)', {
         search: `%${query.search}%`,
       });
     }
 
     // Filters
     if (query.level) {
-      qb.andWhere('level.level_name = :level', { level: query.level });
+      qb.andWhere('level.levelName = :level', { level: query.level });
     }
     if (query.operationTypeId !== undefined) {
-      qb.andWhere('patient.operation_type_id = :operationTypeId', {
+      qb.andWhere('patient.operationTypeId = :operationTypeId', {
         operationTypeId: query.operationTypeId,
       });
     }
@@ -147,22 +150,43 @@ export class PatientRepository {
         .addOrderBy('patient.caseId', 'ASC');
     }
 
+    // Get total count before pagination
+    const total = await qb.getCount();
+
     // Pagination
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
-    // Get both raw and entity results to access the calculated lastAssessmentTime
-    const rawAndEntities = await qb.getRawAndEntities();
-    const total = await qb.getCount();
+    // Get patients
+    const patients = await qb.getMany();
 
-    // Map lastAssessmentTime from raw results to entities
-    const patients = rawAndEntities.entities.map((patient, index) => {
-      const rawRow = rawAndEntities.raw[index];
+    // If no patients, return early
+    if (patients.length === 0) {
+      return [[], total];
+    }
+
+    // Fetch lastAssessmentTime for all patients in one query
+    const caseIds = patients.map((p) => p.caseId);
+    const assessmentTimes = await this.dataSource
+      .getRepository(SymptomSurvey)
+      .createQueryBuilder('pa')
+      .select('pa.caseId', 'caseId')
+      .addSelect('MAX(pa.evaluationDatetime)', 'lastAssessmentTime')
+      .where('pa.caseId IN (:...caseIds)', { caseIds })
+      .groupBy('pa.caseId')
+      .getRawMany<{ caseId: string; lastAssessmentTime: Date | null }>();
+
+    // Create a map for quick lookup
+    const assessmentTimeMap = new Map<string, Date | null>();
+    assessmentTimes.forEach((row) => {
+      assessmentTimeMap.set(row.caseId, row.lastAssessmentTime);
+    });
+
+    // Attach lastAssessmentTime to each patient
+    patients.forEach((patient) => {
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        rawRow?.patient_lastAssessmentTime || rawRow?.lastAssessmentTime || null;
-      return patient;
+        assessmentTimeMap.get(patient.caseId) ?? null;
     });
 
     return [patients, total];
@@ -171,7 +195,7 @@ export class PatientRepository {
   // ── Existence / lookup helpers (for service-layer validation) ───────────────
 
   async caseIdExists(caseId: string): Promise<boolean> {
-    // withDeleted: the case_id primary key is still occupied by soft-deleted rows.
+    // withDeleted: the caseId primary key is still occupied by soft-deleted rows.
     return (await this.repo.count({ where: { caseId: caseId }, withDeleted: true })) > 0;
   }
 
@@ -196,7 +220,7 @@ export class PatientRepository {
     return this.dataSource.getRepository(User).findOne({ where: { id } });
   }
 
-  // ── Mutations (transactional, span patient_cases + users) ───────────────────
+  // ── Mutations (transactional, span patientCases + users) ───────────────────
 
   /** Create the patient case and its linked Patient-role login account atomically. */
   async createWithAccount(input: CreatePatientInput): Promise<Patient> {
@@ -205,34 +229,34 @@ export class PatientRepository {
 
       const user = manager.create(User, {
         username: input.account.username,
-        password_hash: input.account.passwordHash,
-        full_name: input.account.fullName,
-        phone_number: input.account.phoneNumber ?? null,
-        city_province: input.account.cityProvince ?? null,
+        passwordHash: input.account.passwordHash,
+        fullName: input.account.fullName,
+        phoneNumber: input.account.phoneNumber ?? null,
+        cityProvince: input.account.cityProvince ?? null,
         ward: input.account.ward ?? null,
-        detailed_address: input.account.detailedAddress ?? null,
-        case_id: input.caseId,
-        is_active: input.account.isActive ?? true,
+        detailedAddress: input.account.detailedAddress ?? null,
+        caseId: input.caseId,
+        isActive: input.account.isActive ?? true,
         roles: [role],
       });
       await manager.save(user);
 
       const patient = manager.create(Patient, {
-        case_id: input.caseId,
+        caseId: input.caseId,
         age: input.age ?? null,
         gender: input.gender ?? null,
         height: input.height ?? null,
         weight: input.weight ?? null,
         bmi: input.bmi ?? null,
         diagnosis: input.diagnosis ?? null,
-        operation_type_id: input.operationTypeId ?? null,
+        operationTypeId: input.operationTypeId ?? null,
         method: input.method ?? null,
-        has_gi_anastomosis: input.hasGiAnastomosis ?? null,
-        surgery_date: input.surgeryDate ?? null,
-        room_bed: input.roomBed ?? null,
-        current_pod: input.currentPod ?? null,
-        level_id: input.levelId ?? null,
-        assigned_nurse:
+        hasGiAnastomosis: input.hasGiAnastomosis ?? null,
+        surgeryDate: input.surgeryDate ?? null,
+        roomBed: input.roomBed ?? null,
+        currentPod: input.currentPod ?? null,
+        levelId: input.levelId ?? null,
+        assignedNurse:
           input.assignedNurseId != null ? ({ id: input.assignedNurseId } as User) : null,
       });
       await manager.save(patient);
@@ -296,13 +320,13 @@ export class PatientRepository {
 
   /**
    * Soft-delete a patient account (by user id) and its linked patient case
-   * atomically (sets deleted_at on both rows). Clinical history is preserved.
+   * atomically (sets deletedAt on both rows). Clinical history is preserved.
    * The case is only touched when the account is linked to one.
    */
   async softDeletePatient(userId: number, caseId: string | null): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       await manager.softDelete(User, { id: userId });
-      if (caseId) await manager.softDelete(Patient, { case_id: caseId });
+      if (caseId) await manager.softDelete(Patient, { caseId: caseId });
     });
   }
 
