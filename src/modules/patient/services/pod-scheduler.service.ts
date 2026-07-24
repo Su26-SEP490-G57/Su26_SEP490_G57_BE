@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule/dist/decorators/cron.decorator';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Patient } from '../entities/patient.entity';
+import { Cron } from '@nestjs/schedule/dist/decorators/cron.decorator';
+import { PodProtocol } from '../entities/pod-protocol.entity';
 
 @Injectable()
 export class PodSchedulerService {
@@ -17,38 +18,32 @@ export class PodSchedulerService {
 
   /**
    * Runs every 15 minutes.
-   * Recalculates current_pod = floor((NOW - pod_start_date) / 24h) for all
-   * non-locked patients whose ERAS has been started (pod_start_date IS NOT NULL).
-   * POD is capped at the maximum POD defined in pod_protocols for each operation type.
-   *
-   * New logic:
-   * - When patient reaches max POD with GREEN level → set eras_completed = true
-   * - When patient reaches max POD with YELLOW/RED level → auto-lock POD (is_locked = true)
+   * Recalculates currentPod = floor((NOW - podStartDate) / 24h) for all
+   * non-locked patients whose ERAS has been started (podStartDate IS NOT NULL).
    */
   @Cron('0 */15 * * * *')
   async syncPod(): Promise<void> {
-    // The `pod_protocols` count is a correlated subquery referencing the row being
-    // updated by its table name — UPDATE statements built via QueryBuilder have no
-    // alias for the target table, so `patient_cases` itself is the only handle available.
-    const maxPodExpression = `COALESCE(
-      (SELECT COUNT(*) - 1 FROM pod_protocols pp WHERE pp.operation_type_id = patient_cases.operation_type_id),
-      999
-    )`;
-
-    // Step 1: Update POD for all unlocked, non-completed patients
-    const updateResult = await this.patientRepo
+    const protocolCountSubQuery = this.dataSource
       .createQueryBuilder()
+      .select('COUNT(*) - 1')
+      .from(PodProtocol, 'pp')
+      .where('pp.operationTypeId = pc.operation_type_id')
+      .getQuery();
+
+    const result = await this.patientRepo
+      .createQueryBuilder('pc')
       .update(Patient)
       .set({
-        currentPod: () => `LEAST(
-          FLOOR(EXTRACT(EPOCH FROM (NOW() - pod_start_date)) / 86400)::int,
-          ${maxPodExpression}
-        )`,
+        currentPod: () => `
+          LEAST(
+            FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
+            COALESCE((${protocolCountSubQuery}), 999)
+          )
+        `,
       })
-      .where('is_locked = false')
-      .andWhere('deleted_at IS NULL')
-      .andWhere('pod_start_date IS NOT NULL')
-      .andWhere('eras_completed = false')
+      .where('pc.isLocked = :isLocked', { isLocked: false })
+      .andWhere('pc.podStartDate IS NOT NULL')
+      .andWhere('pc.deletedAt IS NULL')
       .execute();
 
     if ((updateResult.affected ?? 0) > 0) {

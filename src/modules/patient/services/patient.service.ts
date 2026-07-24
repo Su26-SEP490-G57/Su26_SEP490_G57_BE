@@ -19,6 +19,7 @@ import {
   PatientCaseInput,
   PatientRepository,
 } from '../repositories/patient.repository';
+import { PodProtocol } from '../entities/pod-protocol.entity';
 
 /** bcrypt cost factor — keep in sync with UsersService. */
 const SALT_ROUNDS = 10;

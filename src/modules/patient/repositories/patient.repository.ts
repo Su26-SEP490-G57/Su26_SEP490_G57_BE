@@ -23,6 +23,7 @@ export interface PodTrackingLogInput {
   changedById: number | null;
   holdReason?: string | null;
 }
+import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 
 /** Login account fields for the patient's linked `users` row. */
 export interface PatientAccountInput {
@@ -182,17 +183,35 @@ export class PatientRepository {
     const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
-    // Get both raw and entity results to access the calculated lastAssessmentTime
-    const rawAndEntities = await qb.getRawAndEntities();
-    const total = await qb.getCount();
+    // Get patients
+    const patients = await qb.getMany();
 
-    // Map lastAssessmentTime from raw results to entities
-    const patients = rawAndEntities.entities.map((patient, index) => {
-      const rawRow = rawAndEntities.raw[index];
+    // If no patients, return early
+    if (patients.length === 0) {
+      return [[], total];
+    }
+
+    // Fetch lastAssessmentTime for all patients in one query
+    const caseIds = patients.map((p) => p.caseId);
+    const assessmentTimes = await this.dataSource
+      .getRepository(SymptomSurvey)
+      .createQueryBuilder('pa')
+      .select('pa.caseId', 'caseId')
+      .addSelect('MAX(pa.evaluationDatetime)', 'lastAssessmentTime')
+      .where('pa.caseId IN (:...caseIds)', { caseIds })
+      .groupBy('pa.caseId')
+      .getRawMany<{ caseId: string; lastAssessmentTime: Date | null }>();
+
+    // Create a map for quick lookup
+    const assessmentTimeMap = new Map<string, Date | null>();
+    assessmentTimes.forEach((row) => {
+      assessmentTimeMap.set(row.caseId, row.lastAssessmentTime);
+    });
+
+    // Attach lastAssessmentTime to each patient
+    patients.forEach((patient) => {
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        rawRow?.patient_lastAssessmentTime || rawRow?.lastAssessmentTime || null;
-      return patient;
+        assessmentTimeMap.get(patient.caseId) ?? null;
     });
 
     return [patients, total];

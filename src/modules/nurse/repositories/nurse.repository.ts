@@ -33,7 +33,7 @@ export class NurseRepository {
     const applyFilters = (qb: ReturnType<typeof this.userRepo.createQueryBuilder>) => {
       if (userId) qb.andWhere('u.id = :userId', { userId });
       if (search) qb.andWhere('u.fullName ILIKE :search', { search: `%${search}%` });
-      if (isActive !== undefined) qb.andWhere('u.isActive = :isActive', { isActive });
+      if (isActive !== undefined) qb.andWhere('u.is_active = :isActive', { isActive });
     };
 
     // Count query: leftJoin only (no select) → no row multiplication from roles

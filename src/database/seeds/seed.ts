@@ -1,4 +1,4 @@
-﻿import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
 import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
@@ -33,21 +33,21 @@ export async function seed(
   const queryRunner = dataSource.createQueryRunner();
   await queryRunner.connect();
 
-  log('🧹 [Seed] Wiping old data...');
+  console.log('🧹 [Seed] Wiping old data...');
 
-  const entities = dataSource.entityMetadatas;
+  const entities = AppDataSource.entityMetadatas;
   const PROTECTED_TABLES = [
-    dataSource.getMetadata(SurveyQuestion).tableName,
-    dataSource.getMetadata(QuestionOption).tableName,
-    dataSource.getMetadata(Level).tableName,
+    AppDataSource.getMetadata(SurveyQuestion).tableName,
+    AppDataSource.getMetadata(QuestionOption).tableName,
+    AppDataSource.getMetadata(Level).tableName,
   ];
 
-  const rolesRepository = dataSource.getRepository(Role);
-  const usersRepository = dataSource.getRepository(User);
-  const operationTypesRepository = dataSource.getRepository(OperationType);
-  const patientsRepository = dataSource.getRepository(Patient);
-  const symptomSurveysRepository = dataSource.getRepository(SymptomSurvey);
-  const podProtocolsRepository = dataSource.getRepository(PodProtocol);
+  const rolesRepository = AppDataSource.getRepository(Role);
+  const usersRepository = AppDataSource.getRepository(User);
+  const operationTypesRepository = AppDataSource.getRepository(OperationType);
+  const patientsRepository = AppDataSource.getRepository(Patient);
+  const symptomSurveysRepository = AppDataSource.getRepository(SymptomSurvey);
+  const podProtocolsRepository = AppDataSource.getRepository(PodProtocol);
 
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
@@ -295,200 +295,34 @@ export async function seed(
   );
 
   const podProtocols: DeepPartial<PodProtocol>[] = [
-    // Gastric Pathway (OperationType 1)
-    {
-      operationType: savedOperationTypes[0],
-      podId: 0,
-      label: 'POD0',
-      mealsPerDayMin: null,
-      mealsPerDayMax: null,
-      mealInstruction:
-        'Mỗi lần khoảng 10–20 ml. Nghỉ 10–15 phút giữa các lần. Tăng dần nếu dung nạp tốt.',
-      volumnPerMealMin: 10,
-      volumePerMealMax: 20,
-      volumeInstruction: 'Mỗi lần khoảng 10–20 ml',
-      recommendedFoods: [],
-      recommendedDrinks: [
-        'nước ấm',
-        'nước điện giải',
-        'nước oresol pha đúng hướng dẫn',
-        'nước cháo loãng',
-        'nước súp trong',
-      ],
-    },
-    {
-      operationType: savedOperationTypes[0],
-      podId: 1,
-      label: 'POD1',
-      mealsPerDayMin: 6,
-      mealsPerDayMax: 8,
-      mealInstruction: 'Chia 6–8 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
-      volumnPerMealMin: 30,
-      volumePerMealMax: 50,
-      volumeInstruction: 'Mỗi lần khoảng 30–50 ml',
-      recommendedFoods: [
-        'nước cháo loãng',
-        'súp lọc',
-        'sữa dinh dưỡng lượng nhỏ',
-        'sữa không lactose nếu dễ đầy bụng',
-      ],
-      recommendedDrinks: ['nước điện giải'],
-    },
-    {
-      operationType: savedOperationTypes[0],
-      podId: 2,
-      label: 'POD2',
-      mealsPerDayMin: 6,
-      mealsPerDayMax: 6,
-      mealInstruction: '6 bữa nhỏ/ngày. Tăng dần nếu không đầy bụng hoặc buồn nôn.',
-      volumnPerMealMin: 50,
-      volumePerMealMax: 100,
-      volumeInstruction: 'Mỗi lần khoảng 50–100 ml',
-      recommendedFoods: [
-        'cháo xay loãng',
-        'súp xay',
-        'sữa giàu protein',
-        'sữa dinh dưỡng y học',
-        'khoai nghiền loãng',
-      ],
-      recommendedDrinks: ['sữa chua uống'],
-    },
-    {
-      operationType: savedOperationTypes[0],
-      podId: 3,
-      label: 'POD3',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 6,
-      mealInstruction: '5–6 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
-      volumnPerMealMin: 100,
-      volumePerMealMax: 150,
-      volumeInstruction: 'Mỗi lần khoảng 100–150 ml hoặc lượng nhỏ phù hợp',
-      recommendedFoods: [
-        'cháo xay đặc hơn',
-        'súp đặc',
-        'trứng hấp mềm',
-        'thịt/cá xay nhuyễn',
-        'đậu phụ non',
-        'sữa giàu protein',
-      ],
-      recommendedDrinks: [],
-    },
-    {
-      operationType: savedOperationTypes[0],
-      podId: 4,
-      label: 'POD4',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 6,
-      mealInstruction: '5–6 bữa nhỏ/ngày. Lượng ăn tăng dần theo khả năng dung nạp.',
-      volumnPerMealMin: null,
-      volumePerMealMax: null,
-      volumeInstruction: null,
-      recommendedFoods: [
-        'cháo đặc mềm',
-        'mì mềm',
-        'cơm nhão lượng nhỏ',
-        'cá hấp mềm',
-        'thịt xay mềm',
-        'rau củ hầm mềm',
-      ],
-      recommendedDrinks: [],
-    },
-    {
-      operationType: savedOperationTypes[0],
-      podId: 5,
-      label: 'POD5',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 6,
-      mealInstruction: '3 bữa chính. 2–3 bữa phụ. Tăng lượng ăn từ từ.',
-      volumnPerMealMin: null,
-      volumePerMealMax: null,
-      volumeInstruction: null,
-      recommendedFoods: [
-        'cơm mềm lượng nhỏ',
-        'thức ăn mềm dễ tiêu',
-        'cá hấp',
-        'thịt nạc mềm',
-        'trứng',
-        'sữa dinh dưỡng',
-      ],
-      recommendedDrinks: [],
-    },
-    // Colorectal Pathway (OperationType 2)
-    {
-      operationType: savedOperationTypes[1],
-      podId: 0,
-      label: 'POD0',
-      mealsPerDayMin: null,
-      mealsPerDayMax: null,
-      mealInstruction: 'Nghỉ 10–15 phút giữa các lần. Tăng dần nếu dung nạp tốt.',
-      volumnPerMealMin: 20,
-      volumePerMealMax: 30,
-      volumeInstruction: 'Mỗi lần khoảng 20–30 ml',
-      recommendedFoods: [],
-      recommendedDrinks: [
-        'nước ấm',
-        'nước điện giải',
-        'nước oresol pha đúng hướng dẫn',
-        'nước cháo loãng',
-        'nước súp trong',
-      ],
-    },
-    {
-      operationType: savedOperationTypes[1],
-      podId: 1,
-      label: 'POD1',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 6,
-      mealInstruction: 'Chia 5–6 bữa nhỏ/ngày. Tăng dần theo dung nạp.',
-      volumnPerMealMin: 50,
-      volumePerMealMax: 100,
-      volumeInstruction: 'Mỗi lần khoảng 50–100 ml',
-      recommendedFoods: ['cháo loãng', 'súp', 'sữa dinh dưỡng'],
-      recommendedDrinks: ['nước cháo', 'nước điện giải'],
-    },
-    {
-      operationType: savedOperationTypes[1],
-      podId: 2,
-      label: 'POD2',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 6,
-      mealInstruction: '5–6 bữa/ngày. Tăng dần theo dung nạp.',
-      volumnPerMealMin: 100,
-      volumePerMealMax: 150,
-      volumeInstruction: 'Mỗi lần khoảng 100–150 ml',
-      recommendedFoods: ['cháo xay đặc hơn', 'súp đặc', 'khoai nghiền', 'sữa giàu protein'],
-      recommendedDrinks: ['sữa chua uống'],
-    },
-    {
-      operationType: savedOperationTypes[1],
-      podId: 3,
-      label: 'POD3',
-      mealsPerDayMin: 4,
-      mealsPerDayMax: 5,
-      mealInstruction: '4–5 bữa/ngày. Lượng ăn tăng dần theo khả năng dung nạp.',
-      volumnPerMealMin: null,
-      volumePerMealMax: null,
-      volumeInstruction: null,
-      recommendedFoods: ['cháo đặc mềm', 'mì mềm', 'trứng hấp', 'thịt/cá xay mềm', 'đậu phụ non'],
-      recommendedDrinks: [],
-    },
-    {
-      operationType: savedOperationTypes[1],
-      podId: 4,
-      label: 'POD4',
-      mealsPerDayMin: 5,
-      mealsPerDayMax: 5,
-      mealInstruction: '3 bữa chính. 2 bữa phụ. Tăng lượng ăn từ từ.',
-      volumnPerMealMin: null,
-      volumePerMealMax: null,
-      volumeInstruction: null,
-      recommendedFoods: ['cơm mềm lượng nhỏ', 'cá hấp', 'thịt mềm', 'rau củ hầm mềm', 'cháo đặc'],
-      recommendedDrinks: [],
-    },
+    ...Array.from({ length: 6 }).map((_, pod) => ({
+      operationTypeId: 1,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật dạ dày`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    })),
+    ...Array.from({ length: 6 }).map((_, pod) => ({
+      operationTypeId: 2,
+      label: `POD ${pod}`,
+      mealsPerDayMin: pod === 0 ? 0 : 3 + pod,
+      mealsPerDayMax: pod === 0 ? 0 : 6 + pod,
+      mealInstruction: `Hướng dẫn ăn uống cho POD ${pod} - Phẫu thuật đại trực tràng`,
+      volumePerMealMin: pod === 0 ? 0 : 50 + pod * 50,
+      volumePerMealMax: pod === 0 ? 0 : 100 + pod * 50,
+      volumeInstruction: `Khối lượng thức ăn khuyến nghị cho POD ${pod}`,
+      recommendedFoods: pod === 0 ? [] : ['Cháo loãng', 'Súp', 'Nước trái cây'],
+      recommendedDrinks: pod === 0 ? [] : ['Nước lọc', 'Nước chanh', 'Trà loãng'],
+    })),
   ];
 
   await podProtocolsRepository.save(podProtocols);
-  log(`✅ ${podProtocols.length} PodProtocols (Diet Guidance) seeded`);
+  console.log('✅ POD protocols seeded (POD 0-5 for both operation types)');
 
   const now = new Date();
   const levelToScore = {
@@ -581,7 +415,7 @@ export async function seed(
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 8), { representation: 'date' }),
-      roomBed: 'P504',
+      roomBed: 'P504-B2',
       currentPod: 4,
       podStartDate: formatISO(subDays(now, 6), { representation: 'date' }),
       assessmentTimeAgo: 5,
@@ -599,9 +433,9 @@ export async function seed(
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 4), { representation: 'date' }),
-      roomBed: 'P504',
+      roomBed: 'P504-B3',
       currentPod: 1,
-      podStartDate: formatISO(subDays(now, 1), { representation: 'date' }),
+      podStartDate: formatISO(subDays(now, 24), { representation: 'date' }),
       assessmentTimeAgo: 18,
       assignedNurse: savedUsers[2],
       level: Levels.RED,
@@ -617,7 +451,7 @@ export async function seed(
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 12), { representation: 'date' }),
-      roomBed: 'P506',
+      roomBed: 'P504-B4',
       currentPod: 5,
       podStartDate: formatISO(subDays(now, 10), { representation: 'date' }),
       assessmentTimeAgo: 22,
@@ -635,9 +469,9 @@ export async function seed(
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 2), { representation: 'date' }),
-      roomBed: 'P506',
+      roomBed: 'P506-B1',
       currentPod: 0,
-      podStartDate: formatISO(subDays(now, 0.5), { representation: 'date' }),
+      podStartDate: formatISO(subDays(now, 12), { representation: 'date' }),
       assessmentTimeAgo: 10,
       assignedNurse: savedUsers[2],
       level: Levels.YELLOW,
@@ -653,7 +487,7 @@ export async function seed(
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 9), { representation: 'date' }),
-      roomBed: 'P506',
+      roomBed: 'P506-B2',
       currentPod: 3,
       podStartDate: formatISO(subDays(now, 7), { representation: 'date' }),
       assessmentTimeAgo: 20,
@@ -671,7 +505,7 @@ export async function seed(
       operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 11), { representation: 'date' }),
-      roomBed: 'P506',
+      roomBed: 'P506-B3',
       currentPod: 4,
       podStartDate: formatISO(subDays(now, 8), { representation: 'date' }),
       assignedNurse: savedUsers[2],
@@ -681,9 +515,9 @@ export async function seed(
   ];
 
   const savedPatientCases = await patientsRepository.save(patientCases);
-  log('✅ 10 patient cases seeded with ERAS started + assessment completed');
-  log('   - Room distribution: P502(3), P504(3), P506(4)');
-  log('   - Level distribution: Red(3), Yellow(3), Green(4)');
+  console.log('✅ 10 patient cases seeded with ERAS started + assessment completed');
+  console.log('   - Room distribution: P502(3), P504(3), P506(4)');
+  console.log('   - Level distribution: Red(3), Yellow(3), Green(4)');
 
   const symptomSurveys: DeepPartial<SymptomSurvey>[] = savedPatientCases.map((patient) => {
     const levelName = patient.level!.levelName;
@@ -694,10 +528,9 @@ export async function seed(
       podContext: patient.currentPod,
       totalScore: levelToScore[levelName.toUpperCase() as keyof typeof levelToScore],
       triageColor: levelName,
-      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     };
 
-    log(
+    console.log(
       `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} (score: ${survey.totalScore}) - ${patient.assessmentTimeAgo} minute(s) ago`,
     );
 
@@ -705,7 +538,7 @@ export async function seed(
   });
 
   await symptomSurveysRepository.save(symptomSurveys);
-  log('✅ 10 patient assessments seeded');
+  console.log('✅ 10 patient assessments seeded');
 
   await queryRunner.release();
   if (closeConnection) {
