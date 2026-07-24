@@ -3,6 +3,8 @@ name: Main Branch CI/CD Workflow
 permissions:
   contents: read
   packages: write
+  deployments: write
+  actions: write
 
 on:
   push:
