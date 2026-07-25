@@ -36,6 +36,7 @@ export interface CurrentPodResponse {
 export interface PatientAccount {
   id: number;
   username: string;
+
   fullName: string;
   phoneNumber: string | null;
   cityProvince: string | null;
