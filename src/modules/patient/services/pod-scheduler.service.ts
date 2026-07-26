@@ -18,47 +18,100 @@ export class PodSchedulerService {
    * Recalculates current_pod = floor((NOW - pod_start_date) / 24h) for all
    * non-locked patients whose ERAS has been started (pod_start_date IS NOT NULL).
    * POD is capped at the maximum POD defined in pod_protocols for each operation type.
-   * When a patient reaches max POD, eras_completed is set to true.
+   *
+   * New logic:
+   * - When patient reaches max POD with GREEN level → set eras_completed = true
+   * - When patient reaches max POD with YELLOW/RED level → auto-lock POD (is_locked = true)
    */
   @Cron('0 */15 * * * *')
   async syncPod(): Promise<void> {
-    // Calculate POD based on time elapsed, but cap it at max POD from pod_protocols
-    // Also mark eras_completed = true when POD reaches max
+    // Step 1: Update POD for all unlocked, active patients
+    // Cap POD at max level from pod_protocols
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const result = await this.patientRepo.query(`
+    const updateResult = await this.patientRepo.query(`
       UPDATE patient_cases pc
-      SET
-        current_pod = LEAST(
-          FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
-          COALESCE(
-            (
-              SELECT COUNT(*) - 1
-              FROM pod_protocols pp
-              WHERE pp.operation_type_id = pc.operation_type_id
-            ),
-            999
-          )
-        ),
-        eras_completed = (
-          FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int >=
-          COALESCE(
-            (
-              SELECT COUNT(*) - 1
-              FROM pod_protocols pp
-              WHERE pp.operation_type_id = pc.operation_type_id
-            ),
-            999
-          )
+      SET current_pod = LEAST(
+        FLOOR(EXTRACT(EPOCH FROM (NOW() - pc.pod_start_date)) / 86400)::int,
+        COALESCE(
+          (
+            SELECT COUNT(*) - 1
+            FROM pod_protocols pp
+            WHERE pp.operation_type_id = pc.operation_type_id
+          ),
+          999
         )
+      )
       WHERE pc.is_locked = false
         AND pc.deleted_at IS NULL
         AND pc.pod_start_date IS NOT NULL
+        AND pc.eras_completed = false
     `);
 
-    const affectedRows = Array.isArray(result) && result.length > 1 ? (result[1] as number) : 0;
+    const updatedRows =
+      Array.isArray(updateResult) && updateResult.length > 1 ? (updateResult[1] as number) : 0;
 
-    if (affectedRows > 0) {
-      this.logger.log(`POD sync: ${affectedRows} patient(s) updated`);
+    if (updatedRows > 0) {
+      this.logger.log(`POD sync: ${updatedRows} patient(s) updated`);
+    }
+
+    // Step 2: Mark GREEN patients as completed when they reach max POD
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const completedResult = await this.patientRepo.query(`
+      UPDATE patient_cases pc
+      SET eras_completed = true
+      FROM levels l
+      WHERE pc.level_id = l.level_id
+        AND l.level_name = 'Green'
+        AND pc.eras_completed = false
+        AND pc.current_pod >= COALESCE(
+          (
+            SELECT COUNT(*) - 1
+            FROM pod_protocols pp
+            WHERE pp.operation_type_id = pc.operation_type_id
+          ),
+          999
+        )
+        AND pc.pod_start_date IS NOT NULL
+        AND pc.deleted_at IS NULL
+    `);
+
+    const completedRows =
+      Array.isArray(completedResult) && completedResult.length > 1
+        ? (completedResult[1] as number)
+        : 0;
+
+    if (completedRows > 0) {
+      this.logger.log(`ERAS completed: ${completedRows} GREEN patient(s) marked as completed`);
+    }
+
+    // Step 3: Auto-lock YELLOW/RED patients when they reach max POD
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const lockResult = await this.patientRepo.query(`
+      UPDATE patient_cases pc
+      SET
+        is_locked = true,
+        reason_hold_pod = 'Auto-locked: Reached max POD with concerning health status (Yellow/Red level)'
+      FROM levels l
+      WHERE pc.level_id = l.level_id
+        AND l.level_name IN ('Yellow', 'Red')
+        AND pc.is_locked = false
+        AND pc.current_pod >= COALESCE(
+          (
+            SELECT COUNT(*) - 1
+            FROM pod_protocols pp
+            WHERE pp.operation_type_id = pc.operation_type_id
+          ),
+          999
+        )
+        AND pc.pod_start_date IS NOT NULL
+        AND pc.deleted_at IS NULL
+    `);
+
+    const lockedRows =
+      Array.isArray(lockResult) && lockResult.length > 1 ? (lockResult[1] as number) : 0;
+
+    if (lockedRows > 0) {
+      this.logger.log(`Auto-locked: ${lockedRows} YELLOW/RED patient(s) locked at max POD`);
     }
   }
 }

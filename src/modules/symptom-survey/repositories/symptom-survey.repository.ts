@@ -72,15 +72,6 @@ export class SymptomSurveyRepository {
     return patient?.currentPod ?? null;
   }
 
-  async isErasCompleted(caseId: string): Promise<boolean> {
-    const patient = await this.patientRepo.findOne({
-      where: { caseId: caseId },
-      select: ['erasCompleted'],
-    });
-    if (!patient) return false;
-    return Boolean(patient.erasCompleted);
-  }
-
   async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
     console.log(`[syncPatientLevel] START - caseId: ${caseId}, triageColor: ${triageColor}`);
 

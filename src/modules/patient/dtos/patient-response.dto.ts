@@ -85,12 +85,6 @@ export class PatientListItemDto {
     description: 'Whether the patient has completed the ERAS protocol (reached max POD)',
   })
   erasCompleted!: boolean;
-
-  @ApiProperty({
-    example: false,
-    description: 'Whether the patient record has been archived',
-  })
-  isArchived!: boolean;
 }
 
 export class PaginatedPatientsDto {
