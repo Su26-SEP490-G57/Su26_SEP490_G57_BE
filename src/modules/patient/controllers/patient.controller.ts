@@ -26,11 +26,15 @@ import { SymptomSurveyService } from '../../symptom-survey/services/symptom-surv
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
+import { ExternalSurgicalRecordListDto } from '../dtos/external-record.dto';
+import { ImportPatientsDto, ImportPatientsResultDto } from '../dtos/import-patients.dto';
 import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-response.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { UpdatePodLevelDto } from '../dtos/update-pod-level.dto';
+import { ExternalRecordsService } from '../services/external-records.service';
+import { PatientImportService } from '../services/patient-import.service';
 import {
   CurrentPodResponse,
   PaginatedPatients,
@@ -69,6 +73,8 @@ export class PatientController {
   constructor(
     private readonly patientService: PatientService,
     private readonly symptomSurveyService: SymptomSurveyService,
+    private readonly externalRecordsService: ExternalRecordsService,
+    private readonly patientImportService: PatientImportService,
   ) {}
 
   @Get()
@@ -91,6 +97,36 @@ export class PatientController {
   @ApiResponse({ status: 200, type: [OperationTypeDto] })
   getOperationTypes(): Promise<PatientOperationType[]> {
     return this.patientService.getOperationTypes();
+  }
+
+  @Get('external-records')
+  @ApiOperation({
+    summary: 'Fetch surgical patient records from the external HIS',
+    description:
+      'Calls the external (dummy) HIS service and returns all patients that have undergone ' +
+      'surgery. Used to source patient records from another system instead of manual entry. ' +
+      'Returns the list as provided by the HIS; it does not import them into patient_cases.',
+  })
+  @ApiResponse({ status: 200, type: ExternalSurgicalRecordListDto })
+  @ApiResponse({ status: 502, description: 'The external HIS service is unreachable' })
+  getExternalSurgicalRecords(): Promise<ExternalSurgicalRecordListDto> {
+    return this.externalRecordsService.getSurgicalRecords();
+  }
+
+  @Post('import')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoleName.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Import selected HIS records as patients and start ERAS (Head Nurse only)',
+    description:
+      'For each selected surgical record: creates the patient_cases row + linked login account ' +
+      '(username = case id, password = 123456) and immediately starts the ERAS protocol. ' +
+      'Records are processed independently; already-existing cases are skipped. ' +
+      'Returns a per-record summary (imported / skipped / failed).',
+  })
+  @ApiResponse({ status: 201, type: ImportPatientsResultDto })
+  importPatients(@Body() dto: ImportPatientsDto): Promise<ImportPatientsResultDto> {
+    return this.patientImportService.importSurgicalRecords(dto.records);
   }
 
   @Post()
