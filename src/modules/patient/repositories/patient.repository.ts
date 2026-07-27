@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { Role } from '../../user/entities/role.entity';
 import { User } from '../../user/entities/user.entity';
@@ -7,7 +8,6 @@ import { UserRoleName } from '../../user/enums/user-role.enum';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { OperationType } from '../entities/operation-type.entity';
 import { Patient } from '../entities/patient.entity';
-import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 
 /** Login account fields for the patient's linked `users` row. */
 export interface PatientAccountInput {
@@ -108,10 +108,7 @@ export class PatientRepository {
     return this.baseQuery(manager).where('patient.caseId = :caseId', { caseId }).getOne();
   }
 
-  async findAll(
-    query: QueryPatientDto = {},
-    archived: boolean = false,
-  ): Promise<[Patient[], number]> {
+  async findAll(query: QueryPatientDto = {}): Promise<[Patient[], number]> {
     // Build base query without the lastAssessmentTime subquery to avoid TypeORM issues
     const repo = this.repo;
     const qb = repo
@@ -126,8 +123,8 @@ export class PatientRepository {
       .leftJoinAndSelect('patient.level', 'level')
       .leftJoinAndSelect('patient.operationType', 'operationType');
 
-    // Filter by archived status
-    qb.andWhere('patient.isArchived = :archived', { archived });
+    // Filter out completed patients (show only active patients)
+    qb.andWhere('patient.erasCompleted = :completed', { completed: false });
 
     // Search by caseId or patient full name
     if (query.search) {
@@ -352,10 +349,5 @@ export class PatientRepository {
 
   listOperationTypes(): Promise<OperationType[]> {
     return this.dataSource.getRepository(OperationType).find({ order: { operationName: 'ASC' } });
-  }
-
-  /** Archive or unarchive a patient record */
-  async archivePatient(caseId: string, archived: boolean): Promise<void> {
-    await this.repo.update({ caseId: caseId }, { isArchived: archived });
   }
 }
