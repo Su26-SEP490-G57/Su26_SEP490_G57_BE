@@ -7,11 +7,22 @@ import { Alert } from './entities/alert.entity';
 import { AlertGateway } from './gateways/alert.gateway';
 import { AlertRepository } from './repositories/alert.repository';
 import { AlertService } from './services/alert.service';
+import { FirebaseModule } from '../firebase/firebase.module';
+import { NotificationService } from './services/notification.service';
+import { PatientReminderSchedulerService } from './services/patient-reminder.scheduler';
+import { PatientRepository } from '../patient/repositories/patient.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Alert, SymptomSurvey, Patient])],
+  imports: [TypeOrmModule.forFeature([Alert, SymptomSurvey, Patient]), FirebaseModule],
   controllers: [AlertController],
-  providers: [AlertService, AlertRepository, AlertGateway],
-  exports: [AlertService],
+  providers: [
+    AlertService,
+    AlertRepository,
+    PatientRepository,
+    AlertGateway,
+    NotificationService,
+    PatientReminderSchedulerService,
+  ],
+  exports: [AlertService, NotificationService],
 })
 export class AlertModule {}

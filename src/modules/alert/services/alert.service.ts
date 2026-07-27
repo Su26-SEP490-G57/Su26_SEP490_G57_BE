@@ -6,12 +6,16 @@ import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { Alert } from '../entities/alert.entity';
 import { AlertGateway } from '../gateways/alert.gateway';
 import { AlertRepository } from '../repositories/alert.repository';
+import { NotificationService } from './notification.service';
+import { PatientRepository } from 'src/modules/patient/repositories/patient.repository';
 
 @Injectable()
 export class AlertService {
   constructor(
     private readonly repository: AlertRepository,
     private readonly alertGateway: AlertGateway,
+    private readonly notificationService: NotificationService,
+    private readonly patientRepository: PatientRepository,
   ) {}
 
   private toResponse(alert: Alert): AlertResponseDto {
@@ -43,8 +47,26 @@ export class AlertService {
 
     const response = this.toResponse(saved);
 
+    const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
+    const patientName = patient?.account?.fullName ?? saved.caseId;
+    const room = patient?.roomBed ?? '';
+
     // Emit real-time alert to all connected nurses
     this.alertGateway.emitNewAlert(response);
+
+    const pushTitle = saved.alertType === 'RED' ? '🔴 Cảnh báo khẩn' : '🟡 Cần theo dõi';
+    const pushBody = `${patientName} • ${room} • ${
+      saved.alertType === 'RED' ? 'Mức đỏ' : 'Mức vàng'
+    }`;
+
+    // Push Notification cho Mobile: fan-out tới toàn bộ nurse/head nurse active devices
+    await this.notificationService.sendToNurses(pushTitle, pushBody, {
+      caseId: saved.caseId,
+      assessmentId: String(saved.assessmentId),
+      patientName,
+      roomBed: room,
+      alertType: saved.alertType,
+    });
 
     return response;
   }
