@@ -182,35 +182,17 @@ export class PatientRepository {
     const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
-    // Get patients
-    const patients = await qb.getMany();
+    // Get both raw and entity results to access the calculated lastAssessmentTime
+    const rawAndEntities = await qb.getRawAndEntities();
+    const total = await qb.getCount();
 
-    // If no patients, return early
-    if (patients.length === 0) {
-      return [[], total];
-    }
-
-    // Fetch lastAssessmentTime for all patients in one query
-    const caseIds = patients.map((p) => p.caseId);
-    const assessmentTimes = await this.dataSource
-      .getRepository(SymptomSurvey)
-      .createQueryBuilder('pa')
-      .select('pa.caseId', 'caseId')
-      .addSelect('MAX(pa.evaluationDatetime)', 'lastAssessmentTime')
-      .where('pa.caseId IN (:...caseIds)', { caseIds })
-      .groupBy('pa.caseId')
-      .getRawMany<{ caseId: string; lastAssessmentTime: Date | null }>();
-
-    // Create a map for quick lookup
-    const assessmentTimeMap = new Map<string, Date | null>();
-    assessmentTimes.forEach((row) => {
-      assessmentTimeMap.set(row.caseId, row.lastAssessmentTime);
-    });
-
-    // Attach lastAssessmentTime to each patient
-    patients.forEach((patient) => {
+    // Map lastAssessmentTime from raw results to entities
+    const patients = rawAndEntities.entities.map((patient, index) => {
+      const rawRow = rawAndEntities.raw[index];
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
-        assessmentTimeMap.get(patient.caseId) ?? null;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        rawRow?.patient_lastAssessmentTime || rawRow?.lastAssessmentTime || null;
+      return patient;
     });
 
     return [patients, total];
