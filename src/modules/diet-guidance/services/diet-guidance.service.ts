@@ -58,6 +58,13 @@ export class DietGuidanceService {
     );
   }
 
+  async getOperationTypeById(id: number): Promise<OperationTypeResponseDto> {
+    const op = await this.repository.findOperationTypeById(id);
+    if (!op) throw new NotFoundException(`Operation type #${id} not found`);
+    const count = await this.repository.countPodsByOperationType(id);
+    return this.toOpTypeResponse(op, count);
+  }
+
   async createOperationType(dto: CreateOperationTypeDto): Promise<OperationTypeResponseDto> {
     const saved = await this.repository.saveOperationType({
       operationName: dto.name,
