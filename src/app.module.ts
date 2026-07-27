@@ -11,12 +11,14 @@ import { PatientModule } from './modules/patient/patient.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { UsersModule } from './modules/user/users.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+import { FirebaseModule } from './modules/firebase/firebase.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    FirebaseModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

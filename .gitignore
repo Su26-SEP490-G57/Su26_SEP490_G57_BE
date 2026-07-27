@@ -63,3 +63,6 @@ CODEBASE_REVIEW.md
 # Local overview/notes files
 OVERVIEW.md
 PM_ANALYSIS.md
+
+# Firebase Admin SDK service account key file
+keys/firebase-admin.json
