@@ -135,6 +135,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key_path: /tmp/poms_ssh_deploy_key
+          key: ${{ secrets.SSH_KEY }}
           envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL,FIREBASE_SERVICE_ACCOUNT_BASE64
           script: |
             set -e
@@ -148,6 +149,10 @@ jobs:
             mkdir -p keys
             echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
             chmod 600 keys/firebase-admin.json
+
+            COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
+            RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/$COMPOSE_FILE"
+            SERVICE_NAME="app-${{ inputs.environment }}"
 
             COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
             SERVICE_NAME="app-${{ inputs.environment }}"
