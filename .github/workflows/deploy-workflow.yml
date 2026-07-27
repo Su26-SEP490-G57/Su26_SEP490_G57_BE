@@ -122,7 +122,7 @@ jobs:
 
             echo "🔑 [CI/CD] Writing Firebase service account file..."
             mkdir -p keys
-            echo "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
+            echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
             chmod 600 keys/firebase-admin.json
 
             COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
