@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 
+import { DeviceService } from '../../firebase/services/device.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UsersService } from '../../user/services/users.service';
 import { LoginDto } from '../dtos/login.dto';
@@ -25,6 +26,7 @@ const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
+    private readonly deviceService: DeviceService,
     private readonly jwtService: JwtService,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
@@ -72,6 +74,10 @@ export class AuthService {
         expiresAt: expiresAt,
       }),
     );
+
+    if (dto.device?.fcmToken) {
+      await this.deviceService.registerOrUpdate(user.id, dto.device);
+    }
 
     const userDto: UserResponseDto = {
       id: user.id,

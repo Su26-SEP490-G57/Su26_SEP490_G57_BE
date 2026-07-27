@@ -139,12 +139,12 @@ export class PatientRepository {
 
     // Sorting
     if (query.sortBy === 'pod') {
-      qb.orderBy('patient.current_pod', query.sortOrder ?? 'ASC', 'NULLS LAST');
+      qb.orderBy('patient.currentPod', query.sortOrder ?? 'ASC', 'NULLS LAST');
     } else {
       // Default: Red → Yellow → Green, then oldest case to the newest (by account creation)
-      qb.orderBy('level.sort_order', 'ASC', 'NULLS LAST')
-        .addOrderBy('account.created_at', 'ASC', 'NULLS LAST')
-        .addOrderBy('patient.case_id', 'ASC');
+      qb.orderBy('level.sortOrder', 'ASC', 'NULLS LAST')
+        .addOrderBy('account.createdAt', 'ASC', 'NULLS LAST')
+        .addOrderBy('patient.caseId', 'ASC');
     }
 
     // Pagination
@@ -158,9 +158,10 @@ export class PatientRepository {
 
     // Map lastAssessmentTime from raw results to entities
     const patients = rawAndEntities.entities.map((patient, index) => {
+      const rawRow = rawAndEntities.raw[index];
       (patient as Patient & { lastAssessmentTime?: Date | null }).lastAssessmentTime =
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        rawAndEntities.raw[index]?.lastAssessmentTime || null;
+        rawRow?.patient_lastAssessmentTime || rawRow?.lastAssessmentTime || null;
       return patient;
     });
 
