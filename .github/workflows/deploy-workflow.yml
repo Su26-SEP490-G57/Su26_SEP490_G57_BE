@@ -106,11 +106,12 @@ jobs:
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL
+          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL,FIREBASE_SERVICE_ACCOUNT_BASE64
           script: |
             set -e  
 
@@ -118,6 +119,11 @@ jobs:
 
             TARGET_DIR="/var/www/poms-api"
             mkdir -p $TARGET_DIR && cd $TARGET_DIR
+
+            echo "🔑 [CI/CD] Writing Firebase service account file..."
+            mkdir -p keys
+            echo "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
+            chmod 600 keys/firebase-admin.json
 
             COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
             RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/resources/docker/$COMPOSE_FILE"
