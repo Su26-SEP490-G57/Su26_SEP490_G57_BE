@@ -11,13 +11,13 @@ export class CreatePodProtocolDto {
   @ApiPropertyOptional({ example: 6 })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   mealsPerDayMin?: number;
 
   @ApiPropertyOptional({ example: 8 })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   mealsPerDayMax?: number;
 
   @ApiPropertyOptional({ example: '3 bữa chính, 2-3 bữa phụ' })
