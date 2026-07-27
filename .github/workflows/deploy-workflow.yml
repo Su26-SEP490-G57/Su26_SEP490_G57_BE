@@ -129,12 +129,39 @@ jobs:
             echo "📥 [CI/CD] Pulling latest NestJS docker image..."
             docker compose -f $COMPOSE_FILE pull $SERVICE_NAME
 
-            echo "🗄️ [CI/CD] [Migration] Running database migrations..."
-            docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
+            if [ "${{ inputs.environment }}" == "dev" ]; then
+              echo "🧹 [CI/CD] [Dev] Resetting database schema to avoid cross-branch migration conflicts..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run schema:drop
 
-            echo "🚀 [CI/CD] Migration passed successfully! Re-creating application containers..."
-            docker compose -f $COMPOSE_FILE up -d
+              echo "🗄️ [CI/CD] [Migration] Running database migrations from scratch..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
 
-            echo "🔍 Checking health..."
+              echo "🌱 [CI/CD] [Dev] Seeding database..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run seed
+            else
+              echo "🗄️ [CI/CD] [Migration] Running database migrations..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
+            fi
+
             chmod +x ./resources/scripts/check-health.sh || true
-            ./resources/scripts/check-health.sh poms-api-${{ inputs.environment }} 25 3
+
+            CONTAINER_NAME="poms-api-${{ inputs.environment }}"
+            CANARY_NAME="${CONTAINER_NAME}-canary"
+
+            echo "🕵️ [CI/CD] Starting canary container to validate the new image before touching the live container..."
+            docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
+            docker compose -f $COMPOSE_FILE run -d --name $CANARY_NAME $SERVICE_NAME
+
+            echo "🔍 Checking canary health..."
+            if ./resources/scripts/check-health.sh $CANARY_NAME 25 3; then
+              echo "✅ [CI/CD] Canary is healthy. Promoting new image — recreating application container..."
+              docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
+              docker compose -f $COMPOSE_FILE up -d
+
+              echo "🔍 Checking live container health..."
+              ./resources/scripts/check-health.sh $CONTAINER_NAME 25 3
+            else
+              echo "❌ [CI/CD] Canary failed health check. Aborting deploy — live container was never touched, no rollback needed."
+              docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
+              exit 1
+            fi

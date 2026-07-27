@@ -26,6 +26,7 @@
     "migration:apply": "typeorm -d dist/data-source.js migration:run",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts",
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/data-source.ts",
+    "schema:drop": "typeorm -d dist/data-source.js schema:drop",
     "seed": "node dist/database/seeds/seed.js",
     "seed:patient": "node dist/database/seeds/add-patient.js",
     "prepare": "node .husky/install.mjs"
