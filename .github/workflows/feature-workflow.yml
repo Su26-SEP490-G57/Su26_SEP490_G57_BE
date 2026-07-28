@@ -22,24 +22,15 @@ on:
       - 'resources/scripts/check-health.sh'
       - '.github/workflows/feature-workflow.yml'
       - '.github/workflows/deploy-workflow.yml'
+      - '.github/workflows/code-quality-workflow.yml'
       - '.github/actions/**'
 
 jobs:
   code_quality:
     name: Verify Code Quality
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Project
-        uses: ./.github/actions/setup-project
-
-      - name: Static Check
-        run: |
-          npm run format:check
-          npm run lint
+    uses: ./.github/workflows/code-quality-workflow.yml
+    with:
+      lint_migrations: true
 
   deploy_dev:
     name: Deploy to Dev

@@ -1,0 +1,66 @@
+name: Code Quality Workflow
+
+on:
+  workflow_call:
+    inputs:
+      lint_migrations:
+        description: 'Lint newly added/changed SQL migrations against origin/main'
+        type: boolean
+        default: false
+
+jobs:
+  check_format:
+    name: Check Code Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+
+      - name: Check Format
+        run: npm run format:check
+
+  lint_code:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+
+      - name: Lint Code
+        run: npm run lint
+
+  lint_migrations:
+    name: Lint New Migrations
+    if: inputs.lint_migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+
+      - name: Lint New Migrations
+        run: |
+          git fetch origin main
+          CHANGED_MIGRATIONS=$(git diff --name-only --diff-filter=AM origin/main...HEAD -- src/database/migrations/ | xargs -r -n1 basename)
+
+          if [ -z "$CHANGED_MIGRATIONS" ]; then
+            echo "No migration files changed on this branch — skipping."
+            exit 0
+          fi
+
+          echo "Linting SQL from: $CHANGED_MIGRATIONS"
+          npm run migration:extract-sql -- migration-sql.sql $CHANGED_MIGRATIONS
+          npx squawk migration-sql.sql
