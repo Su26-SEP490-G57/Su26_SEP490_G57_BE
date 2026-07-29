@@ -96,6 +96,13 @@ jobs:
             ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
             ghcr.io/${{ vars.APP_IMAGE_NAME }}:${{ inputs.environment }}-latest
 
+      - name: Write SSH Deploy Key
+        run: |
+          umask 077
+          cat > /tmp/poms_ssh_deploy_key <<'EOF'
+          ${{ secrets.SSH_KEY }}
+          EOF
+
       - name: Copy Docker Compose File to Server
         uses: Wandalen/wretry.action@v3
         with:
@@ -105,7 +112,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             source: 'resources/docker/docker-compose.${{ inputs.environment }}.yml'
             target: '/var/www/poms-api'
             strip_components: 2
@@ -127,7 +134,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL,FIREBASE_SERVICE_ACCOUNT_BASE64
             script: |
               set -e

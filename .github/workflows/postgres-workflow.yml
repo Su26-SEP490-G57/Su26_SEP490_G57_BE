@@ -53,6 +53,13 @@ jobs:
           cd resources
           tar -czf ../postgres.tar.gz postgres
 
+      - name: Write SSH Deploy Key
+        run: |
+          umask 077
+          cat > /tmp/poms_ssh_deploy_key <<'EOF'
+          ${{ secrets.SSH_KEY }}
+          EOF
+
       - name: Upload Postgres Artifact via SSH
         uses: Wandalen/wretry.action@v3
         with:
@@ -62,7 +69,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             source: 'postgres.tar.gz'
             target: '/var/www/poms-postgres/'
 
@@ -75,7 +82,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             source: 'resources/scripts/check-health.sh'
             target: '/var/www/poms-postgres/'
 
@@ -93,7 +100,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             envs: SUPER_POSTGRES_PASSWORD,DEV_DB_PASSWORD,STAGING_DB_PASSWORD,PROD_DB_PASSWORD
             script: |
               set -e

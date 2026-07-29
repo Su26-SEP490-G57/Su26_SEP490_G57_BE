@@ -88,6 +88,13 @@ jobs:
           cd resources
           tar -czf ../nginx.tar.gz nginx
 
+      - name: Write SSH Deploy Key
+        run: |
+          umask 077
+          cat > /tmp/poms_ssh_deploy_key <<'EOF'
+          ${{ secrets.SSH_KEY }}
+          EOF
+
       - name: Upload Nginx Artifact via SSH
         uses: Wandalen/wretry.action@v3
         with:
@@ -97,7 +104,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             source: 'nginx.tar.gz'
             target: '/var/www/poms-nginx/'
 
@@ -110,7 +117,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             source: 'resources/scripts/check-health.sh'
             target: '/var/www/poms-nginx/'
 
@@ -127,7 +134,7 @@ jobs:
           with: |
             host: ${{ secrets.SSH_HOST }}
             username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
+            key_path: /tmp/poms_ssh_deploy_key
             envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
             script: |
               set -e
