@@ -64,17 +64,3 @@ jobs:
           echo "Linting SQL from: $CHANGED_MIGRATIONS"
           npm run migration:extract-sql -- migration-sql.sql $CHANGED_MIGRATIONS
           npx squawk migration-sql.sql
-
-  verify-quality:
-    name: Verify Code Quality
-    needs: [check_format, lint_code, lint_migrations]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check sub-jobs status
-        run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more quality check jobs failed!"
-            exit 1
-          fi
-          echo "All quality checks passed successfully!"
