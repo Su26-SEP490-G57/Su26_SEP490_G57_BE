@@ -20,7 +20,6 @@ on:
 concurrency:
   group: poms-postgres-deploy
   cancel-in-progress: false
-  queue: max
 
 jobs:
   check_syntax:
@@ -61,7 +60,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: 'postgres.tar.gz'
-          target: '/var/www/poms-api/'
+          target: '/var/www/poms-postgres/'
 
       - name: Upload Healthcheck script via SSH
         uses: appleboy/scp-action@v1
@@ -70,7 +69,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-api/'
+          target: '/var/www/poms-postgres/'
 
       - name: Extract & Update Postgres Container
         uses: appleboy/ssh-action@v1.2.5
@@ -85,11 +84,13 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           envs: SUPER_POSTGRES_PASSWORD,DEV_DB_PASSWORD,STAGING_DB_PASSWORD,PROD_DB_PASSWORD
           script: |
+            set -e
+
             docker network create poms-dev || true
             docker network create poms-staging || true
             docker network create poms-prod || true
 
-            TARGET_DIR="/var/www/poms-api"
+            TARGET_DIR="/var/www/poms-postgres"
             cd $TARGET_DIR
 
             echo "📦 Extracting Postgres deployment files..."
@@ -103,6 +104,9 @@ jobs:
             export DEV_DB_PASSWORD="$DEV_DB_PASSWORD"
             export STAGING_DB_PASSWORD="$STAGING_DB_PASSWORD"
             export PROD_DB_PASSWORD="$PROD_DB_PASSWORD"
+
+            echo "📥 [CI/CD] Pulling latest Postgres image..."
+            docker compose -f docker-compose.postgres.yml pull
 
             echo "🚀 Starting Postgres container..."
             docker compose -f docker-compose.postgres.yml up -d
