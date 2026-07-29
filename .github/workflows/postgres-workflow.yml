@@ -17,10 +17,6 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: poms-postgres-deploy
-  cancel-in-progress: false
-
 jobs:
   check_syntax:
     name: Validate Initialization Script Syntax
@@ -44,6 +40,10 @@ jobs:
       github.ref == 'refs/heads/main' ||
       inputs.force_deploy_without_merge == true
 
+    concurrency:
+      group: poms-ssh-deploy
+      cancel-in-progress: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -54,65 +54,77 @@ jobs:
           tar -czf ../postgres.tar.gz postgres
 
       - name: Upload Postgres Artifact via SSH
-        uses: appleboy/scp-action@v1
+        uses: Wandalen/wretry.action@v3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'postgres.tar.gz'
-          target: '/var/www/poms-postgres/'
+          action: appleboy/scp-action@v1
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            source: 'postgres.tar.gz'
+            target: '/var/www/poms-postgres/'
 
       - name: Upload Healthcheck script via SSH
-        uses: appleboy/scp-action@v1
+        uses: Wandalen/wretry.action@v3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-postgres/'
+          action: appleboy/scp-action@v1
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            source: 'resources/scripts/check-health.sh'
+            target: '/var/www/poms-postgres/'
 
       - name: Extract & Update Postgres Container
-        uses: appleboy/ssh-action@v1.2.5
+        uses: Wandalen/wretry.action@v3
         env:
           SUPER_POSTGRES_PASSWORD: ${{ secrets.SUPER_POSTGRES_PASSWORD }}
           DEV_DB_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
           STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
           PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: SUPER_POSTGRES_PASSWORD,DEV_DB_PASSWORD,STAGING_DB_PASSWORD,PROD_DB_PASSWORD
-          script: |
-            set -e
+          action: appleboy/ssh-action@v1.2.5
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            envs: SUPER_POSTGRES_PASSWORD,DEV_DB_PASSWORD,STAGING_DB_PASSWORD,PROD_DB_PASSWORD
+            script: |
+              set -e
 
-            docker network create poms-dev || true
-            docker network create poms-staging || true
-            docker network create poms-prod || true
+              docker network create poms-dev || true
+              docker network create poms-staging || true
+              docker network create poms-prod || true
 
-            TARGET_DIR="/var/www/poms-postgres"
-            cd $TARGET_DIR
+              TARGET_DIR="/var/www/poms-postgres"
+              cd $TARGET_DIR
 
-            echo "📦 Extracting Postgres deployment files..."
-            tar -xzf postgres.tar.gz --strip-components=1
-            rm postgres.tar.gz
+              echo "📦 Extracting Postgres deployment files..."
+              tar -xzf postgres.tar.gz --strip-components=1
+              rm postgres.tar.gz
 
-            chmod +x init-db.sh
+              chmod +x init-db.sh
 
-            echo "🚀 Applying Postgres configuration..."
-            export SUPER_POSTGRES_PASSWORD="$SUPER_POSTGRES_PASSWORD"
-            export DEV_DB_PASSWORD="$DEV_DB_PASSWORD"
-            export STAGING_DB_PASSWORD="$STAGING_DB_PASSWORD"
-            export PROD_DB_PASSWORD="$PROD_DB_PASSWORD"
+              echo "🚀 Applying Postgres configuration..."
+              export SUPER_POSTGRES_PASSWORD="$SUPER_POSTGRES_PASSWORD"
+              export DEV_DB_PASSWORD="$DEV_DB_PASSWORD"
+              export STAGING_DB_PASSWORD="$STAGING_DB_PASSWORD"
+              export PROD_DB_PASSWORD="$PROD_DB_PASSWORD"
 
-            echo "📥 [CI/CD] Pulling latest Postgres image..."
-            docker compose -f docker-compose.postgres.yml pull
+              echo "📥 [CI/CD] Pulling latest Postgres image..."
+              docker compose -f docker-compose.postgres.yml pull
 
-            echo "🚀 Starting Postgres container..."
-            docker compose -f docker-compose.postgres.yml up -d
+              echo "🚀 Starting Postgres container..."
+              docker compose -f docker-compose.postgres.yml up -d
 
-            echo "🔍 Checking Postgres health..."
-            chmod +x ./resources/scripts/check-health.sh
-            ./resources/scripts/check-health.sh poms-postgres 20 3
+              echo "🔍 Checking Postgres health..."
+              chmod +x ./resources/scripts/check-health.sh
+              ./resources/scripts/check-health.sh poms-postgres 20 3
 
-            echo "✅ Postgres deployment step completed successfully!"
+              echo "✅ Postgres deployment step completed successfully!"

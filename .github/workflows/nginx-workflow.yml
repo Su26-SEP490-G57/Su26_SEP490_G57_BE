@@ -17,10 +17,6 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: poms-nginx-deploy
-  cancel-in-progress: false
-
 jobs:
   check_syntax:
     name: Check Nginx Configuration Syntax
@@ -79,6 +75,10 @@ jobs:
       github.ref == 'refs/heads/main' ||
       inputs.force_deploy_without_merge == true
 
+    concurrency:
+      group: poms-ssh-deploy
+      cancel-in-progress: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -89,73 +89,85 @@ jobs:
           tar -czf ../nginx.tar.gz nginx
 
       - name: Upload Nginx Artifact via SSH
-        uses: appleboy/scp-action@v1
+        uses: Wandalen/wretry.action@v3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'nginx.tar.gz'
-          target: '/var/www/poms-nginx/'
+          action: appleboy/scp-action@v1
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            source: 'nginx.tar.gz'
+            target: '/var/www/poms-nginx/'
 
       - name: Upload Healthcheck script via SSH
-        uses: appleboy/scp-action@v1
+        uses: Wandalen/wretry.action@v3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: 'resources/scripts/check-health.sh'
-          target: '/var/www/poms-nginx/'
+          action: appleboy/scp-action@v1
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            source: 'resources/scripts/check-health.sh'
+            target: '/var/www/poms-nginx/'
 
       - name: Extract, Load Certs & Hot Reload Nginx
-        uses: appleboy/ssh-action@v1.2.5
+        uses: Wandalen/wretry.action@v3
         env:
           DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
           B64_FULLCHAIN: ${{ secrets.B64_FULLCHAIN }}
           B64_PRIVKEY: ${{ secrets.B64_PRIVKEY }}
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
-          script: |
-            set -e
+          action: appleboy/ssh-action@v1.2.5
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_KEY }}
+            envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
+            script: |
+              set -e
 
-            docker network create poms-dev || true
-            docker network create poms-staging || true
-            docker network create poms-prod || true
+              docker network create poms-dev || true
+              docker network create poms-staging || true
+              docker network create poms-prod || true
 
-            TARGET_DIR="/var/www/poms-nginx"
-            cd $TARGET_DIR
+              TARGET_DIR="/var/www/poms-nginx"
+              cd $TARGET_DIR
 
-            echo "📦 Extracting Nginx configuration..."
-            tar -xzf nginx.tar.gz --strip-components=1
-            rm nginx.tar.gz
+              echo "📦 Extracting Nginx configuration..."
+              tar -xzf nginx.tar.gz --strip-components=1
+              rm nginx.tar.gz
 
-            echo "🔐 Loading SSL certificates..."
-            mkdir -p certs
-            echo -n "$B64_FULLCHAIN" | base64 --decode > certs/fullchain.pem
-            echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
-            chmod 600 certs/fullchain.pem certs/privkey.pem
+              echo "🔐 Loading SSL certificates..."
+              mkdir -p certs
+              echo -n "$B64_FULLCHAIN" | base64 --decode > certs/fullchain.pem
+              echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
+              chmod 600 certs/fullchain.pem certs/privkey.pem
 
-            echo "📥 [CI/CD] Pulling latest Nginx image..."
-            docker compose -f docker-compose.nginx.yml pull
+              echo "📥 [CI/CD] Pulling latest Nginx image..."
+              docker compose -f docker-compose.nginx.yml pull
 
-            echo "🚀 [CI/CD] Applying Nginx service definition (recreates only if image/compose config changed)..."
-            docker compose -f docker-compose.nginx.yml up -d
+              echo "🚀 [CI/CD] Applying Nginx service definition (recreates only if image/compose config changed)..."
+              docker compose -f docker-compose.nginx.yml up -d
 
-            echo "🔥 [CI/CD] Live rendering Nginx templates ..."
-            docker exec -e DOMAIN_NAME="$DOMAIN_NAME" poms-nginx sh -c "
-                for template_file in /etc/nginx/templates/*.template; do
-                  [ -e \"\$template_file\" ] || continue
-                  base_name=\$(basename \"\$template_file\" .template)
-                  echo \"👉 Processing template inside container: \$base_name.template\"
-                  envsubst '\$DOMAIN_NAME' < \"\$template_file\" > \"/etc/nginx/conf.d/\$base_name\"
-                done
-              "
+              echo "🔥 [CI/CD] Live rendering Nginx templates ..."
+              docker exec -e DOMAIN_NAME="$DOMAIN_NAME" poms-nginx sh -c "
+                  for template_file in /etc/nginx/templates/*.template; do
+                    [ -e \"\$template_file\" ] || continue
+                    base_name=\$(basename \"\$template_file\" .template)
+                    echo \"👉 Processing template inside container: \$base_name.template\"
+                    envsubst '\$DOMAIN_NAME' < \"\$template_file\" > \"/etc/nginx/conf.d/\$base_name\"
+                  done
+                "
 
-            echo "🔄 [CI/CD] Activating Hot Reload ..."
-            docker exec poms-nginx nginx -s reload
+              echo "🔄 [CI/CD] Activating Hot Reload ..."
+              docker exec poms-nginx nginx -s reload
 
-            echo "🔍 Checking health..."
-            chmod +x ./resources/scripts/check-health.sh
-            ./resources/scripts/check-health.sh poms-nginx 10 2
+              echo "🔍 Checking health..."
+              chmod +x ./resources/scripts/check-health.sh
+              ./resources/scripts/check-health.sh poms-nginx 10 2
