@@ -50,6 +50,14 @@ export class DietGuidanceController {
     return this.service.getOperationTypes();
   }
 
+  @Get('operation-types/:id')
+  @ApiOperation({ summary: 'Get operation type by ID' })
+  @ApiResponse({ status: 200, type: OperationTypeResponseDto })
+  @ApiNotFoundResponse({ description: 'Operation type not found' })
+  getOperationTypeById(@Param('id', ParseIntPipe) id: number): Promise<OperationTypeResponseDto> {
+    return this.service.getOperationTypeById(id);
+  }
+
   @Post('operation-types')
   @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
