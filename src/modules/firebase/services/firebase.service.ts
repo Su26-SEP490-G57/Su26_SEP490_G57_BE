@@ -76,7 +76,7 @@ export class FirebaseService implements OnModuleInit {
       credential: cert(serviceAccount),
     });
 
-    console.log('✅ Firebase Admin initialized');
+    //console.log('✅ Firebase Admin initialized');
   }
 
   get messaging() {

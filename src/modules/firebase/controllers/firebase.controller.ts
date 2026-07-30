@@ -39,9 +39,10 @@ export class FirebaseController {
   })
   async unregisterDevice(@CurrentUser() user: UserResponseDto, @Body() dto: RegisterDeviceDto) {
     if (dto.installationId) {
-      await this.deviceService.deactivateByInstallationId(dto.installationId);
+      await this.deviceService.deactivateOwnDeviceByInstallationId(user.id, dto.installationId);
     }
-    await this.deviceService.deactivateByToken(dto.fcmToken);
+
+    await this.deviceService.deactivateOwnDeviceByToken(user.id, dto.fcmToken);
 
     return {
       success: true,
@@ -49,6 +50,8 @@ export class FirebaseController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('test-notification')
   @ApiOperation({
     summary: 'Send a test push notification',
@@ -58,7 +61,7 @@ export class FirebaseController {
     status: 201,
     description: 'Notification successfully accepted by Firebase.',
   })
-  async testNotification(@Body() dto: TestNotificationDto) {
+  async testNotification(@CurrentUser() user: UserResponseDto, @Body() dto: TestNotificationDto) {
     const messageId = await this.firebaseService.sendToToken(dto.token, dto.title, dto.message);
 
     return {

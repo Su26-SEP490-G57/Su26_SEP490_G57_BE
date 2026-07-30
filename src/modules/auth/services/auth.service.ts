@@ -79,17 +79,7 @@ export class AuthService {
       await this.deviceService.registerOrUpdate(user.id, dto.device);
     }
 
-    const userDto: UserResponseDto = {
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      phoneNumber: user.phoneNumber,
-      caseId: user.caseId ?? null,
-      roles: roleNames,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    const userDto = this.usersService.toResponse(user);
 
     return { accessToken, refreshToken, user: userDto };
   }
