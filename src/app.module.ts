@@ -8,6 +8,7 @@ import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module
 import { HealthModule } from './modules/health/health.module';
 import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
+import { StatisticsModule } from './modules/statistics/statistics.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { UsersModule } from './modules/user/users.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
@@ -42,6 +43,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     AuthModule,
     NurseModule,
     PatientModule,
+    StatisticsModule,
     SymptomSurveyModule,
     AlertModule,
     DietGuidanceModule,
