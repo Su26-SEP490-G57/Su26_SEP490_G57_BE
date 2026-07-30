@@ -14,12 +14,18 @@ const SALT_ROUNDS = 10;
 export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
-  private toResponse(user: User): UserResponseDto {
+  toResponse(user: User): UserResponseDto {
     return {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
+
+      dob: user.dob ?? null,
+      cityProvince: user.cityProvince ?? null,
+      ward: user.ward ?? null,
+      detailedAddress: user.detailedAddress ?? null,
+
       caseId: user.caseId ?? null,
       roles: (user.roles ?? []).map((r) => r.roleName),
       isActive: user.isActive,

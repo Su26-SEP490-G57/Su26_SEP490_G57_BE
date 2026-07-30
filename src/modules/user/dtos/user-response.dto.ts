@@ -14,6 +14,30 @@ export class UserResponseDto {
   phoneNumber!: string | null;
 
   @ApiPropertyOptional({
+    example: '1998-03-14',
+    nullable: true,
+  })
+  dob?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Hà Nội',
+    nullable: true,
+  })
+  cityProvince?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Phường Dịch Vọng',
+    nullable: true,
+  })
+  ward?: string | null;
+
+  @ApiPropertyOptional({
+    example: '123 Nguyễn Văn Cừ',
+    nullable: true,
+  })
+  detailedAddress?: string | null;
+
+  @ApiPropertyOptional({
     example: 'CASE-001',
     nullable: true,
     description: 'Linked patient case ID (Patient role only)',

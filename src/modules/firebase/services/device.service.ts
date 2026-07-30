@@ -43,6 +43,30 @@ export class DeviceService {
     await this.deviceRepo.update({ installationId }, { isActive: false });
   }
 
+  async deactivateOwnDeviceByToken(userId: number, fcmToken: string): Promise<void> {
+    await this.deviceRepo.update(
+      {
+        userId,
+        fcmToken,
+      },
+      {
+        isActive: false,
+      },
+    );
+  }
+
+  async deactivateOwnDeviceByInstallationId(userId: number, installationId: string): Promise<void> {
+    await this.deviceRepo.update(
+      {
+        userId,
+        installationId,
+      },
+      {
+        isActive: false,
+      },
+    );
+  }
+
   async findActiveTokensForRoles(roleNames: UserRoleName[]): Promise<string[]> {
     if (!roleNames.length) {
       return [];
