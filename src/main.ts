@@ -4,9 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'dotenv/config';
 import { AppModule } from './app.module';
+import { CaseTransformInterceptor } from './common/interceptors/case-transform.interceptor';
 import { TimezoneInterceptor } from './common/interceptors/timezone.interceptor';
-
-process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
@@ -31,6 +30,9 @@ async function bootstrap() {
 
   // Apply timezone interceptor globally
   app.useGlobalInterceptors(new TimezoneInterceptor());
+
+  // Apply case transform interceptor to convert snake_case to camelCase
+  app.useGlobalInterceptors(new CaseTransformInterceptor());
 
   const config = new DocumentBuilder()
     .setTitle('Capstone API')

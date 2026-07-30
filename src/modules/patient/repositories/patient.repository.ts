@@ -8,6 +8,21 @@ import { UserRoleName } from '../../user/enums/user-role.enum';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { OperationType } from '../entities/operation-type.entity';
 import { Patient } from '../entities/patient.entity';
+import {
+  PodProtocolTrackingLog,
+  PodTrackingActionType,
+} from '../entities/pod-protocol-tracking-log.entity';
+
+/** Input for recording a POD-protocol status transition (hold/resume/rollback/etc). */
+export interface PodTrackingLogInput {
+  caseId: string;
+  podNumber: number | null;
+  oldStatus: string;
+  newStatus: string;
+  actionType: PodTrackingActionType;
+  changedById: number | null;
+  holdReason?: string | null;
+}
 
 /** Login account fields for the patient's linked `users` row. */
 export interface PatientAccountInput {
@@ -141,6 +156,12 @@ export class PatientRepository {
       qb.andWhere('patient.operationTypeId = :operationTypeId', {
         operationTypeId: query.operationTypeId,
       });
+    }
+    if (query.room) {
+      // room_bed may be a flat room code (e.g. "P504") or "room/bed" (e.g. "203/1") —
+      // split_part with no "/" present just returns the whole string, so this
+      // matches both formats.
+      qb.andWhere("split_part(patient.room_bed, '/', 1) = :room", { room: query.room });
     }
 
     // Sorting
@@ -349,5 +370,21 @@ export class PatientRepository {
 
   listOperationTypes(): Promise<OperationType[]> {
     return this.dataSource.getRepository(OperationType).find({ order: { operationName: 'ASC' } });
+  }
+
+  /** Record a POD-protocol status transition (hold/resume/rollback/etc) for analytics. */
+  async recordPodTrackingLog(input: PodTrackingLogInput): Promise<void> {
+    const trackingRepo = this.dataSource.getRepository(PodProtocolTrackingLog);
+    await trackingRepo.save(
+      trackingRepo.create({
+        caseId: input.caseId,
+        podNumber: input.podNumber,
+        oldStatus: input.oldStatus,
+        newStatus: input.newStatus,
+        actionType: input.actionType,
+        changedById: input.changedById,
+        holdReason: input.holdReason ?? null,
+      }),
+    );
   }
 }

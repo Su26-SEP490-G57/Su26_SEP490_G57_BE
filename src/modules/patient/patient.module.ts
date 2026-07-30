@@ -5,13 +5,17 @@ import { PatientController } from './controllers/patient.controller';
 import { Level } from './entities/level.entity';
 import { OperationType } from './entities/operation-type.entity';
 import { Patient } from './entities/patient.entity';
+import { PodProtocolTrackingLog } from './entities/pod-protocol-tracking-log.entity';
 import { PatientGateway } from './gateways/patient.gateway';
 import { PatientRepository } from './repositories/patient.repository';
 import { PatientService } from './services/patient.service';
 import { PodSchedulerService } from './services/pod-scheduler.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Patient, Level, OperationType]), SymptomSurveyModule],
+  imports: [
+    TypeOrmModule.forFeature([Patient, Level, OperationType, PodProtocolTrackingLog]),
+    SymptomSurveyModule,
+  ],
   controllers: [PatientController],
   providers: [PatientService, PatientRepository, PatientGateway, PodSchedulerService],
   exports: [PatientService, PatientRepository],

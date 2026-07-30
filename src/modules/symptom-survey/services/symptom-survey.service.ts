@@ -218,6 +218,14 @@ export class SymptomSurveyService {
       throw new ForbiddenException('You can only submit surveys for your own case');
     }
 
+    // Check if ERAS protocol is completed
+    const isErasCompleted = await this.repository.isErasCompleted(dto.caseId);
+    if (isErasCompleted) {
+      throw new BadRequestException(
+        'Cannot submit assessment - ERAS protocol has been completed for this patient',
+      );
+    }
+
     // Load options to get score_value
     const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
