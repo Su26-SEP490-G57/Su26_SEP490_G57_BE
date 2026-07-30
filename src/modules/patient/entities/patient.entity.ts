@@ -108,13 +108,9 @@ export class Patient {
   @JoinColumn({ name: 'level_id' })
   level!: Level | null;
 
-  /** Indicates whether the patient has completed the ERAS protocol (reached max POD) */
+  /** Indicates whether the patient has completed the ERAS protocol (reached max POD with GREEN level) */
   @Column({ name: 'eras_completed', type: 'boolean', default: false })
   erasCompleted!: boolean;
-
-  /** Indicates whether the patient record has been archived (moved to archive view) */
-  @Column({ name: 'is_archived', type: 'boolean', default: false })
-  isArchived!: boolean;
 
   /** Soft-delete marker. NULL = active; set to a timestamp when the patient is deleted. */
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })

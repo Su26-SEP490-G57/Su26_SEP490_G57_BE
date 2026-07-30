@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OperationType } from '../../patient/entities/operation-type.entity';
 import {
   CreateOperationTypeDto,
@@ -58,7 +63,20 @@ export class DietGuidanceService {
     );
   }
 
+  async getOperationTypeById(id: number): Promise<OperationTypeResponseDto> {
+    const op = await this.repository.findOperationTypeById(id);
+    if (!op) throw new NotFoundException(`Operation type #${id} not found`);
+    const count = await this.repository.countPodsByOperationType(id);
+    return this.toOpTypeResponse(op, count);
+  }
+
   async createOperationType(dto: CreateOperationTypeDto): Promise<OperationTypeResponseDto> {
+    // Check duplicate name
+    const existing = await this.repository.findOperationTypeByName(dto.name);
+    if (existing) {
+      throw new ConflictException(`Operation type with name "${dto.name}" already exists`);
+    }
+
     const saved = await this.repository.saveOperationType({
       operationName: dto.name,
       description: dto.description ?? null,
@@ -72,6 +90,15 @@ export class DietGuidanceService {
   ): Promise<OperationTypeResponseDto> {
     const op = await this.repository.findOperationTypeById(id);
     if (!op) throw new NotFoundException(`Operation type #${id} not found`);
+
+    // Check duplicate name (if name is being changed)
+    if (dto.name && dto.name !== op.operationName) {
+      const existing = await this.repository.findOperationTypeByName(dto.name, id);
+      if (existing) {
+        throw new ConflictException(`Operation type with name "${dto.name}" already exists`);
+      }
+    }
+
     if (dto.name) op.operationName = dto.name;
     if (dto.description !== undefined) op.description = dto.description ?? null;
     const saved = await this.repository.saveOperationType(op);
@@ -82,6 +109,15 @@ export class DietGuidanceService {
   async deleteOperationType(id: number): Promise<void> {
     const op = await this.repository.findOperationTypeById(id);
     if (!op) throw new NotFoundException(`Operation type #${id} not found`);
+
+    // Check if any patients are using this operation type
+    const patientCount = await this.repository.countPatientsByOperationType(id);
+    if (patientCount > 0) {
+      throw new ConflictException(
+        `Cannot delete operation type. ${patientCount} active patient(s) are currently using it.`,
+      );
+    }
+
     await this.repository.deleteOperationType(id);
   }
 
@@ -110,6 +146,28 @@ export class DietGuidanceService {
     const op = await this.repository.findOperationTypeById(operationTypeId);
     if (!op) throw new NotFoundException(`Operation type #${operationTypeId} not found`);
 
+    // Validate min <= max for meals per day
+    if (
+      dto.mealsPerDayMin !== undefined &&
+      dto.mealsPerDayMax !== undefined &&
+      dto.mealsPerDayMin !== null &&
+      dto.mealsPerDayMax !== null &&
+      dto.mealsPerDayMin > dto.mealsPerDayMax
+    ) {
+      throw new BadRequestException('mealsPerDayMin cannot be greater than mealsPerDayMax');
+    }
+
+    // Validate min <= max for volume per meal
+    if (
+      dto.volumePerMealMin !== undefined &&
+      dto.volumePerMealMax !== undefined &&
+      dto.volumePerMealMin !== null &&
+      dto.volumePerMealMax !== null &&
+      dto.volumePerMealMin > dto.volumePerMealMax
+    ) {
+      throw new BadRequestException('volumePerMealMin cannot be greater than volumePerMealMax');
+    }
+
     const saved = await this.repository.savePod({
       operationTypeId,
       label: dto.label,
@@ -135,6 +193,36 @@ export class DietGuidanceService {
     const pod = await this.repository.findPodById(podId);
     if (!pod || pod.operationTypeId !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);
+    }
+
+    // Prepare values for validation
+    const newMealsMin = dto.mealsPerDayMin !== undefined ? dto.mealsPerDayMin : pod.mealsPerDayMin;
+    const newMealsMax = dto.mealsPerDayMax !== undefined ? dto.mealsPerDayMax : pod.mealsPerDayMax;
+    const newVolumeMin =
+      dto.volumePerMealMin !== undefined ? dto.volumePerMealMin : pod.volumnPerMealMin;
+    const newVolumeMax =
+      dto.volumePerMealMax !== undefined ? dto.volumePerMealMax : pod.volumePerMealMax;
+
+    // Validate min <= max for meals per day
+    if (
+      newMealsMin !== null &&
+      newMealsMax !== null &&
+      newMealsMin !== undefined &&
+      newMealsMax !== undefined &&
+      newMealsMin > newMealsMax
+    ) {
+      throw new BadRequestException('mealsPerDayMin cannot be greater than mealsPerDayMax');
+    }
+
+    // Validate min <= max for volume per meal
+    if (
+      newVolumeMin !== null &&
+      newVolumeMax !== null &&
+      newVolumeMin !== undefined &&
+      newVolumeMax !== undefined &&
+      newVolumeMin > newVolumeMax
+    ) {
+      throw new BadRequestException('volumePerMealMin cannot be greater than volumePerMealMax');
     }
 
     const updates = {
@@ -163,6 +251,26 @@ export class DietGuidanceService {
     if (!pod || pod.operationTypeId !== operationTypeId) {
       throw new NotFoundException(`Pod #${podId} not found`);
     }
+
+    // Extract POD number from label (e.g., "POD 0" -> 0, "POD 1" -> 1)
+    // We need to find patients at this POD level
+    const pods = await this.repository.findPodsByOperationType(operationTypeId);
+    const sortedPods = pods.sort((a, b) => {
+      const aNum = parseInt(a.label.match(/\d+/)?.[0] || '0');
+      const bNum = parseInt(b.label.match(/\d+/)?.[0] || '0');
+      return aNum - bNum;
+    });
+
+    const podIndex = sortedPods.findIndex((p) => p.podId === podId);
+    if (podIndex >= 0) {
+      const patientCount = await this.repository.countPatientsByPodLevel(operationTypeId, podIndex);
+      if (patientCount > 0) {
+        throw new ConflictException(
+          `Cannot delete POD protocol. ${patientCount} active patient(s) are currently at this POD level.`,
+        );
+      }
+    }
+
     await this.repository.deletePod(podId);
   }
 }

@@ -5,24 +5,25 @@ export class CreatePodProtocolDto {
   @ApiProperty({ example: '1', description: 'POD label (e.g. 1, 2, 3, Xuất viện)' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(200)
   label!: string;
 
   @ApiPropertyOptional({ example: 6 })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   mealsPerDayMin?: number;
 
   @ApiPropertyOptional({ example: 8 })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   mealsPerDayMax?: number;
 
   @ApiPropertyOptional({ example: '3 bữa chính, 2-3 bữa phụ' })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   mealInstruction?: string;
 
   @ApiPropertyOptional({ example: 30 })
@@ -40,6 +41,7 @@ export class CreatePodProtocolDto {
   @ApiPropertyOptional({ example: 'tăng dần theo dung nạp' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   volumeInstruction?: string;
 
   @ApiPropertyOptional({ example: ['Cháo loãng', 'Súp lọc'], type: [String] })

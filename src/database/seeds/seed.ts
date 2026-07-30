@@ -1,19 +1,19 @@
-import * as bcrypt from 'bcrypt';
+﻿import * as bcrypt from 'bcrypt';
 import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
-import AppDataSource from '../../data-source';
+import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
+import { Levels } from 'src/modules/patient/constants/levels.constant';
+import { Level } from 'src/modules/patient/entities/level.entity';
+import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
+import { Patient } from 'src/modules/patient/entities/patient.entity';
+import { QuestionOption } from 'src/modules/symptom-survey/entities/question-option.entity';
+import { SurveyQuestion } from 'src/modules/symptom-survey/entities/survey-question.entity';
+import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 import { Role } from 'src/modules/user/entities/role.entity';
 import { User } from 'src/modules/user/entities/user.entity';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
 import { DeepPartial } from 'typeorm';
-import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
-import { Patient } from 'src/modules/patient/entities/patient.entity';
-import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
-import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
-import { Level } from 'src/modules/patient/entities/level.entity';
-import { Levels } from 'src/modules/patient/constants/levels.constant';
-import { SurveyQuestion } from 'src/modules/symptom-survey/entities/survey-question.entity';
-import { QuestionOption } from 'src/modules/symptom-survey/entities/question-option.entity';
+import AppDataSource from '../../data-source';
 
 const SALT_ROUNDS = 10;
 
@@ -507,7 +507,7 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 8), { representation: 'date' }),
-      roomBed: 'P504-B2',
+      roomBed: 'P504',
       currentPod: 4,
       podStartDate: formatISO(subDays(now, 6), { representation: 'date' }),
       assessmentTimeAgo: 5,
@@ -525,9 +525,9 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 4), { representation: 'date' }),
-      roomBed: 'P504-B3',
+      roomBed: 'P504',
       currentPod: 1,
-      podStartDate: formatISO(subDays(now, 24), { representation: 'date' }),
+      podStartDate: formatISO(subDays(now, 1), { representation: 'date' }),
       assessmentTimeAgo: 18,
       assignedNurse: savedUsers[2],
       level: Levels.RED,
@@ -543,7 +543,7 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 12), { representation: 'date' }),
-      roomBed: 'P504-B4',
+      roomBed: 'P506',
       currentPod: 5,
       podStartDate: formatISO(subDays(now, 10), { representation: 'date' }),
       assessmentTimeAgo: 22,
@@ -561,9 +561,9 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 2), { representation: 'date' }),
-      roomBed: 'P506-B1',
+      roomBed: 'P506',
       currentPod: 0,
-      podStartDate: formatISO(subDays(now, 12), { representation: 'date' }),
+      podStartDate: formatISO(subDays(now, 0.5), { representation: 'date' }),
       assessmentTimeAgo: 10,
       assignedNurse: savedUsers[2],
       level: Levels.YELLOW,
@@ -579,7 +579,7 @@ async function seed() {
       operationType: savedOperationTypes[1],
       method: 'Nội soi',
       surgeryDate: formatISO(subDays(now, 9), { representation: 'date' }),
-      roomBed: 'P506-B2',
+      roomBed: 'P506',
       currentPod: 3,
       podStartDate: formatISO(subDays(now, 7), { representation: 'date' }),
       assessmentTimeAgo: 20,
@@ -597,7 +597,7 @@ async function seed() {
       operationType: savedOperationTypes[0],
       method: 'Mở',
       surgeryDate: formatISO(subDays(now, 11), { representation: 'date' }),
-      roomBed: 'P506-B3',
+      roomBed: 'P506',
       currentPod: 4,
       podStartDate: formatISO(subDays(now, 8), { representation: 'date' }),
       assignedNurse: savedUsers[2],

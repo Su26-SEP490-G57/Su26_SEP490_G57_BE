@@ -12,13 +12,13 @@ import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { Patient } from '../entities/patient.entity';
+import { PodProtocol } from '../entities/pod-protocol.entity';
 import { PatientGateway } from '../gateways/patient.gateway';
 import {
   PatientAccountInput,
   PatientCaseInput,
   PatientRepository,
 } from '../repositories/patient.repository';
-import { PodProtocol } from '../entities/pod-protocol.entity';
 
 /** bcrypt cost factor — keep in sync with UsersService. */
 const SALT_ROUNDS = 10;
@@ -122,11 +122,8 @@ export class PatientService {
     };
   }
 
-  async getAllPatients(
-    query: QueryPatientDto = {},
-    archived: boolean = false,
-  ): Promise<PaginatedPatients> {
-    const [patients, total] = await this.repository.findAll(query, archived);
+  async getAllPatients(query: QueryPatientDto = {}): Promise<PaginatedPatients> {
+    const [patients, total] = await this.repository.findAll(query);
     return {
       data: patients.map((p) => this.toResponse(p)),
       total,
@@ -387,52 +384,5 @@ export class PatientService {
       assignedNurseId: dto.assignedNurseId,
       levelId: dto.levelId,
     };
-  }
-
-  /**
-   * Archive or unarchive a patient record.
-   * Only patients with erasCompleted = true can be archived.
-   */
-  async archivePatient(caseId: string, archived: boolean): Promise<PatientWithAccount> {
-    const patient = await this.repository.findById(caseId);
-    if (!patient) {
-      throw new NotFoundException(`Patient ${caseId} not found`);
-    }
-
-    if (archived && !patient.erasCompleted) {
-      throw new BadRequestException(
-        'Only completed patients (erasCompleted = true) can be archived',
-      );
-    }
-
-    await this.repository.archivePatient(caseId, archived);
-
-    const updated = await this.repository.findByIdWithRelations(caseId);
-    if (!updated) throw new NotFoundException(`Patient ${caseId} not found after archive`);
-
-    return this.toResponse(updated);
-  }
-
-  /**
-   * Get archived patients grouped by operation type.
-   * Returns a map where key = operation type name, value = array of patients.
-   */
-  async getArchivedPatientsGrouped(query: QueryPatientDto = {}): Promise<{
-    data: Record<string, PatientWithAccount[]>;
-    total: number;
-  }> {
-    const [patients, total] = await this.repository.findAll(query, true); // archived = true
-
-    // Group by operation type
-    const grouped: Record<string, PatientWithAccount[]> = {};
-    patients.forEach((patient) => {
-      const opTypeName = patient.operationType?.operationName ?? 'Unknown';
-      if (!grouped[opTypeName]) {
-        grouped[opTypeName] = [];
-      }
-      grouped[opTypeName].push(this.toResponse(patient));
-    });
-
-    return { data: grouped, total };
   }
 }

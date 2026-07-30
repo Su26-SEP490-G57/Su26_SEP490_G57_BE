@@ -11,6 +11,7 @@ export class CreateOperationTypeDto {
   @ApiPropertyOptional({ example: 'Áp dụng cho các ca phẫu thuật dạ dày' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 }
 
@@ -24,6 +25,7 @@ export class UpdateOperationTypeDto {
   @ApiPropertyOptional({ example: 'Mô tả cập nhật' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 }
 
