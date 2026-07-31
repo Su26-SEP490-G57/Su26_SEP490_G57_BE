@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
+import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
@@ -153,8 +154,12 @@ export class PatientController {
   @ApiResponse({ status: 200, type: PodLockResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @ApiResponse({ status: 400, description: 'No active POD or holdReason missing' })
-  lockPod(@Param('id') id: string, @Body() dto: PodLockDto): Promise<PodLockResponseDto> {
-    return this.patientService.lockPod(id, dto);
+  lockPod(
+    @Param('id') id: string,
+    @Body() dto: PodLockDto,
+    @CurrentUser() user: { id: number },
+  ): Promise<PodLockResponseDto> {
+    return this.patientService.lockPod(id, dto, user.id);
   }
 
   @Patch(':id/pod-level')
@@ -175,8 +180,9 @@ export class PatientController {
   updatePodLevel(
     @Param('id') id: string,
     @Body() dto: UpdatePodLevelDto,
+    @CurrentUser() user: { id: number },
   ): Promise<PatientWithAccount> {
-    return this.patientService.updatePodLevel(id, dto.podLevel);
+    return this.patientService.updatePodLevel(id, dto.podLevel, user.id);
   }
 
   @Patch(':id')

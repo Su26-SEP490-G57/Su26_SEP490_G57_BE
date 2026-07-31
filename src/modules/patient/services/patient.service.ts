@@ -170,7 +170,11 @@ export class PatientService {
     return { caseId, currentPod: 0, podStartDate: now };
   }
 
-  async lockPod(caseId: string, dto: PodLockDto): Promise<PodLockResponseDto> {
+  async lockPod(
+    caseId: string,
+    dto: PodLockDto,
+    changedById: number | null = null,
+  ): Promise<PodLockResponseDto> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
     if (patient.currentPod === null) {
@@ -197,6 +201,17 @@ export class PatientService {
       await this.repository.setLockedAt(caseId, null);
     }
 
+    // Analytics: record the hold/resume transition for the recovery-matrix dashboard.
+    await this.repository.recordPodTrackingLog({
+      caseId,
+      podNumber: patient.currentPod,
+      oldStatus: dto.isLocked ? 'Active' : 'Paused',
+      newStatus: dto.isLocked ? 'Paused' : 'Active',
+      actionType: dto.isLocked ? 'Nurse_Pause' : 'Nurse_Resume',
+      changedById,
+      holdReason: dto.isLocked ? (dto.holdReason ?? null) : null,
+    });
+
     const response: PodLockResponseDto = {
       caseId,
       currentPod: patient.currentPod,
@@ -218,7 +233,11 @@ export class PatientService {
    * The new POD level must be >= 0 and < current_pod.
    * If rolling back from completed status, reset erasCompleted to false.
    */
-  async updatePodLevel(caseId: string, newPodLevel: number): Promise<PatientWithAccount> {
+  async updatePodLevel(
+    caseId: string,
+    newPodLevel: number,
+    changedById: number | null = null,
+  ): Promise<PatientWithAccount> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
 
@@ -239,6 +258,8 @@ export class PatientService {
     // Get max POD for the operation type
     const maxPod = await this.getMaxPodForOperationType(patient.operationTypeId!);
 
+    const previousPod = patient.currentPod;
+
     // Update POD level
     await this.repository.updatePodLevel(caseId, newPodLevel);
 
@@ -248,6 +269,16 @@ export class PatientService {
         .getRepository(Patient)
         .update({ caseId: caseId }, { erasCompleted: false });
     }
+
+    // Analytics: record the rollback for the recovery-matrix dashboard.
+    await this.repository.recordPodTrackingLog({
+      caseId,
+      podNumber: newPodLevel,
+      oldStatus: `POD ${previousPod}`,
+      newStatus: `POD ${newPodLevel}`,
+      actionType: 'Nurse_Rollback',
+      changedById,
+    });
 
     const updated = await this.repository.findByIdWithRelations(caseId);
     if (!updated) throw new NotFoundException(`Patient ${caseId} not found after update`);

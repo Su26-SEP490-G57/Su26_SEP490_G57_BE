@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
+import { StatisticsGateway } from '../../statistics/gateways/statistics.gateway';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
@@ -41,6 +42,7 @@ export class SymptomSurveyService {
   constructor(
     private readonly repository: SymptomSurveyRepository,
     private readonly alertService: AlertService,
+    private readonly statisticsGateway: StatisticsGateway,
   ) {}
 
   private calculateTriageColor(totalScore: number): 'GREEN' | 'YELLOW' | 'RED' {
@@ -219,6 +221,14 @@ export class SymptomSurveyService {
       throw new ForbiddenException('You can only submit surveys for your own case');
     }
 
+    // Check if ERAS protocol is completed
+    const isErasCompleted = await this.repository.isErasCompleted(dto.caseId);
+    if (isErasCompleted) {
+      throw new BadRequestException(
+        'Cannot submit assessment - ERAS protocol has been completed for this patient',
+      );
+    }
+
     // Load options to get score_value
     const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
@@ -260,6 +270,14 @@ export class SymptomSurveyService {
 
     // Sync patient level based on latest triage result
     await this.repository.syncPatientLevel(saved.caseId, triage_color);
+
+    // Notify the Statistics dashboard so it can refetch without a manual reload
+    this.statisticsGateway.emitAssessmentSubmitted({
+      caseId: saved.caseId,
+      assessmentId: saved.assessmentId,
+      podContext: saved.podContext,
+      triageColor: triage_color,
+    });
 
     // Auto-generate alert for YELLOW or RED
     if (triage_color === 'YELLOW' || triage_color === 'RED') {
