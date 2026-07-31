@@ -66,6 +66,10 @@ export class NurseService {
       password: dto.password,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
+      dob: dto.dob,
+      cityProvince: dto.cityProvince,
+      ward: dto.ward,
+      detailedAddress: dto.detailedAddress,
       roles: [dto.role],
     });
     // Fetch full user entity to get all fields

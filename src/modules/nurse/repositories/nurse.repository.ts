@@ -33,7 +33,7 @@ export class NurseRepository {
     const applyFilters = (qb: ReturnType<typeof this.userRepo.createQueryBuilder>) => {
       if (userId) qb.andWhere('u.id = :userId', { userId });
       if (search) qb.andWhere('u.fullName ILIKE :search', { search: `%${search}%` });
-      if (isActive !== undefined) qb.andWhere('u.is_active = :isActive', { isActive });
+      if (isActive !== undefined) qb.andWhere('u.isActive = :isActive', { isActive });
     };
 
     // Count query: leftJoin only (no select) → no row multiplication from roles
@@ -51,7 +51,7 @@ export class NurseRepository {
       .where('role.roleName IN (:...roles)', { roles: nurseRoles });
     applyFilters(dataQb);
     const nurses = await dataQb
-      .orderBy('u.full_name', 'ASC')
+      .orderBy('u.fullName', 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
@@ -68,7 +68,7 @@ export class NurseRepository {
       });
 
     const total = await qb.getCount();
-    const active = await qb.clone().andWhere('u.is_active = true').getCount();
+    const active = await qb.clone().andWhere('u.isActive = :active', { active: true }).getCount();
 
     return { total, active, inactive: total - active };
   }

@@ -41,6 +41,29 @@ export class CreateUserDto {
   @IsOptional()
   phoneNumber?: string;
 
+  @ApiPropertyOptional({ example: '1996-06-02' })
+  @IsString()
+  @IsOptional()
+  dob?: string;
+
+  @ApiPropertyOptional({ example: 'Hà Nội' })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  cityProvince?: string;
+
+  @ApiPropertyOptional({ example: 'Thanh Xuân' })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  ward?: string;
+
+  @ApiPropertyOptional({ example: 'Số 1 Nguyễn Trãi' })
+  @IsString()
+  @MaxLength(255)
+  @IsOptional()
+  detailedAddress?: string;
+
   @ApiPropertyOptional({
     enum: UserRoleName,
     isArray: true,

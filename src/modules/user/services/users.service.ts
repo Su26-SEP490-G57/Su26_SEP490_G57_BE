@@ -28,9 +28,33 @@ export class UsersService {
     };
   }
 
+  /**
+   * Throws ConflictException if `username`/`phoneNumber` already belong to another user.
+   * `excludeId` lets an update pass through when the value belongs to the user being updated.
+   */
+  private async assertUnique(
+    fields: { username?: string; phoneNumber?: string | null },
+    excludeId?: number,
+  ): Promise<void> {
+    if (fields.username) {
+      const existing = await this.usersRepository.findByUsername(fields.username);
+      if (existing && existing.id !== excludeId) {
+        throw new ConflictException(`Tài khoản "${fields.username}" đã tồn tại trên hệ thống.`);
+      }
+    }
+
+    if (fields.phoneNumber) {
+      const existing = await this.usersRepository.findByPhoneNumber(fields.phoneNumber);
+      if (existing && existing.id !== excludeId) {
+        throw new ConflictException(
+          `Số điện thoại "${fields.phoneNumber}" đã được đăng ký cho tài khoản khác.`,
+        );
+      }
+    }
+  }
+
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
-    const exists = await this.usersRepository.findByUsername(dto.username);
-    if (exists) throw new ConflictException(`Email "${dto.username}" is already registered`);
+    await this.assertUnique({ username: dto.username, phoneNumber: dto.phoneNumber });
 
     const roleNames = dto.roles?.length ? dto.roles : [UserRoleName.NURSE];
     const roles = await this.usersRepository.resolveRoles(roleNames);
@@ -41,6 +65,10 @@ export class UsersService {
       passwordHash,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber ?? null,
+      dob: dto.dob ?? null,
+      cityProvince: dto.cityProvince ?? null,
+      ward: dto.ward ?? null,
+      detailedAddress: dto.detailedAddress ?? null,
       roles,
     });
 
@@ -63,12 +91,16 @@ export class UsersService {
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
     if (dto.username && dto.username !== user.username) {
-      const conflict = await this.usersRepository.findByUsername(dto.username);
-      if (conflict) throw new ConflictException(`Email "${dto.username}" is already registered`);
+      await this.assertUnique({ username: dto.username }, id);
       user.username = dto.username;
     }
+
+    if (dto.phoneNumber !== undefined && dto.phoneNumber !== user.phoneNumber) {
+      await this.assertUnique({ phoneNumber: dto.phoneNumber }, id);
+      user.phoneNumber = dto.phoneNumber ?? null;
+    }
+
     if (dto.fullName) user.fullName = dto.fullName;
-    if (dto.phoneNumber !== undefined) user.phoneNumber = dto.phoneNumber ?? null;
     if (dto.password) user.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
     if (dto.dob !== undefined) user.dob = dto.dob ?? null;

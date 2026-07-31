@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
 import { OperationType } from '../../patient/entities/operation-type.entity';
+import { Patient } from '../../patient/entities/patient.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
 
 @Injectable()
@@ -53,36 +54,24 @@ export class DietGuidanceRepository {
   /**
    * Count patients currently using an operation type
    */
-  async countPatientsByOperationType(operationTypeId: number): Promise<number> {
-    const result: Array<{ count: number }> = await this.opTypeRepo.manager.query(
-      `
-      SELECT COUNT(*)::int as count
-      FROM patient_cases
-      WHERE operation_type_id = $1
-        AND deleted_at IS NULL
-        AND eras_completed = false
-    `,
-      [operationTypeId],
-    );
-    return result[0]?.count ?? 0;
+  countPatientsByOperationType(operationTypeId: number): Promise<number> {
+    return this.opTypeRepo.manager
+      .createQueryBuilder(Patient, 'pc')
+      .where('pc.operationTypeId = :operationTypeId', { operationTypeId })
+      .andWhere('pc.erasCompleted = false')
+      .getCount();
   }
 
   /**
    * Count patients currently at a specific POD level
    */
-  async countPatientsByPodLevel(operationTypeId: number, podLevel: number): Promise<number> {
-    const result: Array<{ count: number }> = await this.opTypeRepo.manager.query(
-      `
-      SELECT COUNT(*)::int as count
-      FROM patient_cases
-      WHERE operation_type_id = $1
-        AND current_pod = $2
-        AND deleted_at IS NULL
-        AND eras_completed = false
-    `,
-      [operationTypeId, podLevel],
-    );
-    return result[0]?.count ?? 0;
+  countPatientsByPodLevel(operationTypeId: number, podLevel: number): Promise<number> {
+    return this.opTypeRepo.manager
+      .createQueryBuilder(Patient, 'pc')
+      .where('pc.operationTypeId = :operationTypeId', { operationTypeId })
+      .andWhere('pc.currentPod = :podLevel', { podLevel })
+      .andWhere('pc.erasCompleted = false')
+      .getCount();
   }
 
   // ── Pod Protocols ────────────────────────────────────────────────────────────
