@@ -9,6 +9,7 @@ on:
     paths:
       - 'resources/nginx/**'
       - '.github/workflows/nginx-workflow.yml'
+      - '.github/actions/**'
 
   workflow_dispatch:
     inputs:
@@ -16,11 +17,6 @@ on:
         description: 'Set this to true to FORCE DEPLOY this without having to merge to main'
         type: boolean
         default: false
-
-concurrency:
-  group: poms-nginx-deploy
-  cancel-in-progress: false
-  queue: max
 
 jobs:
   check_syntax:
@@ -80,6 +76,10 @@ jobs:
       github.ref == 'refs/heads/main' ||
       inputs.force_deploy_without_merge == true
 
+    concurrency:
+      group: poms-ssh-deploy
+      cancel-in-progress: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -89,26 +89,33 @@ jobs:
           cd resources
           tar -czf ../nginx.tar.gz nginx
 
+      - name: Write SSH Deploy Key
+        run: |
+          umask 077
+          cat > /tmp/poms_ssh_deploy_key <<'EOF'
+          ${{ secrets.SSH_KEY }}
+          EOF
+
       - name: Upload Nginx Artifact via SSH
-        uses: appleboy/scp-action@v1
+        uses: ./.github/actions/retry-scp
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: /tmp/poms_ssh_deploy_key
           source: 'nginx.tar.gz'
           target: '/var/www/poms-nginx/'
 
       - name: Upload Healthcheck script via SSH
-        uses: appleboy/scp-action@v1
+        uses: ./.github/actions/retry-scp
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: /tmp/poms_ssh_deploy_key
           source: 'resources/scripts/check-health.sh'
           target: '/var/www/poms-nginx/'
 
       - name: Extract, Load Certs & Hot Reload Nginx
-        uses: appleboy/ssh-action@v1.2.5
+        uses: ./.github/actions/retry-ssh
         env:
           DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
           B64_FULLCHAIN: ${{ secrets.B64_FULLCHAIN }}
@@ -116,9 +123,11 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: /tmp/poms_ssh_deploy_key
           envs: DOMAIN_NAME,B64_FULLCHAIN,B64_PRIVKEY
           script: |
+            set -e
+
             docker network create poms-dev || true
             docker network create poms-staging || true
             docker network create poms-prod || true
@@ -136,23 +145,24 @@ jobs:
             echo -n "$B64_PRIVKEY" | base64 --decode > certs/privkey.pem
             chmod 600 certs/fullchain.pem certs/privkey.pem
 
-            if [ -z "$(docker ps -q -f name=poms-nginx)" ]; then
-              echo "🚀 Starting new Nginx instance with new configuration..."
-              docker compose -f docker-compose.nginx.yml up -d
-            else
-              echo "🔥 [CI/CD] Live rendering Nginx templates ..."
-              docker exec -e DOMAIN_NAME="$DOMAIN_NAME" poms-nginx sh -c "
-                  for template_file in /etc/nginx/templates/*.template; do
-                    [ -e \"\$template_file\" ] || continue
-                    base_name=\$(basename \"\$template_file\" .template)
-                    echo \"👉 Processing template inside container: \$base_name.template\"
-                    envsubst '\$DOMAIN_NAME' < \"\$template_file\" > \"/etc/nginx/conf.d/\$base_name\"
-                  done
-                "
+            echo "📥 [CI/CD] Pulling latest Nginx image..."
+            docker compose -f docker-compose.nginx.yml pull
 
-              echo "🔄 [CI/CD] Activating Hot Reload ..."
-              docker exec poms-nginx nginx -s reload
-            fi
+            echo "🚀 [CI/CD] Applying Nginx service definition (recreates only if image/compose config changed)..."
+            docker compose -f docker-compose.nginx.yml up -d
+
+            echo "🔥 [CI/CD] Live rendering Nginx templates ..."
+            docker exec -e DOMAIN_NAME="$DOMAIN_NAME" poms-nginx sh -c "
+                for template_file in /etc/nginx/templates/*.template; do
+                  [ -e \"\$template_file\" ] || continue
+                  base_name=\$(basename \"\$template_file\" .template)
+                  echo \"👉 Processing template inside container: \$base_name.template\"
+                  envsubst '\$DOMAIN_NAME' < \"\$template_file\" > \"/etc/nginx/conf.d/\$base_name\"
+                done
+              "
+
+            echo "🔄 [CI/CD] Activating Hot Reload ..."
+            docker exec poms-nginx nginx -s reload
 
             echo "🔍 Checking health..."
             chmod +x ./resources/scripts/check-health.sh

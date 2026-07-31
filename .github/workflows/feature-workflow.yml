@@ -22,24 +22,71 @@ on:
       - 'resources/scripts/check-health.sh'
       - '.github/workflows/feature-workflow.yml'
       - '.github/workflows/deploy-workflow.yml'
+      - '.github/workflows/code-quality-workflow.yml'
       - '.github/actions/**'
 
 jobs:
+  cancel_stale_dev_deploys:
+    name: Cancel Pending-Approval Dev Deploys
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel dev deploy jobs still waiting on approval from older runs on this branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+
+            const { data: runsData } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'feature-workflow.yml',
+              branch,
+              event: 'push',
+              per_page: 50,
+            });
+
+            const staleRuns = runsData.workflow_runs.filter(
+              (run) => run.id !== context.runId && run.status !== 'completed',
+            );
+
+            for (const run of staleRuns) {
+              const { data: jobsData } = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+
+              // Only act if the run's dev-deploy job is stuck behind manual environment
+              // approval ("waiting"). Runs whose deploy job is "queued" (runner about to
+              // pick it up) or "in_progress" (already deploying) must never be touched.
+              // The GitHub API has no per-job cancel endpoint, only per-run — but a job can
+              // only be "waiting" on approval after its own `needs` are satisfied, so
+              // code_quality is guaranteed complete by then and cancelling the whole run
+              // here only interrupts the pending-approval deploy, nothing else.
+              const isPendingApproval = jobsData.jobs.some(
+                (job) => job.name.startsWith('Deploy to Dev') && job.status === 'waiting',
+              );
+
+              if (isPendingApproval) {
+                console.log(`Cancelling run #${run.id} — its dev deploy is still waiting on approval`);
+                try {
+                  await github.rest.actions.cancelWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                } catch (error) {
+                  console.log(`Failed to cancel run #${run.id}: ${error.message}`);
+                }
+              }
+            }
+
   code_quality:
     name: Verify Code Quality
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Project
-        uses: ./.github/actions/setup-project
-
-      - name: Static Check
-        run: |
-          npm run format:check
-          npm run lint
+    uses: ./.github/workflows/code-quality-workflow.yml
+    with:
+      lint_migrations: true
 
   deploy_dev:
     name: Deploy to Dev

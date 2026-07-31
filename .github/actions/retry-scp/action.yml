@@ -1,0 +1,75 @@
+name: 'Retry SCP Action'
+description: 'Copies files to a remote host via appleboy/scp-action, retrying up to 3 times on failure'
+
+inputs:
+  host:
+    required: true
+  username:
+    required: true
+  key_path:
+    required: true
+  source:
+    required: true
+  target:
+    required: true
+  strip_components:
+    required: false
+    default: '0'
+  attempt_delay:
+    description: 'Seconds to wait between attempts'
+    required: false
+    default: '15'
+
+runs:
+  using: composite
+  steps:
+    - name: Attempt 1/3
+      id: attempt1
+      continue-on-error: true
+      uses: appleboy/scp-action@v1
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key_path: ${{ inputs.key_path }}
+        source: ${{ inputs.source }}
+        target: ${{ inputs.target }}
+        strip_components: ${{ inputs.strip_components }}
+
+    - name: Wait before attempt 2/3
+      if: steps.attempt1.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "⚠️ Attempt 1 failed, retrying in ${{ inputs.attempt_delay }}s..."
+        sleep ${{ inputs.attempt_delay }}
+
+    - name: Attempt 2/3
+      id: attempt2
+      if: steps.attempt1.outcome == 'failure'
+      continue-on-error: true
+      uses: appleboy/scp-action@v1
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key_path: ${{ inputs.key_path }}
+        source: ${{ inputs.source }}
+        target: ${{ inputs.target }}
+        strip_components: ${{ inputs.strip_components }}
+
+    - name: Wait before attempt 3/3
+      if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "⚠️ Attempt 2 failed, retrying in ${{ inputs.attempt_delay }}s..."
+        sleep ${{ inputs.attempt_delay }}
+
+    - name: Attempt 3/3
+      id: attempt3
+      if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
+      uses: appleboy/scp-action@v1
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key_path: ${{ inputs.key_path }}
+        source: ${{ inputs.source }}
+        target: ${{ inputs.target }}
+        strip_components: ${{ inputs.strip_components }}

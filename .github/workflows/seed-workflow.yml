@@ -16,7 +16,6 @@ on:
 concurrency:
   group: poms-db-maintenance-dev
   cancel-in-progress: false
-  queue: max
 
 jobs:
   auto_approve:

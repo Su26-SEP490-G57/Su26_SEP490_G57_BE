@@ -25,7 +25,6 @@ on:
 concurrency:
   group: poms-db-maintenance-dev
   cancel-in-progress: false
-  queue: max
 
 jobs:
   sync_database:
@@ -41,6 +40,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
+            umask 077
 
             # Target is STRICTLY LOCKED to 'dev' to safeguard staging/prod environments
             SRC_ENV="${{ github.event.inputs.source_env }}"
@@ -53,6 +53,11 @@ jobs:
             CONTAINER_NAME="poms-postgres"
             SYNC_MODE="${{ github.event.inputs.sync_mode }}"
             BACKUP_FILE="/tmp/sync_${SRC_DB}_to_${TGT_DB}.sql"
+
+            # Ensures the dump (potentially containing real patient data pulled
+            # from staging/prod) never lingers on the SSH host, even if a step
+            # below fails partway under `set -e`.
+            trap 'rm -f "$BACKUP_FILE"' EXIT
 
             echo "🚀 [CI/CD] Initiating data sync process: [$SRC_DB] ──► [$TGT_DB]..."
 
@@ -76,8 +81,5 @@ jobs:
                 echo "📤 [CI/CD] Restoring full snapshot mirror into target database..."
                 sudo docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $TGT_DB < $BACKUP_FILE
             fi
-
-            echo "🧹 [CI/CD] Purging temporary backup artifacts from host filesystem..."
-            rm -f $BACKUP_FILE
 
             echo "✅ [CI/CD Success] Synchronization pipeline completed successfully via mode: $SYNC_MODE!"

@@ -1,0 +1,31 @@
+# Config for `npm run migration:lint` (see src/database/scripts/extract-migration-sql.ts).
+# Kept rules predict a migration failing outright against real data (the
+# original motivation: NOT NULL added without a default, FK/CHECK constraints
+# that can't validate, unsafe type changes) with a cheap fix — usually a line
+# or two added to the migration TypeORM already generated, still runs inside
+# TypeORM's default single-transaction migration.
+#
+# Excluded below: style preferences, plus rules whose correct fix genuinely
+# fights TypeORM's generated-migration model (see the annotations) rather
+# than just correctness/failure risk.
+excluded_rules = [
+    "prefer-robust-stmts",       # IF NOT EXISTS/IF EXISTS idempotency — style, not correctness
+    "prefer-bigint-over-int",    # int vs bigint — style
+    "prefer-identity",           # serial vs identity column — style
+    "ban-char-field",            # char vs varchar/text — style
+    "prefer-timestamp-tz",       # timestamp vs timestamptz — style
+    "require-lock-timeout",      # would fire on every statement; not tuned for this app's scale
+    "require-statement-timeout", # same as above
+
+    # CONCURRENTLY can't run inside a transaction; migration:generate never
+    # splits it into its own transaction:false migration automatically —
+    # excluded at current table sizes, revisit if tables grow large.
+    "require-concurrent-index-creation",
+    "require-concurrent-index-deletion",
+
+    # Correct fix is a two-phase rollout across separate deploys (stop using
+    # the column in app code, deploy, drop it in a later migration), not a
+    # single-file edit — excluded given the team's size and deploy cadence.
+    "ban-drop-column",
+    "ban-drop-not-null",
+]
