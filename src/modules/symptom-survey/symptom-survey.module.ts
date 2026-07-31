@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from '../alert/alert.module';
 import { Level } from '../patient/entities/level.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { StatisticsGatewayModule } from '../statistics/statistics-gateway.module';
 import { SymptomSurveyController } from './controllers/symptom-survey.controller';
 import { AssessmentDetail } from './entities/assessment-detail.entity';
 import { QuestionOption } from './entities/question-option.entity';
@@ -22,6 +23,7 @@ import { SymptomSurveyService } from './services/symptom-survey.service';
       Level,
     ]),
     AlertModule,
+    StatisticsGatewayModule,
   ],
   controllers: [SymptomSurveyController],
   providers: [SymptomSurveyService, SymptomSurveyRepository],
