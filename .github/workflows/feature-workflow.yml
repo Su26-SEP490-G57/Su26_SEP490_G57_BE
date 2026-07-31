@@ -57,23 +57,27 @@ jobs:
                 per_page: 100,
               });
 
-              // Only target jobs still stuck behind manual environment-approval ("waiting").
-              // Jobs that are "queued" (runner about to pick them up) or "in_progress"
-              // (already deploying) must never be touched here.
-              const pendingApprovalJobs = jobsData.jobs.filter(
+              // Only act if the run's dev-deploy job is stuck behind manual environment
+              // approval ("waiting"). Runs whose deploy job is "queued" (runner about to
+              // pick it up) or "in_progress" (already deploying) must never be touched.
+              // The GitHub API has no per-job cancel endpoint, only per-run — but a job can
+              // only be "waiting" on approval after its own `needs` are satisfied, so
+              // code_quality is guaranteed complete by then and cancelling the whole run
+              // here only interrupts the pending-approval deploy, nothing else.
+              const isPendingApproval = jobsData.jobs.some(
                 (job) => job.name.startsWith('Deploy to Dev') && job.status === 'waiting',
               );
 
-              for (const job of pendingApprovalJobs) {
-                console.log(`Cancelling dev deploy job #${job.id} ("${job.name}") still waiting on approval in run #${run.id}`);
+              if (isPendingApproval) {
+                console.log(`Cancelling run #${run.id} — its dev deploy is still waiting on approval`);
                 try {
-                  await github.rest.actions.cancelWorkflowJob({
+                  await github.rest.actions.cancelWorkflowRun({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    job_id: job.id,
+                    run_id: run.id,
                   });
                 } catch (error) {
-                  console.log(`Failed to cancel job #${job.id}: ${error.message}`);
+                  console.log(`Failed to cancel run #${run.id}: ${error.message}`);
                 }
               }
             }
