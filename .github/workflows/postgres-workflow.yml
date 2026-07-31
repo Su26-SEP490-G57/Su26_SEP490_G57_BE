@@ -42,7 +42,7 @@ jobs:
       inputs.force_deploy_without_merge == true
 
     concurrency:
-      group: poms-ssh-deploy
+      group: poms-ssh-deploy-postgres
       queue: max
       cancel-in-progress: false
 
