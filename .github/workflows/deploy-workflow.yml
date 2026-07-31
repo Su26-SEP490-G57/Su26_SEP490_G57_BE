@@ -104,21 +104,17 @@ jobs:
           EOF
 
       - name: Copy Docker Compose File to Server
-        uses: Wandalen/wretry.action@v3
+        uses: ./.github/actions/retry-scp
         with:
-          action: appleboy/scp-action@v1
-          attempt_limit: 3
-          attempt_delay: 15000
-          with: |
-            host: ${{ secrets.SSH_HOST }}
-            username: ${{ secrets.SSH_USERNAME }}
-            key_path: /tmp/poms_ssh_deploy_key
-            source: 'resources/docker/docker-compose.${{ inputs.environment }}.yml'
-            target: '/var/www/poms-api'
-            strip_components: 2
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key_path: /tmp/poms_ssh_deploy_key
+          source: 'resources/docker/docker-compose.${{ inputs.environment }}.yml'
+          target: '/var/www/poms-api'
+          strip_components: 2
 
       - name: Deploy to Environment via SSH
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: ./.github/actions/retry-ssh
         env:
           APP_IMAGE_NAME: ${{ vars.APP_IMAGE_NAME }}
           APP_IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
@@ -128,66 +124,62 @@ jobs:
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
         with:
-          action: appleboy/ssh-action@v1.2.5
-          attempt_limit: 3
-          attempt_delay: 15000
-          with: |
-            host: ${{ secrets.SSH_HOST }}
-            username: ${{ secrets.SSH_USERNAME }}
-            key_path: /tmp/poms_ssh_deploy_key
-            envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL,FIREBASE_SERVICE_ACCOUNT_BASE64
-            script: |
-              set -e
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key_path: /tmp/poms_ssh_deploy_key
+          envs: APP_IMAGE_NAME,APP_IMAGE_TAG,DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,FRONTEND_URL,FIREBASE_SERVICE_ACCOUNT_BASE64
+          script: |
+            set -e
 
-              docker network create poms-${{ inputs.environment }} || true
+            docker network create poms-${{ inputs.environment }} || true
 
-              TARGET_DIR="/var/www/poms-api"
-              mkdir -p $TARGET_DIR && cd $TARGET_DIR
+            TARGET_DIR="/var/www/poms-api"
+            mkdir -p $TARGET_DIR && cd $TARGET_DIR
 
-              echo "🔑 [CI/CD] Writing Firebase service account file..."
-              mkdir -p keys
-              echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
-              chmod 600 keys/firebase-admin.json
+            echo "🔑 [CI/CD] Writing Firebase service account file..."
+            mkdir -p keys
+            echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > keys/firebase-admin.json
+            chmod 600 keys/firebase-admin.json
 
-              COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
-              SERVICE_NAME="app-${{ inputs.environment }}"
+            COMPOSE_FILE="docker-compose.${{ inputs.environment }}.yml"
+            SERVICE_NAME="app-${{ inputs.environment }}"
 
-              echo "📥 [CI/CD] Pulling latest NestJS docker image..."
-              docker compose -f $COMPOSE_FILE pull $SERVICE_NAME
+            echo "📥 [CI/CD] Pulling latest NestJS docker image..."
+            docker compose -f $COMPOSE_FILE pull $SERVICE_NAME
 
-              if [ "${{ inputs.environment }}" == "dev" ]; then
-                echo "🧹 [CI/CD] [Dev] Resetting database schema to avoid cross-branch migration conflicts..."
-                docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run schema:drop
+            if [ "${{ inputs.environment }}" == "dev" ]; then
+              echo "🧹 [CI/CD] [Dev] Resetting database schema to avoid cross-branch migration conflicts..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run schema:drop
 
-                echo "🗄️ [CI/CD] [Migration] Running database migrations from scratch..."
-                docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
+              echo "🗄️ [CI/CD] [Migration] Running database migrations from scratch..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
 
-                echo "🌱 [CI/CD] [Dev] Seeding database..."
-                docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run seed
-              else
-                echo "🗄️ [CI/CD] [Migration] Running database migrations..."
-                docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
-              fi
+              echo "🌱 [CI/CD] [Dev] Seeding database..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run seed
+            else
+              echo "🗄️ [CI/CD] [Migration] Running database migrations..."
+              docker compose -f $COMPOSE_FILE run --rm $SERVICE_NAME npm run migration:apply
+            fi
 
-              chmod +x ./resources/scripts/check-health.sh || true
+            chmod +x ./resources/scripts/check-health.sh || true
 
-              CONTAINER_NAME="poms-api-${{ inputs.environment }}"
-              CANARY_NAME="${CONTAINER_NAME}-canary"
+            CONTAINER_NAME="poms-api-${{ inputs.environment }}"
+            CANARY_NAME="${CONTAINER_NAME}-canary"
 
-              echo "🕵️ [CI/CD] Starting canary container to validate the new image before touching the live container..."
+            echo "🕵️ [CI/CD] Starting canary container to validate the new image before touching the live container..."
+            docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
+            docker compose -f $COMPOSE_FILE run -d --name $CANARY_NAME $SERVICE_NAME
+
+            echo "🔍 Checking canary health..."
+            if ./resources/scripts/check-health.sh $CANARY_NAME 25 3; then
+              echo "✅ [CI/CD] Canary is healthy. Promoting new image — recreating application container..."
               docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
-              docker compose -f $COMPOSE_FILE run -d --name $CANARY_NAME $SERVICE_NAME
+              docker compose -f $COMPOSE_FILE up -d $SERVICE_NAME
 
-              echo "🔍 Checking canary health..."
-              if ./resources/scripts/check-health.sh $CANARY_NAME 25 3; then
-                echo "✅ [CI/CD] Canary is healthy. Promoting new image — recreating application container..."
-                docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
-                docker compose -f $COMPOSE_FILE up -d $SERVICE_NAME
-
-                echo "🔍 Checking live container health..."
-                ./resources/scripts/check-health.sh $CONTAINER_NAME 25 3
-              else
-                echo "❌ [CI/CD] Canary failed health check. Aborting deploy — live container was never touched, no rollback needed."
-                docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
-                exit 1
-              fi
+              echo "🔍 Checking live container health..."
+              ./resources/scripts/check-health.sh $CONTAINER_NAME 25 3
+            else
+              echo "❌ [CI/CD] Canary failed health check. Aborting deploy — live container was never touched, no rollback needed."
+              docker rm -f $CANARY_NAME > /dev/null 2>&1 || true
+              exit 1
+            fi
