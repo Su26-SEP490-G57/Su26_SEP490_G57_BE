@@ -28,9 +28,36 @@ export class UsersService {
     };
   }
 
+  private async safeSave(user: User): Promise<User> {
+    try {
+      return await this.usersRepository.save(user);
+    } catch (err: any) {
+      if (err?.code === '23505' || err?.driverError?.code === '23505') {
+        const detail = String(err?.detail || err?.driverError?.detail || '');
+        if (detail.includes('username')) {
+          throw new ConflictException(`Tài khoản "${user.username}" đã tồn tại trên hệ thống.`);
+        }
+        if (detail.includes('phone_number') || detail.includes('phoneNumber') || detail.includes('phone')) {
+          throw new ConflictException(`Số điện thoại "${user.phoneNumber}" đã được đăng ký cho tài khoản khác.`);
+        }
+        throw new ConflictException('Dữ liệu nhập vào bị trùng lặp với thông tin đã có trên hệ thống.');
+      }
+      throw err;
+    }
+  }
+
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
-    const exists = await this.usersRepository.findByUsername(dto.username);
-    if (exists) throw new ConflictException(`Email "${dto.username}" is already registered`);
+    const existsUsername = await this.usersRepository.findByUsername(dto.username);
+    if (existsUsername) {
+      throw new ConflictException(`Tài khoản "${dto.username}" đã tồn tại trên hệ thống.`);
+    }
+
+    if (dto.phoneNumber) {
+      const existsPhone = await this.usersRepository.findByPhoneNumber(dto.phoneNumber);
+      if (existsPhone) {
+        throw new ConflictException(`Số điện thoại "${dto.phoneNumber}" đã được đăng ký cho tài khoản khác.`);
+      }
+    }
 
     const roleNames = dto.roles?.length ? dto.roles : [UserRoleName.NURSE];
     const roles = await this.usersRepository.resolveRoles(roleNames);
@@ -41,10 +68,14 @@ export class UsersService {
       passwordHash,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber ?? null,
+      dob: dto.dob ?? null,
+      cityProvince: dto.cityProvince ?? null,
+      ward: dto.ward ?? null,
+      detailedAddress: dto.detailedAddress ?? null,
       roles,
     });
 
-    const saved = await this.usersRepository.save(user);
+    const saved = await this.safeSave(user);
     return this.toResponse(saved);
   }
 
@@ -63,12 +94,24 @@ export class UsersService {
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
     if (dto.username && dto.username !== user.username) {
-      const conflict = await this.usersRepository.findByUsername(dto.username);
-      if (conflict) throw new ConflictException(`Email "${dto.username}" is already registered`);
+      const conflictUsername = await this.usersRepository.findByUsername(dto.username);
+      if (conflictUsername && conflictUsername.id !== id) {
+        throw new ConflictException(`Tài khoản "${dto.username}" đã tồn tại trên hệ thống.`);
+      }
       user.username = dto.username;
     }
+
+    if (dto.phoneNumber !== undefined && dto.phoneNumber !== user.phoneNumber) {
+      if (dto.phoneNumber) {
+        const conflictPhone = await this.usersRepository.findByPhoneNumber(dto.phoneNumber);
+        if (conflictPhone && conflictPhone.id !== id) {
+          throw new ConflictException(`Số điện thoại "${dto.phoneNumber}" đã được đăng ký cho tài khoản khác.`);
+        }
+      }
+      user.phoneNumber = dto.phoneNumber ?? null;
+    }
+
     if (dto.fullName) user.fullName = dto.fullName;
-    if (dto.phoneNumber !== undefined) user.phoneNumber = dto.phoneNumber ?? null;
     if (dto.password) user.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
     if (dto.dob !== undefined) user.dob = dto.dob ?? null;
@@ -79,7 +122,7 @@ export class UsersService {
       user.roles = await this.usersRepository.resolveRoles(dto.roles);
     }
 
-    const saved = await this.usersRepository.save(user);
+    const saved = await this.safeSave(user);
     return this.toResponse(saved);
   }
 
