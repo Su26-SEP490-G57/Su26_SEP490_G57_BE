@@ -77,7 +77,8 @@ jobs:
       inputs.force_deploy_without_merge == true
 
     concurrency:
-      group: poms-ssh-deploy
+      group: poms-ssh-deploy-nginx
+      queue: max
       cancel-in-progress: false
 
     steps:

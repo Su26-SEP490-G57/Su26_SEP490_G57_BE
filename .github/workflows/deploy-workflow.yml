@@ -55,7 +55,8 @@ jobs:
       ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
 
     concurrency:
-      group: poms-ssh-deploy
+      group: poms-ssh-deploy-${{ inputs.environment }}
+      queue: max
       cancel-in-progress: false
 
     steps:
