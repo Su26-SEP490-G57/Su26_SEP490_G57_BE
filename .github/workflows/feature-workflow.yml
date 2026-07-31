@@ -27,10 +27,10 @@ on:
 
 jobs:
   cancel_stale_dev_deploys:
-    name: Cancel Waiting Dev Deploys
+    name: Cancel Pending-Approval Dev Deploys
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel queued/running dev deploy jobs from older runs on this branch
+      - name: Cancel dev deploy jobs still waiting on approval from older runs on this branch
         uses: actions/github-script@v7
         with:
           script: |
@@ -46,7 +46,7 @@ jobs:
             });
 
             const staleRuns = runsData.workflow_runs.filter(
-              (run) => run.id !== context.runId && ['queued', 'in_progress'].includes(run.status),
+              (run) => run.id !== context.runId && run.status !== 'completed',
             );
 
             for (const run of staleRuns) {
@@ -57,12 +57,15 @@ jobs:
                 per_page: 100,
               });
 
-              const deployJobs = jobsData.jobs.filter(
-                (job) => job.name.startsWith('Deploy to Dev') && ['queued', 'in_progress'].includes(job.status),
+              // Only target jobs still stuck behind manual environment-approval ("waiting").
+              // Jobs that are "queued" (runner about to pick them up) or "in_progress"
+              // (already deploying) must never be touched here.
+              const pendingApprovalJobs = jobsData.jobs.filter(
+                (job) => job.name.startsWith('Deploy to Dev') && job.status === 'waiting',
               );
 
-              for (const job of deployJobs) {
-                console.log(`Cancelling stale dev deploy job #${job.id} ("${job.name}") from run #${run.id}`);
+              for (const job of pendingApprovalJobs) {
+                console.log(`Cancelling dev deploy job #${job.id} ("${job.name}") still waiting on approval in run #${run.id}`);
                 try {
                   await github.rest.actions.cancelWorkflowJob({
                     owner: context.repo.owner,
