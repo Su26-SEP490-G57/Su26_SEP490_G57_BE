@@ -16,7 +16,7 @@ export class NurseRepository {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-  ) {}
+  ) { }
 
   findById(id: number): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
@@ -43,6 +43,7 @@ export class NurseRepository {
       .where('role.roleName IN (:...roles)', { roles: nurseRoles });
     applyFilters(countQb);
     const total = await countQb.getCount();
+
 
     // Data query: leftJoinAndSelect to load roles for the response
     const dataQb = this.userRepo
