@@ -139,7 +139,8 @@ export class SymptomSurveyService {
     if (!question) throw new NotFoundException(`Question #${questionId} not found`);
 
     if (dto.questionText !== undefined) question.questionText = dto.questionText;
-    if (dto.order_number !== undefined) question.orderNumber = dto.order_number;
+    const newOrder = dto.orderNumber ?? dto.order_number;
+    if (newOrder !== undefined) question.orderNumber = newOrder;
     if (dto.isDefault !== undefined) question.isDefault = dto.isDefault;
 
     await this.repository.saveQuestion({

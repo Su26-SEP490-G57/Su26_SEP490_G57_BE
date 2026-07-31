@@ -96,7 +96,7 @@ export class SymptomSurveyRepository {
     }
 
     console.log(
-      `[syncPatientLevel] Attempting update - caseId: ${caseId}, level_id: ${level.levelId}`,
+      `[syncPatientLevel] Attempting update - caseId: ${caseId}, levelId: ${level.levelId}`,
     );
     const result = await this.patientRepo.update({ caseId: caseId }, { levelId: level.levelId });
     console.log(

@@ -34,6 +34,10 @@ export class UsersRepository {
     passwordHash: string;
     fullName: string;
     phoneNumber?: string | null;
+    dob?: string | null;
+    cityProvince?: string | null;
+    ward?: string | null;
+    detailedAddress?: string | null;
     roles: Role[];
   }): User {
     return this.userRepo.create({
@@ -41,6 +45,10 @@ export class UsersRepository {
       passwordHash: data.passwordHash,
       fullName: data.fullName,
       phoneNumber: data.phoneNumber ?? null,
+      dob: data.dob ?? null,
+      cityProvince: data.cityProvince ?? null,
+      ward: data.ward ?? null,
+      detailedAddress: data.detailedAddress ?? null,
       isActive: true,
       roles: data.roles,
     });
@@ -52,6 +60,10 @@ export class UsersRepository {
 
   findByUsername(username: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { username } });
+  }
+
+  findByPhoneNumber(phoneNumber: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { phoneNumber } });
   }
 
   findById(id: number): Promise<User | null> {
