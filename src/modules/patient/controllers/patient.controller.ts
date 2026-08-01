@@ -8,7 +8,6 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,8 +18,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
 import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
@@ -64,7 +61,6 @@ class OperationTypeDto implements PatientOperationType {
 
 @ApiTags('Patients')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('patients')
 export class PatientController {
   constructor(
@@ -117,7 +113,6 @@ export class PatientController {
   }
 
   @Get(':id/assessments')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
   @ApiOperation({ summary: 'Get assessment history for a patient (Nurse/Head Nurse only)' })
   @ApiResponse({ status: 200, type: PaginatedAssessmentHistoryDto })
@@ -133,7 +128,6 @@ export class PatientController {
   }
 
   @Post(':id/start-eras')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse only)' })
   @ApiResponse({ status: 201 })
@@ -144,7 +138,6 @@ export class PatientController {
   }
 
   @Patch(':id/pod-lock')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Lock or unlock POD progression for a patient',
@@ -163,7 +156,6 @@ export class PatientController {
   }
 
   @Patch(':id/pod-level')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Manually adjust POD level for a patient (rollback only)',

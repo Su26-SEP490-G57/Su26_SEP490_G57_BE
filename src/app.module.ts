@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from './modules/alert/alert.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module';
 import { HealthModule } from './modules/health/health.module';
 import { NurseModule } from './modules/nurse/nurse.module';
@@ -48,6 +51,11 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     AlertModule,
     DietGuidanceModule,
     HealthModule,
+  ],
+  providers: [
+    // Order matters: JwtAuthGuard must run before RolesGuard so `req.user` is populated.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

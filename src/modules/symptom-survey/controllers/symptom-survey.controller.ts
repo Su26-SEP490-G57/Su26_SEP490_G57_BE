@@ -8,7 +8,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -17,8 +16,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
@@ -36,7 +33,6 @@ import { UserResponseDto } from 'src/modules/user/dtos/user-response.dto';
 
 @ApiTags('Symptom Surveys')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('symptom-surveys')
 export class SymptomSurveyController {
   constructor(private readonly symptomSurveyService: SymptomSurveyService) {}
@@ -57,7 +53,6 @@ export class SymptomSurveyController {
   }
 
   @Post('questions')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({
     summary: 'Create a survey question with optional inline options (Head Nurse only)',
@@ -68,7 +63,6 @@ export class SymptomSurveyController {
   }
 
   @Patch('questions/:questionId')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update a survey question (Head Nurse only)' })
   @ApiResponse({ status: 200, type: SurveyQuestionDto })
@@ -81,7 +75,6 @@ export class SymptomSurveyController {
   }
 
   @Delete('questions/:questionId')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a survey question and its options (Head Nurse only)' })
@@ -93,7 +86,6 @@ export class SymptomSurveyController {
   }
 
   @Post('questions/:questionId/options')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Add an option to a question (Head Nurse only)' })
   @ApiResponse({ status: 201, type: QuestionOptionDto })
@@ -106,7 +98,6 @@ export class SymptomSurveyController {
   }
 
   @Patch('questions/:questionId/options/:optionId')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Update a question option (Head Nurse only)' })
   @ApiResponse({ status: 200, type: QuestionOptionDto })
@@ -120,7 +111,6 @@ export class SymptomSurveyController {
   }
 
   @Delete('questions/:questionId/options/:optionId')
-  @UseGuards(RolesGuard)
   @Roles(UserRoleName.HEAD_NURSE)
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a question option (Head Nurse only)' })

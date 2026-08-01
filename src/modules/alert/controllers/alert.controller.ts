@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -15,7 +6,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AcknowledgeAlertDto } from '../dtos/acknowledge-alert.dto';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
@@ -23,7 +13,6 @@ import { AlertService } from '../services/alert.service';
 
 @ApiTags('Alerts')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('alerts')
 export class AlertController {
   constructor(private readonly alertService: AlertService) {}

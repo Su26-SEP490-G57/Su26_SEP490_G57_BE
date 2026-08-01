@@ -1,18 +1,10 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AuthenticatedRequest } from 'src/shared/types/authenticated-request';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  private readonly logger = new Logger(RolesGuard.name);
-
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
