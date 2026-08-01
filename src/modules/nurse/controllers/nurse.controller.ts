@@ -8,7 +8,6 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,7 +17,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
 import { QueryNurseDto } from '../dtos/query-nurse.dto';
@@ -33,7 +31,6 @@ class NurseStatsDto {
 
 @ApiTags('Nurses')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('nurses')
 export class NurseController {
   constructor(private readonly nurseService: NurseService) {}

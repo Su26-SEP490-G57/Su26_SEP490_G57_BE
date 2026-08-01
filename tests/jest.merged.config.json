@@ -1,0 +1,3 @@
+{
+  "projects": ["<rootDir>", "<rootDir>/tests/jest-e2e.json"]
+}

@@ -1,5 +1,6 @@
 // @ts-check
 import eslint from '@eslint/js';
+import eslintPluginJest from 'eslint-plugin-jest';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -29,7 +30,17 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    files: ['tests/**/*.ts'],
+    plugins: { jest: eslintPluginJest },
+    rules: {
+      // @typescript-eslint/unbound-method can't tell a DeepMocked jest.fn() apart from a
+      // real unbound class method; jest/unbound-method is the mock-aware replacement.
+      '@typescript-eslint/unbound-method': 'off',
+      'jest/unbound-method': 'error',
     },
   },
 );

@@ -56,6 +56,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 SEP*.md
 
 # Kiro/Claude local files
+.claude/
 CLAUDE.md
 CODEBASE_REVIEW.md
 

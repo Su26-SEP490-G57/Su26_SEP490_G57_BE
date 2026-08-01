@@ -64,3 +64,118 @@ jobs:
           echo "Linting SQL from: $CHANGED_MIGRATIONS"
           npm run migration:extract-sql -- migration-sql.sql $CHANGED_MIGRATIONS
           npx squawk migration-sql.sql
+
+  unit_tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+
+      - name: Run Unit Tests
+        run: npm run test:cov
+
+      - name: Upload Unit Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage/unit/coverage-final.json
+          retention-days: 1
+
+  integration_tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    env:
+      # AppModule (imported wholesale by every e2e spec) eagerly initializes FirebaseService
+      # on bootstrap. No e2e spec exercises Firebase send behavior, so this mock, non-secret
+      # key just satisfies admin.initializeApp() — it's never used to contact Google.
+      FIREBASE_SERVICE_ACCOUNT: tests/fixtures/firebase-service-account.mock.json
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Project
+        uses: ./.github/actions/setup-project
+
+      - name: Run Integration Tests
+        run: npm run test:e2e:cov
+
+      - name: Upload Integration Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage/e2e/coverage-final.json
+          retention-days: 1
+
+  merge_coverage:
+    name: Merge Coverage Report
+    needs: [unit_tests, integration_tests]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+
+      - name: Download Unit Coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: .nyc_output
+          pattern: coverage-final.json
+
+      - name: Rename Unit Coverage
+        run: mv .nyc_output/coverage-final.json .nyc_output/unit.json
+
+      # Tải integration coverage và đặt thẳng vào .nyc_output với tên e2e.json
+      - name: Download Integration Coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+          path: .nyc_output
+          pattern: coverage-final.json
+
+      - name: Rename Integration Coverage
+        run: mv .nyc_output/coverage-final.json .nyc_output/e2e.json
+
+      - name: Generate Combined Coverage Report
+        run: |
+          npx nyc report \
+            --temp-dir .nyc_output \
+            --report-dir coverage/merged \
+            --reporter text-summary \
+            --reporter lcov \
+            --reporter html | tee coverage-summary.txt
+
+      - name: Publish Coverage Summary
+        run: |
+          echo "## Combined Coverage (Unit + Integration)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Merged Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-merged
+          path: coverage/merged
+          retention-days: 14
+
+      - name: Enforce Coverage Threshold
+        run: |
+          npx nyc check-coverage \
+            --temp-dir .nyc_output \
+            --branches 70 \
+            --functions 80 \
+            --lines 80 \
+            --statements 80

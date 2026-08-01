@@ -12,34 +12,41 @@ import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-surve
 import { Role } from 'src/modules/user/entities/role.entity';
 import { User } from 'src/modules/user/entities/user.entity';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
-import { DeepPartial } from 'typeorm';
+import { DataSource, DeepPartial } from 'typeorm';
 import AppDataSource from '../../data-source';
 
 const SALT_ROUNDS = 10;
 
-async function seed() {
-  console.log('🌱 [Seed] Initializing TypeORM DataSource...');
+export async function seed(
+  dataSource: DataSource = AppDataSource,
+  { closeConnection = true, verbose = true }: { closeConnection?: boolean; verbose?: boolean } = {},
+) {
+  const log = verbose ? console.log : () => {};
 
-  await AppDataSource.initialize();
+  log('🌱 [Seed] Initializing TypeORM DataSource...');
 
-  const queryRunner = AppDataSource.createQueryRunner();
+  if (!dataSource.isInitialized) {
+    await dataSource.initialize();
+  }
+
+  const queryRunner = dataSource.createQueryRunner();
   await queryRunner.connect();
 
-  console.log('🧹 [Seed] Wiping old data...');
+  log('🧹 [Seed] Wiping old data...');
 
-  const entities = AppDataSource.entityMetadatas;
+  const entities = dataSource.entityMetadatas;
   const PROTECTED_TABLES = [
-    AppDataSource.getMetadata(SurveyQuestion).tableName,
-    AppDataSource.getMetadata(QuestionOption).tableName,
-    AppDataSource.getMetadata(Level).tableName,
+    dataSource.getMetadata(SurveyQuestion).tableName,
+    dataSource.getMetadata(QuestionOption).tableName,
+    dataSource.getMetadata(Level).tableName,
   ];
 
-  const rolesRepository = AppDataSource.getRepository(Role);
-  const usersRepository = AppDataSource.getRepository(User);
-  const operationTypesRepository = AppDataSource.getRepository(OperationType);
-  const patientsRepository = AppDataSource.getRepository(Patient);
-  const symptomSurveysRepository = AppDataSource.getRepository(SymptomSurvey);
-  const podProtocolsRepository = AppDataSource.getRepository(PodProtocol);
+  const rolesRepository = dataSource.getRepository(Role);
+  const usersRepository = dataSource.getRepository(User);
+  const operationTypesRepository = dataSource.getRepository(OperationType);
+  const patientsRepository = dataSource.getRepository(Patient);
+  const symptomSurveysRepository = dataSource.getRepository(SymptomSurvey);
+  const podProtocolsRepository = dataSource.getRepository(PodProtocol);
 
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
@@ -47,15 +54,15 @@ async function seed() {
     const tableName = entity.tableName;
 
     if (PROTECTED_TABLES.includes(tableName)) {
-      console.log(`   - Skipping protected table: ${tableName}`);
+      log(`   - Skipping protected table: ${tableName}`);
       continue;
     }
 
-    console.log(`   - Truncating table: ${tableName}`);
+    log(`   - Truncating table: ${tableName}`);
     await queryRunner.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`);
   }
 
-  console.log('📥 [Seed] Inserting fresh standard dataset...');
+  log('📥 [Seed] Inserting fresh standard dataset...');
 
   const roles: DeepPartial<Role>[] = [
     {
@@ -77,7 +84,7 @@ async function seed() {
   ];
 
   const savedRoles = await rolesRepository.save(roles);
-  console.log('✅ Roles seeded');
+  log('✅ Roles seeded');
 
   const ADMIN_HASH = await bcrypt.hash('Admin@123', SALT_ROUNDS);
   const NURSE_HASH = await bcrypt.hash('Nurse@123', SALT_ROUNDS);
@@ -205,7 +212,7 @@ async function seed() {
 
   const savedUsers = await usersRepository.save(users);
   savedUsers.forEach((user) =>
-    console.log(
+    log(
       `✅ User "${user.username}" of roles [${user.roles?.map((role) => role.roleName).join(', ')}] seeded`,
     ),
   );
@@ -216,7 +223,8 @@ async function seed() {
   ];
 
   const savedOperationTypes = await operationTypesRepository.save(operationTypes);
-  console.log(
+
+  log(
     `✅ Operation types seeded: [${operationTypes.map((operationType) => operationType.operationName).join(', ')}]`,
   );
 
@@ -414,7 +422,7 @@ async function seed() {
   ];
 
   await podProtocolsRepository.save(podProtocols);
-  console.log(`✅ ${podProtocols.length} PodProtocols (Diet Guidance) seeded`);
+  log(`✅ ${podProtocols.length} PodProtocols (Diet Guidance) seeded`);
 
   const now = new Date();
   const levelToScore = {
@@ -607,9 +615,9 @@ async function seed() {
   ];
 
   const savedPatientCases = await patientsRepository.save(patientCases);
-  console.log('✅ 10 patient cases seeded with ERAS started + assessment completed');
-  console.log('   - Room distribution: P502(3), P504(3), P506(4)');
-  console.log('   - Level distribution: Red(3), Yellow(3), Green(4)');
+  log('✅ 10 patient cases seeded with ERAS started + assessment completed');
+  log('   - Room distribution: P502(3), P504(3), P506(4)');
+  log('   - Level distribution: Red(3), Yellow(3), Green(4)');
 
   const symptomSurveys: DeepPartial<SymptomSurvey>[] = savedPatientCases.map((patient) => {
     const levelName = patient.level!.levelName;
@@ -622,7 +630,7 @@ async function seed() {
       triageColor: levelName,
     };
 
-    console.log(
+    log(
       `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} (score: ${survey.totalScore}) - ${patient.assessmentTimeAgo} minute(s) ago`,
     );
 
@@ -630,14 +638,18 @@ async function seed() {
   });
 
   await symptomSurveysRepository.save(symptomSurveys);
-  console.log('✅ 10 patient assessments seeded');
+  log('✅ 10 patient assessments seeded');
 
   await queryRunner.release();
-  await AppDataSource.destroy();
-  console.log('🎉 Seed completed!');
+  if (closeConnection) {
+    await dataSource.destroy();
+  }
+  log('🎉 Seed completed!');
 }
 
-seed().catch((err) => {
-  console.error('❌ Seed failed:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seed().catch((err) => {
+    console.error('❌ Seed failed:', err);
+    process.exit(1);
+  });
+}
