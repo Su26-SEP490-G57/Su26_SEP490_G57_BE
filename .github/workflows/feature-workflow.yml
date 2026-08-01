@@ -21,6 +21,7 @@ on:
       - 'resources/docker/docker-compose.dev.yml'
       - 'resources/scripts/check-health.sh'
       - '.github/workflows/feature-workflow.yml'
+      - '.github/workflows/build-workflow.yml'
       - '.github/workflows/deploy-workflow.yml'
       - '.github/workflows/code-quality-workflow.yml'
       - '.github/actions/**'
@@ -82,8 +83,13 @@ jobs:
               }
             }
 
+  build:
+    name: Build Application
+    uses: ./.github/workflows/build-workflow.yml
+
   code_quality:
     name: Verify Code Quality
+    needs: build
     uses: ./.github/workflows/code-quality-workflow.yml
     with:
       lint_migrations: true
