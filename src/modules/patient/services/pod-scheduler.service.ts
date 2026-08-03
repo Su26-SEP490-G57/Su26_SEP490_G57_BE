@@ -84,7 +84,7 @@ export class PodSchedulerService {
         isLocked: true,
         lockedAt: () => 'NOW()',
         reasonHoldPod:
-          'Auto-locked: Reached max POD with concerning health status (Yellow/Red level)',
+          'Tự động tạm dừng: Đã đạt mốc ngày POD tối đa với mức độ sức khỏe cần theo dõi kỹ (Vàng/Đỏ).',
       })
       .where('level_id IN (SELECT level_id FROM levels WHERE level_name IN (:...colors))', {
         colors: ['Yellow', 'Red'],

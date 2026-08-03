@@ -96,3 +96,52 @@ export class SurveyQuestionDto {
   })
   options!: QuestionOptionDto[];
 }
+
+export class PodHistoryItemDto {
+  @ApiProperty({ example: '2026-08-03T00:00:00.000Z' })
+  date!: Date;
+
+  @ApiProperty({ example: 2 })
+  podNumber!: number;
+
+  @ApiProperty({ example: true })
+  isAssessed!: boolean;
+
+  @ApiPropertyOptional({ example: 12 })
+  assessmentId!: number | null;
+
+  @ApiPropertyOptional({ example: 1 })
+  totalScore!: number | null;
+
+  @ApiPropertyOptional({ example: 'GREEN', enum: ['GREEN', 'YELLOW', 'RED'] })
+  triageColor!: string | null;
+
+  @ApiProperty({ example: 'Hồi phục tốt' })
+  recoveryStatusTag!: string;
+
+  @ApiProperty({ example: 5 })
+  completedCount!: number;
+
+  @ApiProperty({ example: 5 })
+  totalCount!: number;
+
+  @ApiProperty({ type: [AnswerDetailDto] })
+  details!: AnswerDetailDto[];
+
+  @ApiPropertyOptional({ example: 'Bệnh nhân ổn định. Tiếp tục theo dõi thường quy.' })
+  medicalFeedback!: string | null;
+}
+
+export class PatientPodTimelineResponseDto {
+  @ApiProperty({ example: 'CASE-001' })
+  caseId!: string;
+
+  @ApiProperty({ example: 2 })
+  currentPod!: number;
+
+  @ApiProperty({ example: false })
+  isLocked!: boolean;
+
+  @ApiProperty({ type: [PodHistoryItemDto] })
+  history!: PodHistoryItemDto[];
+}
