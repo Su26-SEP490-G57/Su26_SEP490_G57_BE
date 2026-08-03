@@ -171,4 +171,12 @@ export class SymptomSurveyRepository {
   countDetailsByOption(optionId: number): Promise<number> {
     return this.detailRepo.count({ where: { selectedOptionId: optionId } });
   }
+
+  findPatientByCaseId(caseId: string): Promise<Patient | null> {
+    return this.patientRepo.findOne({ where: { caseId: caseId } });
+  }
+
+  countQuestions(): Promise<number> {
+    return this.questionRepo.count();
+  }
 }

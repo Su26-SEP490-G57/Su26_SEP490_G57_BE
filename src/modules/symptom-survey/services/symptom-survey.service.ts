@@ -21,6 +21,8 @@ import {
   AnswerDetailDto,
   AssessmentHistoryItemDto,
   PaginatedAssessmentHistoryDto,
+  PatientPodTimelineResponseDto,
+  PodHistoryItemDto,
   SurveyQuestionDto,
   SymptomSurveyResponseDto,
 } from '../dtos/symptom-survey-response.dto';
@@ -347,5 +349,103 @@ export class SymptomSurveyService {
     );
 
     return { data, total, page, limit };
+  }
+
+  async getPatientPodHistory(
+    caseId: string,
+    caller: UserResponseDto,
+  ): Promise<PatientPodTimelineResponseDto> {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== caseId) {
+      throw new ForbiddenException('You can only view your own assessment history');
+    }
+
+    const patient = await this.repository.findPatientByCaseId(caseId);
+    if (!patient) {
+      throw new NotFoundException(`Patient with caseId ${caseId} not found`);
+    }
+
+    const currentPodNum = Math.min(Math.max(patient.currentPod ?? 0, 0), 5);
+    const startDate = patient.podStartDate ? new Date(patient.podStartDate) : new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [allSurveys] = await this.repository.findAllByPatient(caseId, 1, 100);
+    const surveyMap = new Map<number, SymptomSurvey>();
+    for (const survey of allSurveys) {
+      if (survey.podContext !== null && survey.podContext !== undefined) {
+        surveyMap.set(survey.podContext, survey);
+      }
+    }
+
+    const totalQuestions = await this.repository.countQuestions();
+    const historyItems: PodHistoryItemDto[] = [];
+
+    // Only generate timeline from POD 0 up to currentPod (max POD 5)
+    for (let pod = 0; pod <= currentPodNum; pod++) {
+      const evalDate = new Date(startDate);
+      evalDate.setDate(evalDate.getDate() + pod);
+      const evalDayNormalized = new Date(evalDate);
+      evalDayNormalized.setHours(0, 0, 0, 0);
+
+      // Do NOT include future dates beyond today
+      if (evalDayNormalized > today) {
+        break;
+      }
+
+      const survey = surveyMap.get(pod);
+      if (survey) {
+        const details = await this.repository.findDetailsById(survey.assessmentId);
+        const triageColor = survey.triageColor ?? 'GREEN';
+        const recoveryStatusTag =
+          triageColor === 'GREEN'
+            ? 'Hồi phục tốt'
+            : triageColor === 'YELLOW'
+              ? 'Cần theo dõi'
+              : 'Cần can thiệp';
+
+        historyItems.push({
+          date: survey.evaluationDatetime,
+          podNumber: pod,
+          isAssessed: true,
+          assessmentId: survey.assessmentId,
+          totalScore: survey.totalScore,
+          triageColor: survey.triageColor,
+          recoveryStatusTag,
+          completedCount: details.length > 0 ? details.length : totalQuestions,
+          totalCount: totalQuestions > 0 ? totalQuestions : 5,
+          details: details.map(
+            (d): AnswerDetailDto => ({
+              questionId: d.questionId,
+              questionText: d.question.questionText,
+              selectedOptionId: d.selectedOptionId,
+              optionText: d.selectedOption.optionText,
+              scoreEarned: d.scoreEarned,
+            }),
+          ),
+          medicalFeedback: TRIAGE_RECOMMENDATIONS[triageColor] ?? null,
+        });
+      } else {
+        historyItems.push({
+          date: evalDate,
+          podNumber: pod,
+          isAssessed: false,
+          assessmentId: null,
+          totalScore: null,
+          triageColor: null,
+          recoveryStatusTag: 'Chưa đánh giá',
+          completedCount: 0,
+          totalCount: totalQuestions > 0 ? totalQuestions : 5,
+          details: [],
+          medicalFeedback: null,
+        });
+      }
+    }
+
+    return {
+      caseId: patient.caseId,
+      currentPod: currentPodNum,
+      isLocked: Boolean(patient.isLocked),
+      history: historyItems,
+    };
   }
 }

@@ -26,7 +26,11 @@ import {
   UpdateQuestionOptionDto,
   UpdateSurveyQuestionDto,
 } from '../dtos/survey-question.dto';
-import { SurveyQuestionDto, SymptomSurveyResponseDto } from '../dtos/symptom-survey-response.dto';
+import {
+  PatientPodTimelineResponseDto,
+  SurveyQuestionDto,
+  SymptomSurveyResponseDto,
+} from '../dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../services/symptom-survey.service';
 import { CurrentUser } from 'src/modules/user/decorators/current-user.decorator';
 import { UserResponseDto } from 'src/modules/user/dtos/user-response.dto';
@@ -169,5 +173,21 @@ export class SymptomSurveyController {
     @CurrentUser() caller: UserResponseDto,
   ): Promise<SymptomSurveyResponseDto> {
     return this.symptomSurveyService.getSurveyById(surveyId, caller);
+  }
+
+  @Get('patient/:caseId/history')
+  @ApiOperation({
+    summary: 'Get patient POD assessment history timeline',
+    description:
+      'Returns complete POD timeline from POD 0 up to current POD (past to today only) with detailed survey answer breakdowns.',
+  })
+  @ApiResponse({ status: 200, type: PatientPodTimelineResponseDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  @ApiResponse({ status: 403, description: 'Patient attempting to view another patient history' })
+  getPatientPodHistory(
+    @Param('caseId') caseId: string,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<PatientPodTimelineResponseDto> {
+    return this.symptomSurveyService.getPatientPodHistory(caseId, caller);
   }
 }
