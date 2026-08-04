@@ -7,6 +7,7 @@ import { AlertModule } from './modules/alert/alert.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { MinAppVersionGuard } from './common/guards/min-app-version.guard';
 import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module';
 import { HealthModule } from './modules/health/health.module';
 import { NurseModule } from './modules/nurse/nurse.module';
@@ -53,7 +54,9 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     HealthModule,
   ],
   providers: [
-    // Order matters: JwtAuthGuard must run before RolesGuard so `req.user` is populated.
+    // Order matters: version check runs first (no auth dependency, cheapest rejection).
+    // JwtAuthGuard must run before RolesGuard so `req.user` is populated.
+    { provide: APP_GUARD, useClass: MinAppVersionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

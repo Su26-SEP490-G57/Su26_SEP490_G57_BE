@@ -17,6 +17,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: 1h
       JWT_REFRESH_EXPIRES_IN: 7d
       FRONTEND_URL: ${FRONTEND_URL}
+      MIN_SUPPORTED_VERSION_CODE: ${MIN_SUPPORTED_VERSION_CODE:-1}
       FIREBASE_SERVICE_ACCOUNT: /app/keys/firebase-admin.json
     volumes:
       - ./keys/firebase-admin.json:/app/keys/firebase-admin.json:ro
