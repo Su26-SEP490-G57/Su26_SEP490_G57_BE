@@ -46,7 +46,7 @@ server {
   }
 
   location = /version.json {
-    alias /var/www/poms-mobile/version-prod.json;
+    alias /var/www/poms-mobile/versions/prod/version.json;
 
     add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
     add_header Pragma "no-cache" always;

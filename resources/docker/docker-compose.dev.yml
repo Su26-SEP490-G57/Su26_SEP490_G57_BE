@@ -20,7 +20,7 @@ services:
       FIREBASE_SERVICE_ACCOUNT: /app/keys/firebase-admin.json
     volumes:
       - ./keys/firebase-admin.json:/app/keys/firebase-admin.json:ro
-      - /var/www/poms-mobile/version-dev.json:/app/version.json:ro
+      - /var/www/poms-mobile/versions/dev:/app/version-data:ro
     networks:
       - poms-dev
     healthcheck:

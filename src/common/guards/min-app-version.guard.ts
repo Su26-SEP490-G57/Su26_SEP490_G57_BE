@@ -4,7 +4,7 @@ import { Request } from 'express';
 
 const UPGRADE_REQUIRED = 426;
 const DEFAULT_MIN_SUPPORTED_VERSION_CODE = 1;
-const VERSION_FILE_PATH = '/app/version.json';
+const VERSION_FILE_PATH = '/app/version-data/version.json';
 
 interface VersionFile {
   android?: {
