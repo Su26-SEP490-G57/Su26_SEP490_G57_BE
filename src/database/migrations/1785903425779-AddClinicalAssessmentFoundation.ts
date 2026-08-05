@@ -5,8 +5,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * workflow. Existing score columns deliberately remain during this migration so
  * deployed clients keep working until the application cutover is complete.
  */
-export class AddClinicalAssessmentFoundation1785100000000 implements MigrationInterface {
-  name = 'AddClinicalAssessmentFoundation1785100000000';
+export class AddClinicalAssessmentFoundation1785903425779 implements MigrationInterface {
+  name = 'AddClinicalAssessmentFoundation1785903425779';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const schemaName = process.env.DB_SCHEMA ?? 'public';
