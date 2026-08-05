@@ -277,11 +277,12 @@ export class SymptomSurveyService {
     await this.repository.syncPatientLevel(saved.caseId, triage_color);
 
     // Notify the Statistics dashboard so it can refetch without a manual reload
-    this.statisticsGateway.emitAssessmentSubmitted({
+    this.statisticsGateway.emitSubmitSurvey({
       caseId: saved.caseId,
       assessmentId: saved.assessmentId,
       podContext: saved.podContext,
       triageColor: triage_color,
+      totalScore: saved.totalScore,
     });
 
     // Auto-generate alert for YELLOW or RED

@@ -19,7 +19,7 @@ import {
   PatientCaseInput,
   PatientRepository,
 } from '../repositories/patient.repository';
-import { PodProtocol } from '../entities/pod-protocol.entity';
+import { StatisticsGateway } from '../../statistics/gateways/statistics.gateway';
 
 /** bcrypt cost factor — keep in sync with UsersService. */
 const SALT_ROUNDS = 10;
@@ -78,6 +78,7 @@ export class PatientService {
   constructor(
     private readonly repository: PatientRepository,
     private readonly patientGateway: PatientGateway,
+    private readonly statisticsGateway: StatisticsGateway,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -326,6 +327,11 @@ export class PatientService {
       },
     });
 
+    this.statisticsGateway.emitCreatePatient({
+      caseId: created.caseId,
+      userId: created.account?.id ?? null,
+    });
+
     return this.toResponse(created);
   }
 
@@ -367,6 +373,11 @@ export class PatientService {
     );
     if (!updated) throw new NotFoundException(`Patient ${caseId} not found`);
 
+    this.statisticsGateway.emitUpdatePatient({
+      caseId: updated.caseId,
+      userId: updated.account?.id ?? userId,
+    });
+
     return this.toResponse(updated);
   }
 
@@ -382,6 +393,10 @@ export class PatientService {
     if (!user) throw new NotFoundException(`User #${userId} not found`);
 
     await this.repository.softDeletePatient(user.id, user.caseId);
+    this.statisticsGateway.emitDeletePatient({
+      caseId: user.caseId ?? '',
+      userId: user.id,
+    });
     return { userId: user.id, caseId: user.caseId, deleted: true };
   }
 
