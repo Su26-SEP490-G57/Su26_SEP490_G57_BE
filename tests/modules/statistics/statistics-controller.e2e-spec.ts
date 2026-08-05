@@ -16,6 +16,7 @@ import { AssessmentMatrixResponseDto } from '../../../src/modules/statistics/dto
 import { PatientComplianceResponseDto } from '../../../src/modules/statistics/dtos/patient-compliance-response.dto';
 import { RecoveryMatrixResponseDto } from '../../../src/modules/statistics/dtos/recovery-matrix-response.dto';
 import { AppEngagementLog } from '../../../src/modules/statistics/entities/app-engagement-log.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
@@ -88,6 +89,7 @@ describe('StatisticsController (integration)', () => {
         questionText: 'Bạn có buồn nôn không?',
         orderNumber: 1,
         isDefault: true,
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       questionId = question.questionId;
       const [greenOption, yellowOption, redOption] = await dataSource
@@ -444,6 +446,7 @@ describe('StatisticsController (integration)', () => {
         questionText: 'Bạn có buồn nôn không?',
         orderNumber: 1,
         isDefault: true,
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       questionId = question.questionId;
       const option = await dataSource

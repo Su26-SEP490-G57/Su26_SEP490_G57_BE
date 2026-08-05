@@ -9,6 +9,7 @@ import { AlertService } from '../../alert/services/alert.service';
 import { StatisticsGateway } from '../../statistics/gateways/statistics.gateway';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../constants/questionnaire-version.constant';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
   CreateQuestionOptionDto,
@@ -120,6 +121,7 @@ export class SymptomSurveyService {
       questionText: dto.questionText,
       orderNumber: dto.orderNumber ?? null,
       isDefault: dto.isDefault,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     });
 
     if (dto.options?.length) {
