@@ -6,6 +6,7 @@ import { Levels } from 'src/modules/patient/constants/levels.constant';
 import { Level } from 'src/modules/patient/entities/level.entity';
 import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from 'src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { QuestionOption } from 'src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from 'src/modules/symptom-survey/entities/survey-question.entity';
 import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
@@ -628,6 +629,7 @@ export async function seed(
       podContext: patient.currentPod,
       totalScore: levelToScore[levelName.toUpperCase() as keyof typeof levelToScore],
       triageColor: levelName,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     };
 
     log(

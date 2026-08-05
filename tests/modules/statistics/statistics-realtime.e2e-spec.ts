@@ -12,6 +12,7 @@ import { TimezoneInterceptor } from '../../../src/common/interceptors/timezone.i
 import { LoginResponse } from '../../../src/modules/auth/services/auth.service';
 import { AssessmentMatrixResponseDto } from '../../../src/modules/statistics/dtos/assessment-matrix-response.dto';
 import { AssessmentSubmittedEvent } from '../../../src/modules/statistics/gateways/statistics.gateway';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
@@ -89,9 +90,12 @@ describe('Statistics realtime (integration)', () => {
     await dataSource.createQueryBuilder().delete().from(QuestionOption).execute();
     await dataSource.createQueryBuilder().delete().from(SurveyQuestion).execute();
 
-    const question = await dataSource
-      .getRepository(SurveyQuestion)
-      .save({ questionText: 'Bạn có buồn nôn không?', orderNumber: 1, isDefault: true });
+    const question = await dataSource.getRepository(SurveyQuestion).save({
+      questionText: 'Bạn có buồn nôn không?',
+      orderNumber: 1,
+      isDefault: true,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+    });
     questionId = question.questionId;
     const option = await dataSource
       .getRepository(QuestionOption)

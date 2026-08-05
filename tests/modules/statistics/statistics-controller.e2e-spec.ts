@@ -16,6 +16,7 @@ import { AssessmentMatrixResponseDto } from '../../../src/modules/statistics/dto
 import { PatientComplianceResponseDto } from '../../../src/modules/statistics/dtos/patient-compliance-response.dto';
 import { RecoveryMatrixResponseDto } from '../../../src/modules/statistics/dtos/recovery-matrix-response.dto';
 import { AppEngagementLog } from '../../../src/modules/statistics/entities/app-engagement-log.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
@@ -88,6 +89,7 @@ describe('StatisticsController (integration)', () => {
         questionText: 'Bạn có buồn nôn không?',
         orderNumber: 1,
         isDefault: true,
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       questionId = question.questionId;
       const [greenOption, yellowOption, redOption] = await dataSource
@@ -109,6 +111,7 @@ describe('StatisticsController (integration)', () => {
         podContext: 0,
         totalScore: 0,
         triageColor: 'GREEN',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await detailRepo.save({
         assessmentId: c1p0.assessmentId,
@@ -122,6 +125,7 @@ describe('StatisticsController (integration)', () => {
         podContext: 1,
         totalScore: 5,
         triageColor: 'RED',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await detailRepo.save({
         assessmentId: c1p1.assessmentId,
@@ -135,6 +139,7 @@ describe('StatisticsController (integration)', () => {
         podContext: 2,
         totalScore: 2,
         triageColor: 'YELLOW',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await detailRepo.save({
         assessmentId: c1p2.assessmentId,
@@ -151,6 +156,7 @@ describe('StatisticsController (integration)', () => {
         podContext: 0,
         totalScore: 2,
         triageColor: 'YELLOW',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await detailRepo.save({
         assessmentId: c2p0.assessmentId,
@@ -284,9 +290,11 @@ describe('StatisticsController (integration)', () => {
         actionType: 'Nurse_Rollback',
       });
 
-      const survey = await dataSource
-        .getRepository(SymptomSurvey)
-        .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+      const survey = await dataSource.getRepository(SymptomSurvey).save({
+        caseId: 'CASE-001',
+        evaluationDatetime: new Date(),
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+      });
       await dataSource.getRepository(Alert).save([
         {
           caseId: 'CASE-001',
@@ -444,6 +452,7 @@ describe('StatisticsController (integration)', () => {
         questionText: 'Bạn có buồn nôn không?',
         orderNumber: 1,
         isDefault: true,
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       questionId = question.questionId;
       const option = await dataSource
@@ -455,6 +464,7 @@ describe('StatisticsController (integration)', () => {
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
         podContext: 1,
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await dataSource.getRepository(AssessmentDetail).save({
         assessmentId: survey.assessmentId,

@@ -5,6 +5,7 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../../src/app.module';
 import { SymptomSurveyService } from '../../../src/modules/symptom-survey/services/symptom-survey.service';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
@@ -51,9 +52,12 @@ describe('SymptomSurveyService (integration)', () => {
     await dataSource.createQueryBuilder().delete().from(QuestionOption).execute();
     await dataSource.createQueryBuilder().delete().from(SurveyQuestion).execute();
 
-    const question = await dataSource
-      .getRepository(SurveyQuestion)
-      .save({ questionText: 'Bạn có buồn nôn không?', orderNumber: 1, isDefault: true });
+    const question = await dataSource.getRepository(SurveyQuestion).save({
+      questionText: 'Bạn có buồn nôn không?',
+      orderNumber: 1,
+      isDefault: true,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+    });
     questionId = question.questionId;
     const option = await dataSource
       .getRepository(QuestionOption)
@@ -75,12 +79,14 @@ describe('SymptomSurveyService (integration)', () => {
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
           totalScore: 0,
           triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         const newer = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
           totalScore: 5,
           triageColor: 'RED',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: newer.assessmentId,
@@ -113,12 +119,14 @@ describe('SymptomSurveyService (integration)', () => {
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
           totalScore: 0,
           triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
           totalScore: 5,
           triageColor: 'RED',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
 
         const result = await symptomSurveyService.getAssessmentHistory('CASE-001', 1, 1);

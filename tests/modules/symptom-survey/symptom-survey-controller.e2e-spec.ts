@@ -11,6 +11,7 @@ import { TimezoneInterceptor } from '../../../src/common/interceptors/timezone.i
 import { LoginResponse } from '../../../src/modules/auth/services/auth.service';
 import { AlertGateway } from '../../../src/modules/alert/gateways/alert.gateway';
 import { Alert } from '../../../src/modules/alert/entities/alert.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
@@ -99,6 +100,7 @@ describe('SymptomSurveyController (integration)', () => {
       questionText: 'Bạn có buồn nôn không?',
       orderNumber: 1,
       isDefault: true,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     });
     questionId = question.questionId;
 
@@ -265,9 +267,11 @@ describe('SymptomSurveyController (integration)', () => {
 
     describe('GIVEN the question has already been used in an assessment', () => {
       it('THEN should respond 409 Conflict and keep the question', async () => {
-        const survey = await dataSource
-          .getRepository(SymptomSurvey)
-          .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+        const survey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: survey.assessmentId,
           questionId,
@@ -380,9 +384,11 @@ describe('SymptomSurveyController (integration)', () => {
 
     describe('GIVEN the option has already been used in an assessment', () => {
       it('THEN should respond 409 Conflict and keep the option', async () => {
-        const survey = await dataSource
-          .getRepository(SymptomSurvey)
-          .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+        const survey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: survey.assessmentId,
           questionId,
@@ -531,6 +537,7 @@ describe('SymptomSurveyController (integration)', () => {
         evaluationDatetime: new Date(),
         totalScore: 0,
         triageColor: 'GREEN',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
     });
 
@@ -594,6 +601,7 @@ describe('SymptomSurveyController (integration)', () => {
         evaluationDatetime: new Date(),
         totalScore: 5,
         triageColor: 'RED',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await dataSource.getRepository(AssessmentDetail).save({
         assessmentId: survey.assessmentId,

@@ -8,6 +8,7 @@ import { AppModule } from '../../../src/app.module';
 import { AlertGateway } from '../../../src/modules/alert/gateways/alert.gateway';
 import { AlertService } from '../../../src/modules/alert/services/alert.service';
 import { Alert } from '../../../src/modules/alert/entities/alert.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
 import {
   getTestDataSource,
@@ -50,9 +51,11 @@ describe('AlertService (integration)', () => {
     await resetTestDataSource();
     alertGateway.emitNewAlert.mockClear();
 
-    const survey = await dataSource
-      .getRepository(SymptomSurvey)
-      .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+    const survey = await dataSource.getRepository(SymptomSurvey).save({
+      caseId: 'CASE-001',
+      evaluationDatetime: new Date(),
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+    });
     surveyId = survey.assessmentId;
   });
 
