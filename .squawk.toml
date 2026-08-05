@@ -11,6 +11,7 @@
 excluded_rules = [
     "prefer-robust-stmts",       # IF NOT EXISTS/IF EXISTS idempotency — style, not correctness
     "prefer-bigint-over-int",    # int vs bigint — style
+    "prefer-bigint-over-smallint", # smallint vs bigint — style
     "prefer-identity",           # serial vs identity column — style
     "ban-char-field",            # char vs varchar/text — style
     "prefer-timestamp-tz",       # timestamp vs timestamptz — style

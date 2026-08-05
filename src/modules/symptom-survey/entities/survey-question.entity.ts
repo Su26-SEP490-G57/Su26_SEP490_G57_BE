@@ -15,6 +15,12 @@ export class SurveyQuestion {
   @Column({ name: 'is_default', type: 'boolean', default: false })
   isDefault!: boolean;
 
+  @Column({ name: 'questionnaire_version_id', type: 'int' })
+  questionnaireVersionId!: number;
+
+  @Column({ name: 'clinical_dimension', type: 'varchar', length: 30, nullable: true })
+  clinicalDimension!: string | null;
+
   @OneToMany(() => QuestionOption, (option) => option.question, { eager: true })
   options!: QuestionOption[];
 }

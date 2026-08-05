@@ -8,6 +8,7 @@ export default {
   // All integration spec files share one Postgres testcontainer (tests/global/db-context.ts).
   // Running spec files in parallel workers races on schema sync and DB resets, so force serial execution.
   maxWorkers: 1,
+  bail: 1,
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },

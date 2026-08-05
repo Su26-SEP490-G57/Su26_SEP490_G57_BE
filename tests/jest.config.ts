@@ -6,6 +6,7 @@ export default {
   modulePaths: ['<rootDir>'],
   testMatch: ['<rootDir>/tests/**/*.test.ts', '<rootDir>/tests/**/*.spec.ts'],
   testPathIgnorePatterns: ['/node_modules/', '\\.e2e-spec\\.ts$'],
+  bail: 1,
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
