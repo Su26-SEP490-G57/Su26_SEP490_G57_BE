@@ -1,11 +1,13 @@
 import { ExecutionContext, HttpException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
+import { readFileSync } from 'fs';
 import { MinAppVersionGuard } from '../../../src/common/guards/min-app-version.guard';
 
+jest.mock('fs');
+
 describe('MinAppVersionGuard', () => {
-  let config: DeepMocked<ConfigService>;
   let guard: MinAppVersionGuard;
+  const mockedReadFileSync = readFileSync as jest.Mock;
 
   function contextWithHeader(versionCode: string | undefined): DeepMocked<ExecutionContext> {
     const context = createMock<ExecutionContext>();
@@ -15,17 +17,24 @@ describe('MinAppVersionGuard', () => {
     return context;
   }
 
+  function mockVersionFile(minSupportedVersionCode: unknown) {
+    mockedReadFileSync.mockReturnValue(
+      JSON.stringify({ schemaVersion: 1, android: { minSupportedVersionCode } }),
+    );
+  }
+
   beforeEach(() => {
-    config = createMock<ConfigService>();
-    guard = new MinAppVersionGuard(config);
+    guard = new MinAppVersionGuard();
+    mockedReadFileSync.mockReset();
   });
 
   describe('canActivate()', () => {
     describe('GIVEN the request has no X-App-Version-Code header', () => {
-      it('THEN should allow the request through', () => {
+      it('THEN should allow the request through without reading version.json', () => {
         const result = guard.canActivate(contextWithHeader(undefined));
 
         expect(result).toBe(true);
+        expect(mockedReadFileSync).not.toHaveBeenCalled();
       });
     });
 
@@ -37,9 +46,9 @@ describe('MinAppVersionGuard', () => {
       });
     });
 
-    describe('GIVEN the header version code is equal to the configured minimum', () => {
+    describe('GIVEN the header version code is equal to the mounted minSupportedVersionCode', () => {
       it('THEN should allow the request through', () => {
-        config.get.mockReturnValue(40);
+        mockVersionFile(40);
 
         const result = guard.canActivate(contextWithHeader('40'));
 
@@ -47,9 +56,9 @@ describe('MinAppVersionGuard', () => {
       });
     });
 
-    describe('GIVEN the header version code is above the configured minimum', () => {
+    describe('GIVEN the header version code is above the mounted minSupportedVersionCode', () => {
       it('THEN should allow the request through', () => {
-        config.get.mockReturnValue(40);
+        mockVersionFile(40);
 
         const result = guard.canActivate(contextWithHeader('42'));
 
@@ -57,9 +66,9 @@ describe('MinAppVersionGuard', () => {
       });
     });
 
-    describe('GIVEN the header version code is below the configured minimum', () => {
+    describe('GIVEN the header version code is below the mounted minSupportedVersionCode', () => {
       it('THEN should throw a 426 Upgrade Required HttpException', () => {
-        config.get.mockReturnValue(40);
+        mockVersionFile(40);
 
         expect(() => guard.canActivate(contextWithHeader('39'))).toThrow(HttpException);
 
@@ -74,14 +83,35 @@ describe('MinAppVersionGuard', () => {
       });
     });
 
-    describe('GIVEN MIN_SUPPORTED_VERSION_CODE is not configured', () => {
+    describe('GIVEN version.json is not mounted (e.g. local development)', () => {
       it('THEN should fall back to a minimum of 1', () => {
-        config.get.mockImplementation((_key: string, defaultValue?: unknown) => defaultValue);
+        mockedReadFileSync.mockImplementation(() => {
+          throw new Error('ENOENT: no such file or directory');
+        });
 
         const result = guard.canActivate(contextWithHeader('1'));
 
         expect(result).toBe(true);
-        expect(config.get).toHaveBeenCalledWith('MIN_SUPPORTED_VERSION_CODE', 1);
+      });
+    });
+
+    describe('GIVEN version.json contains malformed JSON', () => {
+      it('THEN should fall back to a minimum of 1', () => {
+        mockedReadFileSync.mockReturnValue('not valid json');
+
+        const result = guard.canActivate(contextWithHeader('1'));
+
+        expect(result).toBe(true);
+      });
+    });
+
+    describe('GIVEN version.json has a non-numeric minSupportedVersionCode', () => {
+      it('THEN should fall back to a minimum of 1', () => {
+        mockVersionFile('not-a-number');
+
+        const result = guard.canActivate(contextWithHeader('1'));
+
+        expect(result).toBe(true);
       });
     });
   });
