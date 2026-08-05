@@ -79,12 +79,14 @@ describe('SymptomSurveyService (integration)', () => {
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
           totalScore: 0,
           triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         const newer = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
           totalScore: 5,
           triageColor: 'RED',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: newer.assessmentId,
@@ -117,12 +119,14 @@ describe('SymptomSurveyService (integration)', () => {
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
           totalScore: 0,
           triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
           totalScore: 5,
           triageColor: 'RED',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
 
         const result = await symptomSurveyService.getAssessmentHistory('CASE-001', 1, 1);

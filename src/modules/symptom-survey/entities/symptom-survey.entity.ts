@@ -26,6 +26,9 @@ export class SymptomSurvey {
   @Column({ name: 'triage_color', type: 'varchar', length: 20, nullable: true })
   triageColor!: string | null;
 
+  @Column({ name: 'questionnaire_version_id', type: 'int' })
+  questionnaireVersionId!: number;
+
   @OneToMany(() => AssessmentDetail, (detail) => detail.assessment, { eager: false })
   details!: AssessmentDetail[];
 }

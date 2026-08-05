@@ -13,6 +13,7 @@ import {
   PaginatedAlertsDto,
 } from '../../../src/modules/alert/dtos/alert-response.dto';
 import { Alert } from '../../../src/modules/alert/entities/alert.entity';
+import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
 import { UserRoleName } from '../../../src/modules/user/enums/user-role.enum';
 import { authed, login } from '../../global/auth-helpers';
@@ -65,8 +66,16 @@ describe('AlertController (integration)', () => {
     const surveyRepo = dataSource.getRepository(SymptomSurvey);
     const alertRepo = dataSource.getRepository(Alert);
 
-    const surveyOne = await surveyRepo.save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
-    const surveyTwo = await surveyRepo.save({ caseId: 'CASE-002', evaluationDatetime: new Date() });
+    const surveyOne = await surveyRepo.save({
+      caseId: 'CASE-001',
+      evaluationDatetime: new Date(),
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+    });
+    const surveyTwo = await surveyRepo.save({
+      caseId: 'CASE-002',
+      evaluationDatetime: new Date(),
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+    });
 
     const pendingYellow = await alertRepo.save({
       caseId: 'CASE-001',

@@ -261,6 +261,7 @@ export class SymptomSurveyService {
       podContext: currentPod,
       totalScore: totalScore,
       triageColor: triage_color,
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     });
 
     // Save detail rows

@@ -267,9 +267,11 @@ describe('SymptomSurveyController (integration)', () => {
 
     describe('GIVEN the question has already been used in an assessment', () => {
       it('THEN should respond 409 Conflict and keep the question', async () => {
-        const survey = await dataSource
-          .getRepository(SymptomSurvey)
-          .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+        const survey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: survey.assessmentId,
           questionId,
@@ -382,9 +384,11 @@ describe('SymptomSurveyController (integration)', () => {
 
     describe('GIVEN the option has already been used in an assessment', () => {
       it('THEN should respond 409 Conflict and keep the option', async () => {
-        const survey = await dataSource
-          .getRepository(SymptomSurvey)
-          .save({ caseId: 'CASE-001', evaluationDatetime: new Date() });
+        const survey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
         await dataSource.getRepository(AssessmentDetail).save({
           assessmentId: survey.assessmentId,
           questionId,
@@ -533,6 +537,7 @@ describe('SymptomSurveyController (integration)', () => {
         evaluationDatetime: new Date(),
         totalScore: 0,
         triageColor: 'GREEN',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
     });
 
@@ -596,6 +601,7 @@ describe('SymptomSurveyController (integration)', () => {
         evaluationDatetime: new Date(),
         totalScore: 5,
         triageColor: 'RED',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await dataSource.getRepository(AssessmentDetail).save({
         assessmentId: survey.assessmentId,
