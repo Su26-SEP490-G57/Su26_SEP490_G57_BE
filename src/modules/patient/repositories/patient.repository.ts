@@ -23,7 +23,6 @@ export interface PodTrackingLogInput {
   changedById: number | null;
   holdReason?: string | null;
 }
-import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 
 /** Login account fields for the patient's linked `users` row. */
 export interface PatientAccountInput {
