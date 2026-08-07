@@ -43,6 +43,21 @@ export class DeviceService {
     await this.deviceRepo.update({ installationId }, { isActive: false });
   }
 
+  async findActiveTokensForUserIds(userIds: number[]): Promise<string[]> {
+    if (!userIds.length) {
+      return [];
+    }
+
+    const rows = await this.deviceRepo
+      .createQueryBuilder('device')
+      .where('device.userId IN (:...userIds)', { userIds })
+      .andWhere('device.isActive = true')
+      .select('DISTINCT device.fcmToken', 'fcmToken')
+      .getRawMany<{ fcmToken: string }>();
+
+    return rows.map((row) => row.fcmToken).filter(Boolean);
+  }
+
   async findActiveTokensForRoles(roleNames: UserRoleName[]): Promise<string[]> {
     if (!roleNames.length) {
       return [];

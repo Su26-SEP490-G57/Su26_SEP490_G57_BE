@@ -20,8 +20,14 @@ export class SymptomSurvey {
   @Column({ name: 'pod_context', type: 'int', nullable: true })
   podContext!: number | null;
 
-  @Column({ name: 'total_score', type: 'int', default: 0 })
-  totalScore!: number;
+  @Column({ name: 'assessment_type', type: 'varchar', length: 20, default: 'SCHEDULED' })
+  assessmentType!: 'SCHEDULED' | 'TRIGGERED';
+
+  @Column({ name: 'scheduled_slot', type: 'varchar', length: 20, nullable: true })
+  scheduledSlot!: 'MORNING' | 'AFTERNOON' | null;
+
+  @Column({ name: 'triage_triggers', type: 'jsonb', default: '[]' })
+  triageTriggers!: any[];
 
   @Column({ name: 'triage_color', type: 'varchar', length: 20, nullable: true })
   triageColor!: string | null;
@@ -31,4 +37,8 @@ export class SymptomSurvey {
 
   @OneToMany(() => AssessmentDetail, (detail) => detail.assessment, { eager: false })
   details!: AssessmentDetail[];
+
+  /** Legacy score retained only during the compatibility migration period. */
+  @Column({ name: 'total_score', type: 'int', default: 0 })
+  totalScore!: number;
 }

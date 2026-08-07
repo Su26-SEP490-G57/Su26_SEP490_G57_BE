@@ -80,7 +80,7 @@ describe('AlertService (integration)', () => {
             assessmentId: surveyId,
             surveyScore: 15,
             alertType: 'RED',
-            status: 'Pending',
+            status: 'PENDING_REVIEW',
             isAutoProgression: true,
             nurseAction: null,
             nursingNote: null,
@@ -104,7 +104,7 @@ describe('AlertService (integration)', () => {
           .getRepository(Alert)
           .findOne({ where: { alertId: result.alertId } });
         expect(stored).not.toBeNull();
-        expect(stored?.status).toBe('Pending');
+        expect(stored?.status).toBe('PENDING_REVIEW');
         expect(stored?.alertType).toBe('RED');
       });
 

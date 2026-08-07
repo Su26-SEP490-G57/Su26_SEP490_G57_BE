@@ -105,9 +105,9 @@ describe('SymptomSurveyController (integration)', () => {
     questionId = question.questionId;
 
     const options = await optionRepo.save([
-      { questionId, optionText: 'Không', scoreValue: 0 },
-      { questionId, optionText: 'Trung bình', scoreValue: 2 },
-      { questionId, optionText: 'Nặng', scoreValue: 5 },
+      { questionId, optionText: 'Không', scoreValue: 0, optionTriageLevel: 'GREEN' },
+      { questionId, optionText: 'Trung bình', scoreValue: 2, optionTriageLevel: 'YELLOW' },
+      { questionId, optionText: 'Nặng', scoreValue: 5, optionTriageLevel: 'RED' },
     ]);
     greenOptionId = options[0].optionId;
     yellowOptionId = options[1].optionId;
@@ -456,13 +456,17 @@ describe('SymptomSurveyController (integration)', () => {
 
         expect(response.status).toBe(201);
         const body = response.body as SymptomSurveyResponseDto;
-        expect(body).toEqual(expect.objectContaining({ totalScore: 2, triageColor: 'YELLOW' }));
+        expect(body).toEqual(expect.objectContaining({ triageColor: 'YELLOW' }));
 
         const alert = await dataSource
           .getRepository(Alert)
           .findOne({ where: { assessmentId: body.assessmentId } });
         expect(alert).toEqual(
-          expect.objectContaining({ caseId: 'CASE-001', alertType: 'YELLOW', status: 'Pending' }),
+          expect.objectContaining({
+            caseId: 'CASE-001',
+            alertType: 'YELLOW',
+            status: 'PENDING_REVIEW',
+          }),
         );
       });
     });
@@ -479,12 +483,14 @@ describe('SymptomSurveyController (integration)', () => {
 
         expect(response.status).toBe(201);
         const body = response.body as SymptomSurveyResponseDto;
-        expect(body).toEqual(expect.objectContaining({ totalScore: 5, triageColor: 'RED' }));
+        expect(body).toEqual(expect.objectContaining({ triageColor: 'RED' }));
 
         const alert = await dataSource
           .getRepository(Alert)
           .findOne({ where: { assessmentId: body.assessmentId } });
-        expect(alert).toEqual(expect.objectContaining({ alertType: 'RED', status: 'Pending' }));
+        expect(alert).toEqual(
+          expect.objectContaining({ alertType: 'RED', status: 'PENDING_REVIEW' }),
+        );
       });
     });
 

@@ -5,6 +5,7 @@ import {
   IsArray,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -24,6 +25,16 @@ export class CreateSymptomSurveyDto {
   @IsString()
   @IsNotEmpty()
   caseId!: string;
+
+  @ApiProperty({ example: 'SCHEDULED', required: false })
+  @IsOptional()
+  @IsString()
+  assessmentType?: 'SCHEDULED' | 'TRIGGERED';
+
+  @ApiProperty({ example: 'MORNING', required: false })
+  @IsOptional()
+  @IsString()
+  scheduledSlot?: 'MORNING' | 'AFTERNOON';
 
   @ApiProperty({ type: [AnswerDto], description: 'Answers for each survey question' })
   @IsArray()

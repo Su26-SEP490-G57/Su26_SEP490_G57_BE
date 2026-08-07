@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Level } from '../../patient/entities/level.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
@@ -41,7 +41,10 @@ export class SymptomSurveyRepository {
   }
 
   findOptionsByIds(ids: number[]): Promise<QuestionOption[]> {
-    return this.optionRepo.findByIds(ids);
+    return this.optionRepo.find({
+      where: { optionId: In(ids) },
+      relations: ['question'],
+    });
   }
 
   findLatestByPatient(caseId: string): Promise<SymptomSurvey | null> {
@@ -174,6 +177,20 @@ export class SymptomSurveyRepository {
 
   findPatientByCaseId(caseId: string): Promise<Patient | null> {
     return this.patientRepo.findOne({ where: { caseId: caseId } });
+  }
+
+  async countVomitingInPod(caseId: string, podContext: number): Promise<number> {
+    const result = await this.detailRepo
+      .createQueryBuilder('detail')
+      .innerJoin('detail.assessment', 'assessment')
+      .where('assessment.caseId = :caseId', { caseId })
+      .andWhere('assessment.podContext = :podContext', { podContext })
+      .andWhere('detail.clinicalDimensionSnapshot = :dimension', { dimension: 'VOMITING' })
+      .andWhere('detail.normalizedValueSnapshot > 0')
+      .select('SUM(detail.normalizedValueSnapshot)', 'count')
+      .getRawOne<{ count: string | null }>();
+
+    return parseInt(result?.count || '0', 10);
   }
 
   countQuestions(): Promise<number> {
