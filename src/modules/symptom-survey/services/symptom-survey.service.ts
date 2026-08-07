@@ -50,12 +50,6 @@ export class SymptomSurveyService {
     private readonly taskRepository: AssessmentTaskRepository,
   ) {}
 
-  private calculateTriageColor(totalScore: number): 'GREEN' | 'YELLOW' | 'RED' {
-    if (totalScore <= 1) return 'GREEN';
-    if (totalScore <= 3) return 'YELLOW';
-    return 'RED';
-  }
-
   // MỚI: Thuật toán Triage biên lâm sàng (không dùng score)
   private resolveNewTriageColor(options: QuestionOption[]): {
     triageColor: 'GREEN' | 'YELLOW' | 'RED';
