@@ -8,6 +8,7 @@ import { AlertGateway } from '../gateways/alert.gateway';
 import { AlertRepository } from '../repositories/alert.repository';
 import { NotificationService } from './notification.service';
 import { PatientRepository } from 'src/modules/patient/repositories/patient.repository';
+import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
 
 @Injectable()
 export class AlertService {
@@ -16,6 +17,7 @@ export class AlertService {
     private readonly alertGateway: AlertGateway,
     private readonly notificationService: NotificationService,
     private readonly patientRepository: PatientRepository,
+    private readonly roomNurseRepository: RoomNurseAssignmentRepository,
   ) {}
 
   private toResponse(alert: Alert): AlertResponseDto {
@@ -40,7 +42,7 @@ export class AlertService {
       assessmentId: dto.assessmentId,
       surveyScore: dto.surveyScore,
       alertType: dto.alertType,
-      status: 'Pending',
+      status: 'PENDING_REVIEW',
       isAutoProgression: true,
       triggeredAt: new Date(),
     });
@@ -50,6 +52,7 @@ export class AlertService {
     const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
     const patientName = patient?.account?.fullName ?? saved.caseId;
     const room = patient?.roomBed ?? '';
+    const roomCode = room.split('/')[0].trim().toUpperCase();
 
     // Emit real-time alert to all connected nurses
     this.alertGateway.emitNewAlert(response);
@@ -59,14 +62,18 @@ export class AlertService {
       saved.alertType === 'RED' ? 'Mức đỏ' : 'Mức vàng'
     }`;
 
-    // Push Notification cho Mobile: fan-out tới toàn bộ nurse/head nurse active devices
-    await this.notificationService.sendToNurses(pushTitle, pushBody, {
-      caseId: saved.caseId,
-      assessmentId: String(saved.assessmentId),
-      patientName,
-      roomBed: room,
-      alertType: saved.alertType,
-    });
+    // Push Notification cho Mobile: fan-out tới ONLY nurses ĐƯỢC GÁN phòng
+    const assignedNurseIds = await this.roomNurseRepository.getAssignedNurses(roomCode);
+
+    if (assignedNurseIds.length > 0) {
+      await this.notificationService.sendToNursesSpecific(assignedNurseIds, pushTitle, pushBody, {
+        caseId: saved.caseId,
+        assessmentId: String(saved.assessmentId),
+        patientName,
+        roomBed: room,
+        alertType: saved.alertType,
+      });
+    }
 
     return response;
   }
@@ -85,11 +92,16 @@ export class AlertService {
     const alert = await this.repository.findById(alertId);
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
 
-    alert.status = 'Acknowledged';
+    alert.status = 'HANDLED';
+    alert.handledAt = new Date();
     if (dto.nurseAction !== undefined) alert.nurseAction = dto.nurseAction;
     if (dto.nursingNote !== undefined) alert.nursingNote = dto.nursingNote;
 
     const saved = await this.repository.save(alert);
     return this.toResponse(saved);
+  }
+
+  async findPendingRedByCaseId(caseId: string): Promise<Alert | null> {
+    return this.repository.findPendingRedByCaseId(caseId);
   }
 }

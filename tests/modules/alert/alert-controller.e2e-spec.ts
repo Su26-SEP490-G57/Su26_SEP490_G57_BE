@@ -82,7 +82,7 @@ describe('AlertController (integration)', () => {
       assessmentId: surveyOne.assessmentId,
       surveyScore: 6,
       alertType: 'YELLOW',
-      status: 'Pending',
+      status: 'PENDING_REVIEW',
       isAutoProgression: true,
       triggeredAt: new Date('2026-07-20T08:00:00.000Z'),
     });
@@ -91,7 +91,7 @@ describe('AlertController (integration)', () => {
       assessmentId: surveyOne.assessmentId,
       surveyScore: 14,
       alertType: 'RED',
-      status: 'Pending',
+      status: 'PENDING_REVIEW',
       isAutoProgression: true,
       triggeredAt: new Date('2026-07-21T08:00:00.000Z'),
     });
@@ -100,7 +100,7 @@ describe('AlertController (integration)', () => {
       assessmentId: surveyTwo.assessmentId,
       surveyScore: 10,
       alertType: 'RED',
-      status: 'Acknowledged',
+      status: 'HANDLED',
       isAutoProgression: false,
       triggeredAt: new Date('2026-07-19T08:00:00.000Z'),
       nurseAction: 'Đã theo dõi thêm',
@@ -154,7 +154,7 @@ describe('AlertController (integration)', () => {
     describe('GIVEN a status filter', () => {
       it('THEN should respond 200 with only alerts in that status', async () => {
         const response = await authed(
-          request(httpServer).get('/alerts').query({ status: 'Acknowledged' }),
+          request(httpServer).get('/alerts').query({ status: 'HANDLED' }),
           nurseToken,
         );
 
@@ -225,7 +225,7 @@ describe('AlertController (integration)', () => {
         expect(response.body as AlertResponseDto).toEqual(
           expect.objectContaining({
             alertId: pendingYellowAlertId,
-            status: 'Acknowledged',
+            status: 'HANDLED',
             nurseAction: 'Đo lại sinh hiệu',
             nursingNote: 'Đã xử trí theo phác đồ.',
           }),
@@ -243,7 +243,7 @@ describe('AlertController (integration)', () => {
         const stored = await dataSource
           .getRepository(Alert)
           .findOne({ where: { alertId: pendingYellowAlertId } });
-        expect(stored?.status).toBe('Acknowledged');
+        expect(stored?.status).toBe('HANDLED');
         expect(stored?.nurseAction).toBe('Đo lại sinh hiệu');
         expect(stored?.nursingNote).toBe('Đã xử trí theo phác đồ.');
       });
@@ -260,7 +260,7 @@ describe('AlertController (integration)', () => {
         expect(response.body as AlertResponseDto).toEqual(
           expect.objectContaining({
             alertId: pendingYellowAlertId,
-            status: 'Acknowledged',
+            status: 'HANDLED',
             nurseAction: null,
             nursingNote: null,
           }),

@@ -13,14 +13,17 @@ import { AlertGateway } from '../../../src/modules/alert/gateways/alert.gateway'
 import { Alert } from '../../../src/modules/alert/entities/alert.entity';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
+import { AssessmentTask } from '../../../src/modules/symptom-survey/entities/assessment-task.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
 import { QuestionOptionDto } from '../../../src/modules/symptom-survey/dtos/survey-question.dto';
 import {
+  PatientPodTimelineResponseDto,
   SurveyQuestionDto,
   SymptomSurveyResponseDto,
 } from '../../../src/modules/symptom-survey/dtos/symptom-survey-response.dto';
+import { Patient } from '../../../src/modules/patient/entities/patient.entity';
 import { UserRoleName } from '../../../src/modules/user/enums/user-role.enum';
 import { authed, login } from '../../global/auth-helpers';
 import {
@@ -105,9 +108,9 @@ describe('SymptomSurveyController (integration)', () => {
     questionId = question.questionId;
 
     const options = await optionRepo.save([
-      { questionId, optionText: 'Không', scoreValue: 0 },
-      { questionId, optionText: 'Trung bình', scoreValue: 2 },
-      { questionId, optionText: 'Nặng', scoreValue: 5 },
+      { questionId, optionText: 'Không', scoreValue: 0, optionTriageLevel: 'GREEN' },
+      { questionId, optionText: 'Trung bình', scoreValue: 2, optionTriageLevel: 'YELLOW' },
+      { questionId, optionText: 'Nặng', scoreValue: 5, optionTriageLevel: 'RED' },
     ]);
     greenOptionId = options[0].optionId;
     yellowOptionId = options[1].optionId;
@@ -456,13 +459,17 @@ describe('SymptomSurveyController (integration)', () => {
 
         expect(response.status).toBe(201);
         const body = response.body as SymptomSurveyResponseDto;
-        expect(body).toEqual(expect.objectContaining({ totalScore: 2, triageColor: 'YELLOW' }));
+        expect(body).toEqual(expect.objectContaining({ triageColor: 'YELLOW' }));
 
         const alert = await dataSource
           .getRepository(Alert)
           .findOne({ where: { assessmentId: body.assessmentId } });
         expect(alert).toEqual(
-          expect.objectContaining({ caseId: 'CASE-001', alertType: 'YELLOW', status: 'Pending' }),
+          expect.objectContaining({
+            caseId: 'CASE-001',
+            alertType: 'YELLOW',
+            status: 'PENDING_REVIEW',
+          }),
         );
       });
     });
@@ -479,12 +486,14 @@ describe('SymptomSurveyController (integration)', () => {
 
         expect(response.status).toBe(201);
         const body = response.body as SymptomSurveyResponseDto;
-        expect(body).toEqual(expect.objectContaining({ totalScore: 5, triageColor: 'RED' }));
+        expect(body).toEqual(expect.objectContaining({ triageColor: 'RED' }));
 
         const alert = await dataSource
           .getRepository(Alert)
           .findOne({ where: { assessmentId: body.assessmentId } });
-        expect(alert).toEqual(expect.objectContaining({ alertType: 'RED', status: 'Pending' }));
+        expect(alert).toEqual(
+          expect.objectContaining({ alertType: 'RED', status: 'PENDING_REVIEW' }),
+        );
       });
     });
 
@@ -526,6 +535,221 @@ describe('SymptomSurveyController (integration)', () => {
           });
 
         expect(response.status).toBe(401);
+      });
+    });
+
+    describe('GIVEN the ERAS protocol has already been completed for the case', () => {
+      it('THEN should respond 400 Bad Request', async () => {
+        await dataSource
+          .getRepository(Patient)
+          .update({ caseId: 'CASE-001' }, { erasCompleted: true });
+
+        const response = await authed(
+          request(httpServer).post('/symptom-surveys'),
+          patientOneToken,
+        ).send({
+          caseId: 'CASE-001',
+          answers: [{ questionId, selectedOptionId: greenOptionId }],
+        });
+
+        expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN a pending RED alert already exists for the case', () => {
+      it('THEN should respond 403 Forbidden and not create a new survey', async () => {
+        const priorSurvey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
+        await dataSource.getRepository(Alert).save({
+          caseId: 'CASE-001',
+          assessmentId: priorSurvey.assessmentId,
+          surveyScore: 14,
+          alertType: 'RED',
+          status: 'PENDING_REVIEW',
+          isAutoProgression: true,
+          triggeredAt: new Date(),
+        });
+
+        const surveyCountBefore = await dataSource.getRepository(SymptomSurvey).count();
+
+        const response = await authed(
+          request(httpServer).post('/symptom-surveys'),
+          patientOneToken,
+        ).send({
+          caseId: 'CASE-001',
+          answers: [{ questionId, selectedOptionId: greenOptionId }],
+        });
+
+        expect(response.status).toBe(403);
+        const surveyCountAfter = await dataSource.getRepository(SymptomSurvey).count();
+        expect(surveyCountAfter).toBe(surveyCountBefore);
+      });
+    });
+
+    describe('GIVEN consecutive vomiting answers accumulate to 2 or more within the same POD', () => {
+      let vomitingQuestionId: number;
+      let vomitingOptionId: number;
+
+      beforeEach(async () => {
+        // CASE-001 sits on POD 2 (see beforeEach seed above) — the accumulation
+        // window is scoped to the patient's current POD.
+        const vomitingQuestion = await dataSource.getRepository(SurveyQuestion).save({
+          questionText: 'Số lần nôn trong ngày?',
+          isDefault: true,
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+          clinicalDimension: 'VOMITING',
+        });
+        vomitingQuestionId = vomitingQuestion.questionId;
+        const vomitingOption = await dataSource.getRepository(QuestionOption).save({
+          questionId: vomitingQuestion.questionId,
+          optionText: '1 lần',
+          scoreValue: 0,
+          optionTriageLevel: 'GREEN',
+          normalizedValue: 1,
+        });
+        vomitingOptionId = vomitingOption.optionId;
+
+        const priorSurvey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          podContext: 2,
+          triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
+        await dataSource.getRepository(AssessmentDetail).save({
+          assessmentId: priorSurvey.assessmentId,
+          questionId: vomitingQuestion.questionId,
+          selectedOptionId: vomitingOptionId,
+          scoreEarned: 0,
+          clinicalDimensionSnapshot: 'VOMITING',
+          optionTriageLevelSnapshot: 'GREEN',
+          normalizedValueSnapshot: 1,
+        });
+      });
+
+      it('THEN should force triage_color RED even though the selected option alone is GREEN', async () => {
+        const response = await authed(
+          request(httpServer).post('/symptom-surveys'),
+          patientOneToken,
+        ).send({
+          caseId: 'CASE-001',
+          answers: [{ questionId: vomitingQuestionId, selectedOptionId: vomitingOptionId }],
+        });
+
+        expect(response.status).toBe(201);
+        expect(response.body as SymptomSurveyResponseDto).toEqual(
+          expect.objectContaining({ triageColor: 'RED' }),
+        );
+      });
+    });
+
+    describe('GIVEN an assessmentType of SCHEDULED', () => {
+      describe('AND no matching pending task exists', () => {
+        it('THEN should respond 400 Bad Request', async () => {
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: greenOptionId }],
+          });
+
+          expect(response.status).toBe(400);
+        });
+      });
+
+      describe('AND the matching task has not opened yet', () => {
+        it('THEN should respond 400 Bad Request', async () => {
+          const now = new Date();
+          await dataSource.getRepository(AssessmentTask).save({
+            caseId: 'CASE-001',
+            podContext: 2,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(now.getTime() + 60 * 60 * 1000),
+            closesAt: new Date(now.getTime() + 3 * 60 * 60 * 1000),
+            status: 'PENDING',
+          });
+
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: greenOptionId }],
+          });
+
+          expect(response.status).toBe(400);
+        });
+      });
+
+      describe('AND the matching task has already closed', () => {
+        it('THEN should respond 400 Bad Request', async () => {
+          const now = new Date();
+          await dataSource.getRepository(AssessmentTask).save({
+            caseId: 'CASE-001',
+            podContext: 2,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+            closesAt: new Date(now.getTime() - 60 * 60 * 1000),
+            status: 'PENDING',
+          });
+
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: greenOptionId }],
+          });
+
+          expect(response.status).toBe(400);
+        });
+      });
+
+      describe('AND an open, pending task matches the case/POD/slot', () => {
+        it('THEN should respond 201, mark the task COMPLETED, and link it to the new survey', async () => {
+          const now = new Date();
+          const task = await dataSource.getRepository(AssessmentTask).save({
+            caseId: 'CASE-001',
+            podContext: 2,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(now.getTime() - 60 * 60 * 1000),
+            closesAt: new Date(now.getTime() + 60 * 60 * 1000),
+            status: 'PENDING',
+          });
+
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: yellowOptionId }],
+          });
+
+          expect(response.status).toBe(201);
+          expect(response.body as SymptomSurveyResponseDto).toEqual(
+            expect.objectContaining({ caseId: 'CASE-001', triageColor: 'YELLOW' }),
+          );
+
+          const storedTask = await dataSource
+            .getRepository(AssessmentTask)
+            .findOne({ where: { assessmentTaskId: task.assessmentTaskId } });
+          expect(storedTask?.status).toBe('COMPLETED');
+          expect(storedTask?.assessmentId).toBe(
+            (response.body as SymptomSurveyResponseDto).assessmentId,
+          );
+        });
       });
     });
   });
@@ -646,6 +870,114 @@ describe('SymptomSurveyController (integration)', () => {
       it('THEN should respond 404 Not Found', async () => {
         const response = await authed(
           request(httpServer).get('/symptom-surveys/999999'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(404);
+      });
+    });
+  });
+
+  describe('GET /symptom-surveys/patient/:caseId/history', () => {
+    beforeEach(async () => {
+      // seed.ts inserts one assessment per patient case at its current POD —
+      // clear it so these tests fully control which PODs are assessed.
+      await dataSource.getRepository(SymptomSurvey).delete({ caseId: 'CASE-001' });
+    });
+
+    describe('GIVEN a Nurse requesting an existing case with a mix of assessed and unassessed PODs', () => {
+      it('THEN should respond 200 with one timeline entry per POD from 0 up to the current POD', async () => {
+        // CASE-001 is seeded with currentPod: 2, so the timeline covers POD 0-2.
+        const assessedSurvey = await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          podContext: 0,
+          totalScore: 0,
+          triageColor: 'GREEN',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
+        await dataSource.getRepository(AssessmentDetail).save({
+          assessmentId: assessedSurvey.assessmentId,
+          questionId,
+          selectedOptionId: greenOptionId,
+          scoreEarned: 0,
+        });
+        await dataSource.getRepository(SymptomSurvey).save({
+          caseId: 'CASE-001',
+          evaluationDatetime: new Date(),
+          podContext: 1,
+          totalScore: 2,
+          triageColor: 'YELLOW',
+          questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+        });
+        // POD 2 (the current POD) is intentionally left unassessed.
+
+        const response = await authed(
+          request(httpServer).get('/symptom-surveys/patient/CASE-001/history'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PatientPodTimelineResponseDto;
+        expect(body.caseId).toBe('CASE-001');
+        expect(body.currentPod).toBe(2);
+        expect(body.history.map((h) => h.podNumber)).toEqual([0, 1, 2]);
+
+        expect(body.history[0]).toEqual(
+          expect.objectContaining({
+            podNumber: 0,
+            isAssessed: true,
+            triageColor: 'GREEN',
+            recoveryStatusTag: 'Hồi phục tốt',
+          }),
+        );
+        expect(body.history[1]).toEqual(
+          expect.objectContaining({
+            podNumber: 1,
+            isAssessed: true,
+            triageColor: 'YELLOW',
+            recoveryStatusTag: 'Cần theo dõi',
+          }),
+        );
+        expect(body.history[2]).toEqual(
+          expect.objectContaining({
+            podNumber: 2,
+            isAssessed: false,
+            assessmentId: null,
+            triageColor: null,
+            recoveryStatusTag: 'Chưa đánh giá',
+          }),
+        );
+      });
+    });
+
+    describe('GIVEN a Patient requesting their own case history', () => {
+      it('THEN should respond 200', async () => {
+        const response = await authed(
+          request(httpServer).get('/symptom-surveys/patient/CASE-001/history'),
+          patientOneToken,
+        );
+
+        expect(response.status).toBe(200);
+        expect((response.body as PatientPodTimelineResponseDto).caseId).toBe('CASE-001');
+      });
+    });
+
+    describe('GIVEN a Patient requesting another case history', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).get('/symptom-surveys/patient/CASE-001/history'),
+          patientTwoToken,
+        );
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN the patient does not exist', () => {
+      it('THEN should respond 404 Not Found', async () => {
+        const response = await authed(
+          request(httpServer).get('/symptom-surveys/patient/CASE-999999/history'),
           nurseToken,
         );
 

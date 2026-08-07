@@ -4,12 +4,12 @@ import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.enti
 
 export const ALERT_TYPES = ['YELLOW', 'RED'] as const;
 export const ALERT_STATUSES = [
-  'Pending',
-  'Acknowledged',
+  'PENDING_REVIEW',
+  'HANDLED',
   'Paused_POD',
   'Rolled_Back',
   'Escalated',
-  'Closed',
+  'CLOSED',
 ] as const;
 
 export type AlertType = (typeof ALERT_TYPES)[number];
@@ -54,6 +54,9 @@ export class Alert {
 
   @Column({ name: 'nursing_note', type: 'text', nullable: true })
   nursingNote!: string | null;
+
+  @Column({ name: 'handled_at', type: 'timestamp', nullable: true })
+  handledAt!: Date | null;
 
   @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
   closedAt!: Date | null;

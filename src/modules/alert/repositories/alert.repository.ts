@@ -19,6 +19,16 @@ export class AlertRepository {
     return this.repo.findOne({ where: { alertId: alertId } });
   }
 
+  findPendingRedByCaseId(caseId: string): Promise<Alert | null> {
+    return this.repo.findOne({
+      where: {
+        caseId: caseId,
+        status: 'PENDING_REVIEW',
+        alertType: 'RED',
+      },
+    });
+  }
+
   findAll(query: QueryAlertDto): Promise<[Alert[], number]> {
     const where: FindOptionsWhere<Alert> = {};
 
