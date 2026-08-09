@@ -280,6 +280,11 @@ export class SymptomSurveyService {
 
     // BLOCK TRIGGERED IF RED PENDING
     const pendingRedAlert = await this.alertService.findPendingRedByCaseId(dto.caseId);
+    if (dto.assessmentType === 'TRIGGERED' && pendingRedAlert) {
+      throw new ForbiddenException(
+        'Bệnh nhân đang trong tình trạng cảnh báo ĐỎ. Vui lòng liên hệ điều dưỡng.',
+      );
+    }
 
     // Kiểm tra task nếu SCHEDULED
     if (dto.assessmentType === 'SCHEDULED') {
