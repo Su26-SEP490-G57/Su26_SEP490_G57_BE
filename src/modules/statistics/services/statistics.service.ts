@@ -1,10 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PatientRepository } from '../../patient/repositories/patient.repository';
+import { UserRoleName } from '../../user/enums/user-role.enum';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import {
   AnalyticsOverviewResponseDto,
   SymptomTrendPointDto,
 } from '../dtos/analytics-overview-response.dto';
 import { AssessmentMatrixResponseDto } from '../dtos/assessment-matrix-response.dto';
+import { CreateEngagementLogDto } from '../dtos/create-engagement-log.dto';
+import { EngagementLogResponseDto } from '../dtos/engagement-log-response.dto';
 import { PatientComplianceResponseDto } from '../dtos/patient-compliance-response.dto';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
 import { RecoveryMatrixResponseDto } from '../dtos/recovery-matrix-response.dto';
@@ -216,6 +225,30 @@ export class StatisticsService {
       expectedAssessmentCount,
       complianceRate,
       isCompliant: complianceRate >= COMPLIANCE_THRESHOLD,
+    };
+  }
+
+  /** Called by the patient app when guidance/education content is viewed. */
+  async logEngagement(
+    caseId: string,
+    dto: CreateEngagementLogDto,
+    caller: UserResponseDto,
+  ): Promise<EngagementLogResponseDto> {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== caseId) {
+      throw new ForbiddenException('You can only log engagement for your own case');
+    }
+    if (dto.viewedGuidance === undefined && dto.viewedEducation === undefined) {
+      throw new BadRequestException('At least one engagement field must be provided');
+    }
+
+    const patient = await this.patientRepository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    const log = await this.repository.createEngagementLog(caseId, dto);
+    return {
+      caseId: log.caseId,
+      viewedGuidance: log.viewedGuidance,
+      viewedEducation: log.viewedEducation,
     };
   }
 

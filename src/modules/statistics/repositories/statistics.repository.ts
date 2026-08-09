@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
 import { Patient } from '../../patient/entities/patient.entity';
+import { AppEngagementLog } from '../entities/app-engagement-log.entity';
 
 /** A patient's cohort-relevant fields for the ward overview (post-filter). */
 export interface CohortPatient {
@@ -89,6 +90,8 @@ export class StatisticsRepository {
   constructor(
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
+    @InjectRepository(AppEngagementLog)
+    private readonly engagementLogRepo: Repository<AppEngagementLog>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -278,6 +281,19 @@ export class StatisticsRepository {
     );
     if (!exists[0]?.exists) return null;
     return rows[0] ?? null;
+  }
+
+  /**
+   * Appends a new engagement-log row (this table has no unique constraint on
+   * `case_id`, so every reported event is its own row — reads aggregate via
+   * `bool_or`/`SUM`, see `getEngagementSummary`).
+   */
+  async createEngagementLog(
+    caseId: string,
+    data: { viewedGuidance?: boolean; viewedEducation?: boolean },
+  ): Promise<AppEngagementLog> {
+    const log = this.engagementLogRepo.create({ caseId, ...data });
+    return this.engagementLogRepo.save(log);
   }
 
   /** COUNT(DISTINCT pod_context) from patient_assessments — the authoritative completed-assessment count. */
