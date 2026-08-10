@@ -15,10 +15,15 @@ export class RoomNurseAssignmentRepository {
     return assignments.map((a) => a.nurseUserId);
   }
 
-  async replaceAssignments(roomCode: string, nurseIds: number[]): Promise<void> {
-    await this.repo.delete({ roomCode });
-    const assignments = nurseIds.map((nurseId) =>
-      this.repo.create({ roomCode, nurseUserId: nurseId }),
+  async bulkAssign(roomCodes: string[], nurseIds: number[]): Promise<void> {
+    await this.repo
+      .createQueryBuilder()
+      .delete()
+      .where('room_code IN (:...roomCodes)', { roomCodes })
+      .execute();
+
+    const assignments = roomCodes.flatMap((roomCode) =>
+      nurseIds.map((nurseId) => this.repo.create({ roomCode, nurseUserId: nurseId })),
     );
     await this.repo.save(assignments);
   }

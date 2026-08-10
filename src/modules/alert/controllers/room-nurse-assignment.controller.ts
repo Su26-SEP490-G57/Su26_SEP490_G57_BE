@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Put, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
 
-@ApiTags('Alerts')
+@ApiTags('Nurses')
 @ApiBearerAuth()
 @Controller('room-nurse-assignments')
 export class RoomNurseAssignmentController {
@@ -18,26 +18,25 @@ export class RoomNurseAssignmentController {
     return this.repository.getAssignedNurses(roomCode.trim().toUpperCase());
   }
 
-  @Put(':roomCode')
+  @Post('bulk')
   @Roles(UserRoleName.HEAD_NURSE, UserRoleName.ADMIN)
-  @ApiOperation({ summary: 'Assign nurses to a room' })
+  @ApiOperation({ summary: 'Assign nurses to multiple rooms' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
+        roomCodes: { type: 'array', items: { type: 'string' } },
         nurseIds: { type: 'array', items: { type: 'number' } },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Assignments updated successfully' })
-  async assignNurses(
-    @Param('roomCode') roomCode: string,
+  @ApiResponse({ status: 200, description: 'Bulk assignments updated successfully' })
+  async bulkAssign(
+    @Body('roomCodes') roomCodes: string[],
     @Body('nurseIds') nurseIds: number[],
-  ): Promise<{ message: string; roomCode: string }> {
-    if (!Array.isArray(nurseIds)) {
-      throw new BadRequestException('nurseIds must be an array of numbers');
-    }
-    await this.repository.replaceAssignments(roomCode.trim().toUpperCase(), nurseIds);
-    return { message: 'Assignments updated successfully', roomCode: roomCode.trim().toUpperCase() };
+  ): Promise<{ message: string }> {
+    const normalizedCodes = roomCodes.map((c) => c.trim().toUpperCase());
+    await this.repository.bulkAssign(normalizedCodes, nurseIds);
+    return { message: 'Bulk assignments updated successfully' };
   }
 }
