@@ -12,7 +12,7 @@ import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { Patient } from '../entities/patient.entity';
-import { PodProtocol } from '../entities/pod-protocol.entity';
+import { PodProtocol } from '../../diet-guidance/entities/pod-protocol.entity';
 import { PatientGateway } from '../gateways/patient.gateway';
 import {
   PatientAccountInput,
@@ -81,14 +81,30 @@ export class PatientService {
     private readonly dataSource: DataSource,
   ) {}
 
-  private toResponse({
-    account,
-    level,
-    operationType,
-    ...patient
-  }: Patient & { lastAssessmentTime?: Date | null }): PatientWithAccount {
+  calculateDynamicPod(patient: Patient, maxPod?: number | null): number {
+    if (patient.currentPod === null || patient.currentPod === undefined) {
+      return 0;
+    }
+    if (!patient.podStartDate || patient.isLocked || patient.erasCompleted) {
+      return patient.currentPod;
+    }
+    const elapsedSeconds = (Date.now() - new Date(patient.podStartDate).getTime()) / 1000;
+    if (elapsedSeconds < 0) return 0;
+    const computedPod = Math.floor(elapsedSeconds / 86400);
+    if (maxPod !== undefined && maxPod !== null) {
+      return Math.min(computedPod, maxPod);
+    }
+    return computedPod;
+  }
+
+  private toResponse(
+    fullPatient: Patient & { lastAssessmentTime?: Date | null },
+  ): PatientWithAccount {
+    const { account, level, operationType, ...patient } = fullPatient;
+    const dynamicPod = this.calculateDynamicPod(fullPatient);
     return {
       ...patient,
+      currentPod: dynamicPod,
       account: account
         ? {
             id: account.id,
@@ -146,9 +162,15 @@ export class PatientService {
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    const maxPod = patient.operationTypeId
+      ? await this.getMaxPodForOperationType(patient.operationTypeId)
+      : null;
+    const dynamicPod = this.calculateDynamicPod(patient, maxPod);
+
     return {
       caseId: patient.caseId,
-      currentPod: patient.currentPod,
+      currentPod: dynamicPod,
       isLocked: patient.isLocked,
       holdReason: patient.reasonHoldPod,
     };
@@ -226,6 +248,44 @@ export class PatientService {
     }
 
     return response;
+  }
+
+  async updateDietLevel(
+    caseId: string,
+    newDietLevel: number,
+    changedById: number | null = null,
+    reason?: string | null,
+  ): Promise<PatientWithAccount> {
+    const patient = await this.repository.findById(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    if (newDietLevel < 0 || newDietLevel > 4) {
+      throw new BadRequestException('Diet level must be between 0 and 4');
+    }
+
+    const previousLevel = patient.currentDietLevel ?? 0;
+
+    const updatePayload: Partial<Patient> = { currentDietLevel: newDietLevel };
+    if (newDietLevel === 4 && patient.podSoftDietReached === null) {
+      updatePayload.podSoftDietReached = patient.currentPod;
+    }
+
+    await this.dataSource.getRepository(Patient).update({ caseId }, updatePayload);
+
+    // Audit log
+    await this.repository.recordPodTrackingLog({
+      caseId,
+      podNumber: patient.currentPod,
+      oldStatus: `Mức ăn ${previousLevel}`,
+      newStatus: `Mức ăn ${newDietLevel}`,
+      actionType: 'Nurse_Acknowledge',
+      changedById,
+      holdReason:
+        reason ?? `Điều dưỡng/Bác sĩ cập nhật mức ăn: Mức ${previousLevel} -> Mức ${newDietLevel}`,
+    });
+
+    const updated = await this.repository.findById(caseId);
+    return this.toResponse(updated!);
   }
 
   /**

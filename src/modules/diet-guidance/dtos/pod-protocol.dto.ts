@@ -44,6 +44,12 @@ export class CreatePodProtocolDto {
   @MaxLength(500)
   volumeInstruction?: string;
 
+  @ApiPropertyOptional({ example: 0, description: 'Diet progression level (0 to 4)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  dietLevel?: number;
+
   @ApiPropertyOptional({ example: ['Cháo loãng', 'Súp lọc'], type: [String] })
   @IsOptional()
   @IsArray()
@@ -55,6 +61,27 @@ export class CreatePodProtocolDto {
   @IsArray()
   @IsString({ each: true })
   recommendedDrinks?: string[];
+
+  @ApiPropertyOptional({ example: ['Đồ chiên rán', 'Đồ cay nóng'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  forbiddenFoods?: string[];
+
+  @ApiPropertyOptional({ example: ['Nước có ga', 'Rượu bia'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  forbiddenDrinks?: string[];
+
+  @ApiPropertyOptional({
+    example: ['Hoàn thành ≥75% mục tiêu khẩu phần hiện tại', 'Không nôn'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  upgradeCriteria?: string[];
 }
 
 export class UpdatePodProtocolDto extends CreatePodProtocolDto {
@@ -71,6 +98,9 @@ export class PodProtocolResponseDto {
 
   @ApiProperty({ example: '1' })
   label!: string;
+
+  @ApiProperty({ example: 0 })
+  dietLevel!: number;
 
   @ApiPropertyOptional({ example: 6 })
   mealsPerDayMin!: number | null;
@@ -95,6 +125,15 @@ export class PodProtocolResponseDto {
 
   @ApiProperty({ example: ['Nước ấm', 'Nước điện giải'], type: [String] })
   recommendedDrinks!: string[];
+
+  @ApiProperty({ example: ['Đồ chiên rán'], type: [String] })
+  forbiddenFoods!: string[];
+
+  @ApiProperty({ example: ['Nước có ga'], type: [String] })
+  forbiddenDrinks!: string[];
+
+  @ApiProperty({ example: ['Không nôn'], type: [String] })
+  upgradeCriteria!: string[];
 
   @ApiPropertyOptional({ example: '2026-06-20T00:00:00.000Z' })
   updatedAt!: Date | null;

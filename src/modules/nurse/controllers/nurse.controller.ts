@@ -17,8 +17,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../../user/decorators/current-user.decorator';
+import { AssignNurseRoomsDto } from '../dtos/assign-nurse-rooms.dto';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
+import {
+  HospitalRoomSummaryDto,
+  NurseRoomAssignmentResponseDto,
+} from '../dtos/nurse-room-assignment-response.dto';
 import { QueryNurseDto } from '../dtos/query-nurse.dto';
 import { UpdateNurseDto } from '../dtos/update-nurse.dto';
 import { NurseService } from '../services/nurse.service';
@@ -40,6 +46,38 @@ export class NurseController {
   @ApiResponse({ status: 200, type: NurseStatsDto })
   getStats() {
     return this.nurseService.getStats();
+  }
+
+  @Get('rooms')
+  @ApiOperation({ summary: 'Get list of all hospital rooms with active patient count' })
+  @ApiResponse({ status: 200, type: [HospitalRoomSummaryDto] })
+  getAllHospitalRooms() {
+    return this.nurseService.getAllHospitalRooms();
+  }
+
+  @Get('me/assigned-rooms')
+  @ApiOperation({ summary: 'Get assigned rooms for currently authenticated nurse' })
+  getAssignedRoomsForMe(@CurrentUser() user: { id: number }) {
+    return this.nurseService.getAssignedRooms(user.id);
+  }
+
+  @Get(':id/assigned-rooms')
+  @ApiOperation({ summary: 'Get assigned rooms for a specific nurse' })
+  getAssignedRoomsForNurse(@Param('id', ParseIntPipe) id: number) {
+    return this.nurseService.getAssignedRooms(id);
+  }
+
+  @Post(':id/assign-rooms')
+  @ApiOperation({ summary: 'Assign rooms to a nurse' })
+  @ApiResponse({ status: 200, type: NurseRoomAssignmentResponseDto })
+  assignRooms(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignNurseRoomsDto) {
+    return this.nurseService.assignRooms(id, dto.roomCodes);
+  }
+
+  @Delete(':id/rooms/:roomCode')
+  @ApiOperation({ summary: 'Remove a specific room assignment from a nurse' })
+  removeRoomAssignment(@Param('id', ParseIntPipe) id: number, @Param('roomCode') roomCode: string) {
+    return this.nurseService.removeRoomAssignment(id, roomCode);
   }
 
   @Get()
