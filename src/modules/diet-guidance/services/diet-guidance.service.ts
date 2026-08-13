@@ -38,14 +38,18 @@ export class DietGuidanceService {
       podId: pod.podId,
       operationTypeId: pod.operationTypeId,
       label: pod.label,
+      dietLevel: pod.dietLevel ?? 0,
       mealsPerDayMin: pod.mealsPerDayMin,
       mealsPerDayMax: pod.mealsPerDayMax,
       mealInstruction: pod.mealInstruction,
       volumePerMealMin: pod.volumnPerMealMin,
       volumePerMealMax: pod.volumePerMealMax,
       volumeInstruction: pod.volumeInstruction,
-      recommendedFoods: pod.recommendedFoods,
-      recommendedDrinks: pod.recommendedDrinks,
+      recommendedFoods: pod.recommendedFoods ?? [],
+      recommendedDrinks: pod.recommendedDrinks ?? [],
+      forbiddenFoods: pod.forbiddenFoods ?? [],
+      forbiddenDrinks: pod.forbiddenDrinks ?? [],
+      upgradeCriteria: pod.upgradeCriteria ?? [],
       updatedAt: pod.updatedAt,
       createdAt: pod.createdAt,
     };
@@ -171,6 +175,7 @@ export class DietGuidanceService {
     const saved = await this.repository.savePod({
       operationTypeId,
       label: dto.label,
+      dietLevel: dto.dietLevel ?? 0,
       mealsPerDayMin: dto.mealsPerDayMin ?? null,
       mealsPerDayMax: dto.mealsPerDayMax ?? null,
       mealInstruction: dto.mealInstruction ?? null,
@@ -179,6 +184,9 @@ export class DietGuidanceService {
       volumeInstruction: dto.volumeInstruction ?? null,
       recommendedFoods: dto.recommendedFoods ?? [],
       recommendedDrinks: dto.recommendedDrinks ?? [],
+      forbiddenFoods: dto.forbiddenFoods ?? [],
+      forbiddenDrinks: dto.forbiddenDrinks ?? [],
+      upgradeCriteria: dto.upgradeCriteria ?? [],
       updatedBy: { id: userId },
     });
     return this.toPodResponse(saved);
@@ -227,6 +235,7 @@ export class DietGuidanceService {
 
     const updates = {
       ...(dto.label && { label: dto.label }),
+      ...(dto.dietLevel !== undefined && { dietLevel: dto.dietLevel }),
       ...(dto.mealsPerDayMin !== undefined && { mealsPerDayMin: dto.mealsPerDayMin ?? null }),
       ...(dto.mealsPerDayMax !== undefined && { mealsPerDayMax: dto.mealsPerDayMax ?? null }),
       ...(dto.mealInstruction !== undefined && { mealInstruction: dto.mealInstruction ?? null }),
@@ -237,6 +246,9 @@ export class DietGuidanceService {
       }),
       ...(dto.recommendedFoods !== undefined && { recommendedFoods: dto.recommendedFoods }),
       ...(dto.recommendedDrinks !== undefined && { recommendedDrinks: dto.recommendedDrinks }),
+      ...(dto.forbiddenFoods !== undefined && { forbiddenFoods: dto.forbiddenFoods }),
+      ...(dto.forbiddenDrinks !== undefined && { forbiddenDrinks: dto.forbiddenDrinks }),
+      ...(dto.upgradeCriteria !== undefined && { upgradeCriteria: dto.upgradeCriteria }),
       updatedBy: { id: userId },
     };
 
@@ -272,5 +284,21 @@ export class DietGuidanceService {
     }
 
     await this.repository.deletePod(podId);
+  }
+
+  async getCurrentDietGuidanceForPatient(caseId: string): Promise<PodProtocolResponseDto | null> {
+    const patient = await this.repository.findPatientByCaseId(caseId);
+    if (!patient || patient.operationTypeId === null || patient.operationTypeId === undefined) {
+      return null;
+    }
+
+    const dietLevel = patient.currentDietLevel ?? 0;
+    const pod = await this.repository.findPodByOperationAndDietLevel(
+      patient.operationTypeId,
+      dietLevel,
+    );
+
+    if (!pod) return null;
+    return this.toPodResponse(pod);
   }
 }

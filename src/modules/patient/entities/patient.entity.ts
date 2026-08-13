@@ -52,6 +52,9 @@ export class Patient {
   @Column({ name: 'current_pod', type: 'int', nullable: true })
   currentPod!: number | null;
 
+  @Column({ name: 'current_diet_level', type: 'int', default: 0 })
+  currentDietLevel!: number;
+
   @Column({ name: 'time_to_redrink', type: 'int', nullable: true })
   timeToRedrink!: number | null;
 

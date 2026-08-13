@@ -68,6 +68,9 @@ export class PatientListItemDto {
   @ApiPropertyOptional({ example: 2 })
   currentPod!: number | null;
 
+  @ApiPropertyOptional({ example: 0 })
+  currentDietLevel!: number;
+
   @ApiPropertyOptional({ type: PatientLevelDto })
   level!: PatientLevelDto | null;
 

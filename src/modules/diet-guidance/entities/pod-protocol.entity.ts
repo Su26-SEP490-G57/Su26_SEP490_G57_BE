@@ -43,11 +43,23 @@ export class PodProtocol {
   @Column({ name: 'volume_instruction', type: 'text', nullable: true })
   volumeInstruction!: string | null;
 
+  @Column({ name: 'diet_level', type: 'int', default: 0 })
+  dietLevel!: number;
+
   @Column({ name: 'recommended_foods', type: 'text', array: true, default: '{}' })
   recommendedFoods!: string[];
 
   @Column({ name: 'recommended_drinks', type: 'text', array: true, default: '{}' })
   recommendedDrinks!: string[];
+
+  @Column({ name: 'forbidden_foods', type: 'text', array: true, default: '{}' })
+  forbiddenFoods!: string[];
+
+  @Column({ name: 'forbidden_drinks', type: 'text', array: true, default: '{}' })
+  forbiddenDrinks!: string[];
+
+  @Column({ name: 'upgrade_criteria', type: 'text', array: true, default: '{}' })
+  upgradeCriteria!: string[];
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true, eager: false })
   @JoinColumn({ name: 'updated_by' })

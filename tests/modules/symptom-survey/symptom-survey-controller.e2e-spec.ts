@@ -445,6 +445,36 @@ describe('SymptomSurveyController (integration)', () => {
         const alertCount = await dataSource.getRepository(Alert).count();
         expect(alertCount).toBe(0);
       });
+
+      // Kept separate: the persisted snapshot columns are an independent outcome
+      // from the submit response shape — covers the new snapshot-based detail
+      // persistence (question/option text and clinical metadata frozen at
+      // submission time rather than joined live from survey_questions/question_options).
+      it('THEN should persist a snapshot of the question/option text and clinical metadata on the assessment detail', async () => {
+        const response = await authed(
+          request(httpServer).post('/symptom-surveys'),
+          patientOneToken,
+        ).send({
+          caseId: 'CASE-001',
+          answers: [{ questionId, selectedOptionId: greenOptionId }],
+        });
+
+        const details = await dataSource.getRepository(AssessmentDetail).find({
+          where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
+        });
+
+        expect(details).toEqual([
+          expect.objectContaining({
+            questionId,
+            selectedOptionId: greenOptionId,
+            questionTextSnapshot: 'Bạn có buồn nôn không?',
+            optionTextSnapshot: 'Không',
+            clinicalDimensionSnapshot: '',
+            optionTriageLevelSnapshot: 'GREEN',
+            normalizedValueSnapshot: null,
+          }),
+        ]);
+      });
     });
 
     describe('GIVEN a YELLOW-scoring answer', () => {
@@ -493,6 +523,30 @@ describe('SymptomSurveyController (integration)', () => {
           .findOne({ where: { assessmentId: body.assessmentId } });
         expect(alert).toEqual(
           expect.objectContaining({ alertType: 'RED', status: 'PENDING_REVIEW' }),
+        );
+      });
+
+      // Kept separate: the persisted triage_triggers audit trail is an
+      // independent outcome from the submit response shape and the alert
+      // creation — covers the new no-score, trigger-based triage mechanism.
+      it('THEN should record RED_OPTION_SELECTED and TRIGGERED assessmentType on the persisted survey', async () => {
+        const response = await authed(
+          request(httpServer).post('/symptom-surveys'),
+          patientOneToken,
+        ).send({
+          caseId: 'CASE-001',
+          answers: [{ questionId, selectedOptionId: redOptionId }],
+        });
+
+        const survey = await dataSource.getRepository(SymptomSurvey).findOne({
+          where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
+        });
+
+        expect(survey).toEqual(
+          expect.objectContaining({
+            assessmentType: 'TRIGGERED',
+            triageTriggers: ['RED_OPTION_SELECTED'],
+          }),
         );
       });
     });
@@ -749,6 +803,69 @@ describe('SymptomSurveyController (integration)', () => {
           expect(storedTask?.assessmentId).toBe(
             (response.body as SymptomSurveyResponseDto).assessmentId,
           );
+        });
+
+        // Kept separate: the persisted assessmentType/scheduledSlot fields on the
+        // survey row are an independent outcome from the task-linking side effect
+        // asserted above.
+        it('THEN should persist assessmentType SCHEDULED and the submitted scheduledSlot on the survey', async () => {
+          const now = new Date();
+          await dataSource.getRepository(AssessmentTask).save({
+            caseId: 'CASE-001',
+            podContext: 2,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(now.getTime() - 60 * 60 * 1000),
+            closesAt: new Date(now.getTime() + 60 * 60 * 1000),
+            status: 'PENDING',
+          });
+
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: greenOptionId }],
+          });
+
+          const survey = await dataSource.getRepository(SymptomSurvey).findOne({
+            where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
+          });
+          expect(survey).toEqual(
+            expect.objectContaining({ assessmentType: 'SCHEDULED', scheduledSlot: 'MORNING' }),
+          );
+        });
+
+        // Documents current behavior rather than asserting a requirement: unlike
+        // the TRIGGERED path, submitSurvey's SCHEDULED branch never calls
+        // repository.saveDetails, so no assessment_details rows exist for a
+        // SCHEDULED submission even though answers were provided.
+        it('THEN should not persist any assessment detail rows for the SCHEDULED submission', async () => {
+          const now = new Date();
+          await dataSource.getRepository(AssessmentTask).save({
+            caseId: 'CASE-001',
+            podContext: 2,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(now.getTime() - 60 * 60 * 1000),
+            closesAt: new Date(now.getTime() + 60 * 60 * 1000),
+            status: 'PENDING',
+          });
+
+          const response = await authed(
+            request(httpServer).post('/symptom-surveys'),
+            patientOneToken,
+          ).send({
+            caseId: 'CASE-001',
+            assessmentType: 'SCHEDULED',
+            scheduledSlot: 'MORNING',
+            answers: [{ questionId, selectedOptionId: greenOptionId }],
+          });
+
+          const details = await dataSource.getRepository(AssessmentDetail).find({
+            where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
+          });
+          expect(details).toEqual([]);
         });
       });
     });
