@@ -190,7 +190,10 @@ export class StatisticsRepository {
     `);
   }
 
-  /** COUNT(DISTINCT pod_context) up to (and including) each patient's current POD. */
+  /**
+   * Count of POD days, up to (and including) each patient's current POD, where
+   * BOTH scheduled tasks (MORNING and AFTERNOON) reached status = 'COMPLETED'.
+   */
   async getComplianceActualCounts(
     cases: Array<{ caseId: string; currentPod: number | null }>,
   ): Promise<ComplianceRow[]> {
@@ -199,14 +202,18 @@ export class StatisticsRepository {
     const caseIds = withPod.map((c) => c.caseId);
     return this.dataSource.query<ComplianceRow[]>(
       `
-      SELECT pa.case_id                          AS "caseId",
-             COUNT(DISTINCT pa.pod_context)::int AS actual
-      FROM patient_assessments pa
-      JOIN patient_cases pc ON pc.case_id = pa.case_id
-      WHERE pa.case_id = ANY($1)
-        AND pa.pod_context IS NOT NULL
-        AND pa.pod_context <= pc.current_pod
-      GROUP BY pa.case_id
+      SELECT case_id AS "caseId", COUNT(*)::int AS actual
+      FROM (
+        SELECT at.case_id, at.pod_context
+        FROM assessment_tasks at
+        JOIN patient_cases pc ON pc.case_id = at.case_id
+        WHERE at.case_id = ANY($1)
+          AND at.status = 'COMPLETED'
+          AND at.pod_context <= pc.current_pod
+        GROUP BY at.case_id, at.pod_context
+        HAVING COUNT(DISTINCT at.scheduled_slot) >= 2
+      ) completed_pods
+      GROUP BY case_id
       `,
       [caseIds],
     );
@@ -296,13 +303,22 @@ export class StatisticsRepository {
     return this.engagementLogRepo.save(log);
   }
 
-  /** COUNT(DISTINCT pod_context) from patient_assessments — the authoritative completed-assessment count. */
+  /**
+   * Count of POD days where BOTH scheduled tasks (MORNING and AFTERNOON) reached
+   * status = 'COMPLETED' in assessment_tasks — a POD day only counts once the
+   * patient has done both of that day's periodic assessments.
+   */
   async getAssessmentCompletedCount(caseId: string): Promise<number> {
     const rows = await this.dataSource.query<Array<{ count: number }>>(
       `
-      SELECT COUNT(DISTINCT pod_context)::int AS count
-      FROM patient_assessments
-      WHERE case_id = $1 AND pod_context IS NOT NULL
+      SELECT COUNT(*)::int AS count
+      FROM (
+        SELECT pod_context
+        FROM assessment_tasks
+        WHERE case_id = $1 AND status = 'COMPLETED'
+        GROUP BY pod_context
+        HAVING COUNT(DISTINCT scheduled_slot) >= 2
+      ) completed_pods
       `,
       [caseId],
     );

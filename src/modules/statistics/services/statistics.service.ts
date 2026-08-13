@@ -20,9 +20,9 @@ import { RecoveryMatrixResponseDto } from '../dtos/recovery-matrix-response.dto'
 import { DefaultQuestionRow, StatisticsRepository } from '../repositories/statistics.repository';
 
 /**
- * A patient is "compliant" once they've submitted an end-of-day assessment for
- * >= 80% of elapsed POD days (expected = currentPod + 1; actual = distinct
- * pod_context values <= currentPod).
+ * A patient is "compliant" once they've completed BOTH periodic assessments
+ * (MORNING and AFTERNOON) for >= 80% of elapsed POD days (expected = currentPod
+ * + 1; actual = POD days with both scheduled tasks COMPLETED, <= currentPod).
  */
 export const COMPLIANCE_THRESHOLD = 0.8;
 

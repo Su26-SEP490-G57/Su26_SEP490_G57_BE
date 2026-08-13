@@ -18,6 +18,7 @@ import { RecoveryMatrixResponseDto } from '../../../src/modules/statistics/dtos/
 import { AppEngagementLog } from '../../../src/modules/statistics/entities/app-engagement-log.entity';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { AssessmentDetail } from '../../../src/modules/symptom-survey/entities/assessment-detail.entity';
+import { AssessmentTask } from '../../../src/modules/symptom-survey/entities/assessment-task.entity';
 import { QuestionOption } from '../../../src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from '../../../src/modules/symptom-survey/entities/survey-question.entity';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
@@ -173,6 +174,39 @@ describe('StatisticsController (integration)', () => {
       // CASE-004 (room P502, currentPod 2, podStartDate seeded): ERAS started
       // but no assessments at all after the table wipe above -> actual 0 /
       // expected 3 = 0, non-compliant.
+
+      // Compliance is computed from assessment_tasks (both MORNING and AFTERNOON
+      // must be COMPLETED for a POD day to count), independently of the
+      // SymptomSurvey rows above which only drive the symptom trend chart.
+      const taskRepo = dataSource.getRepository(AssessmentTask);
+      const completedTask = (
+        caseId: string,
+        podContext: number,
+        scheduledSlot: 'MORNING' | 'AFTERNOON',
+      ) => ({
+        caseId,
+        podContext,
+        scheduledSlot,
+        opensAt: new Date(),
+        closesAt: new Date(),
+        status: 'COMPLETED' as const,
+        completedAt: new Date(),
+      });
+
+      // CASE-001: every POD 0..2 has both slots completed -> actual 3 / expected 3.
+      await taskRepo.save([
+        completedTask('CASE-001', 0, 'MORNING'),
+        completedTask('CASE-001', 0, 'AFTERNOON'),
+        completedTask('CASE-001', 1, 'MORNING'),
+        completedTask('CASE-001', 1, 'AFTERNOON'),
+        completedTask('CASE-001', 2, 'MORNING'),
+        completedTask('CASE-001', 2, 'AFTERNOON'),
+        // CASE-002: POD0 has both slots completed, POD1 only has MORNING ->
+        // POD1 doesn't count -> actual 1 / expected 2.
+        completedTask('CASE-002', 0, 'MORNING'),
+        completedTask('CASE-002', 0, 'AFTERNOON'),
+        completedTask('CASE-002', 1, 'MORNING'),
+      ]);
     });
 
     describe('GIVEN a room filter matching a 4-patient cohort with mixed compliance', () => {
@@ -388,9 +422,42 @@ describe('StatisticsController (integration)', () => {
         reminderCount: 5,
         appAccessCount: 12,
       });
+
+      // A POD day only counts as completed once BOTH periodic assessments
+      // (MORNING and AFTERNOON) are done. POD0 has both -> counts. POD1 only
+      // has MORNING -> doesn't count. POD2 has none.
+      await dataSource.getRepository(AssessmentTask).save([
+        {
+          caseId: 'CASE-001',
+          podContext: 0,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-001',
+          podContext: 0,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-001',
+          podContext: 1,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      ]);
     });
 
-    describe('GIVEN a patient with an engagement log and one seeded assessment below the compliance threshold', () => {
+    describe('GIVEN a patient with an engagement log and one fully-completed POD day below the compliance threshold', () => {
       it('THEN should respond 200 with the compliance breakdown', async () => {
         const response = await authed(
           request(httpServer).get('/patients/CASE-001/compliance'),
@@ -406,7 +473,8 @@ describe('StatisticsController (integration)', () => {
           viewedEducation: false,
           reminderCount: 5,
           appAccessCount: 12,
-          // seed.ts saves exactly one assessment per patient case, at pod_context = currentPod.
+          // Only POD0 has both MORNING and AFTERNOON tasks COMPLETED; POD1's
+          // lone MORNING completion doesn't count, POD2 has none.
           assessmentCompletedCount: 1,
           expectedAssessmentCount: 3,
           complianceRate: 1 / 3,

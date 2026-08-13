@@ -24,7 +24,8 @@ export class PatientComplianceResponseDto {
 
   @ApiProperty({
     example: 3,
-    description: 'COUNT(DISTINCT pod_context) from patient_assessments — authoritative',
+    description:
+      'Number of POD days where both scheduled assessments (MORNING and AFTERNOON) are COMPLETED',
   })
   assessmentCompletedCount!: number;
 
