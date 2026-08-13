@@ -93,7 +93,10 @@ describe('PatientController (integration)', () => {
   describe('GET /patients', () => {
     describe('GIVEN no filters', () => {
       it('THEN should respond 200 with all 10 seeded active patients ordered Red→Yellow→Green then by case id', async () => {
-        const response = await authed(request(httpServer).get('/patients'), nurseToken);
+        // Head Nurse: not subject to the Nurse-role room-based auto-filter (see the
+        // dedicated "GIVEN a Nurse caller" / "GIVEN a Head Nurse caller" tests below),
+        // since this test asserts the full unfiltered roster.
+        const response = await authed(request(httpServer).get('/patients'), headNurseToken);
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedPatients;
@@ -159,7 +162,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with only patients at that level', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ level: 'Red' }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -173,7 +176,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with only patients of that operation type', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ operationTypeId: 1 }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -187,7 +190,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with patients ordered by currentPod ascending', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ sortBy: 'pod' }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -205,7 +208,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with a page of that size and the correct total', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ page: 1, limit: 3 }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -223,7 +226,7 @@ describe('PatientController (integration)', () => {
       });
 
       it('THEN should respond 200 excluding the completed patient from the list and total', async () => {
-        const response = await authed(request(httpServer).get('/patients'), nurseToken);
+        const response = await authed(request(httpServer).get('/patients'), headNurseToken);
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedPatients;

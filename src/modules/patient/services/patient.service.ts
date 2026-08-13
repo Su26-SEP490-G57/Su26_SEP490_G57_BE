@@ -323,6 +323,14 @@ export class PatientService {
     // Update POD level
     await this.repository.updatePodLevel(caseId, newPodLevel);
 
+    // Rebase pod_start_date to the new level so the dynamic POD calculation
+    // (elapsed days since pod_start_date) doesn't immediately recompute back
+    // toward the pre-rollback value on the very next read.
+    if (patient.podStartDate) {
+      const newPodStartDate = new Date(Date.now() - newPodLevel * 24 * 60 * 60 * 1000);
+      await this.repository.shiftPodStartDate(caseId, newPodStartDate);
+    }
+
     // If rolling back from max POD (completed status), reset erasCompleted to false
     if (patient.erasCompleted && maxPod !== null && newPodLevel < maxPod) {
       await this.dataSource
