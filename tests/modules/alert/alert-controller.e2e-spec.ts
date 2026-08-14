@@ -246,6 +246,7 @@ describe('AlertController (integration)', () => {
         expect(stored?.status).toBe('HANDLED');
         expect(stored?.nurseAction).toBe('Đo lại sinh hiệu');
         expect(stored?.nursingNote).toBe('Đã xử trí theo phác đồ.');
+        expect(stored?.handledAt).toBeInstanceOf(Date);
       });
     });
 

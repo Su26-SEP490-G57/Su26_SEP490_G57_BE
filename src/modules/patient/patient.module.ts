@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SymptomSurveyModule } from '../symptom-survey/symptom-survey.module';
+import { PodProtocol } from '../diet-guidance/entities/pod-protocol.entity';
 import { PatientController } from './controllers/patient.controller';
 import { Level } from './entities/level.entity';
 import { OperationType } from './entities/operation-type.entity';
@@ -13,7 +14,7 @@ import { PodSchedulerService } from './services/pod-scheduler.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Patient, Level, OperationType, PodProtocolTrackingLog]),
+    TypeOrmModule.forFeature([Patient, Level, OperationType, PodProtocolTrackingLog, PodProtocol]),
     SymptomSurveyModule,
   ],
   controllers: [PatientController],

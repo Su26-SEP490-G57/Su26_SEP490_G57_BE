@@ -15,7 +15,7 @@ export class NurseService {
     private readonly usersService: UsersService,
   ) {}
 
-  private toResponse(user: User): NurseResponseDto {
+  private toResponse(user: User, assignedRooms: string[] = []): NurseResponseDto {
     return {
       id: user.id,
       username: user.username,
@@ -27,6 +27,7 @@ export class NurseService {
       detailedAddress: user.detailedAddress,
       roles: (user.roles ?? []).map((r) => r.roleName),
       isActive: user.isActive,
+      assignedRooms,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -34,8 +35,11 @@ export class NurseService {
 
   async getNurses(query: QueryNurseDto): Promise<PaginatedNursesDto> {
     const [nurses, total] = await this.repository.findAll(query);
+    const nurseIds = nurses.map((n) => n.id);
+    const roomMap = await this.repository.findAssignedRoomsForNurses(nurseIds);
+
     return {
-      data: nurses.map((n) => this.toResponse(n)),
+      data: nurses.map((n) => this.toResponse(n, roomMap.get(n.id) ?? [])),
       total,
       page: query.page ?? 1,
       limit: query.limit ?? 10,
@@ -57,7 +61,8 @@ export class NurseService {
     );
     if (!isNurse) throw new NotFoundException(`Nurse #${id} not found`);
 
-    return this.toResponse(user);
+    const assignedRooms = await this.repository.findAssignedRoomsByNurse(id);
+    return this.toResponse(user, assignedRooms);
   }
 
   async createNurse(dto: CreateNurseDto): Promise<NurseResponseDto> {
@@ -74,7 +79,7 @@ export class NurseService {
     });
     // Fetch full user entity to get all fields
     const user = await this.repository.findByUsername(dto.username);
-    return this.toResponse(user!);
+    return this.toResponse(user!, []);
   }
 
   async updateNurse(id: number, dto: UpdateNurseDto): Promise<NurseResponseDto> {
@@ -91,13 +96,38 @@ export class NurseService {
       roles: dto.role ? [dto.role] : undefined,
     });
     const user = await this.repository.findById(id);
-    return this.toResponse(user!);
+    const assignedRooms = await this.repository.findAssignedRoomsByNurse(id);
+    return this.toResponse(user!, assignedRooms);
   }
 
   async deleteNurse(id: number): Promise<NurseResponseDto> {
     await this.getNurseById(id);
     await this.usersService.deactivate(id);
     const user = await this.repository.findById(id);
-    return this.toResponse(user!);
+    const assignedRooms = await this.repository.findAssignedRoomsByNurse(id);
+    return this.toResponse(user!, assignedRooms);
+  }
+
+  async getAssignedRooms(
+    nurseUserId: number,
+  ): Promise<{ nurseUserId: number; assignedRooms: string[] }> {
+    const assignedRooms = await this.repository.findAssignedRoomsByNurse(nurseUserId);
+    return { nurseUserId, assignedRooms };
+  }
+
+  async assignRooms(
+    nurseUserId: number,
+    roomCodes: string[],
+  ): Promise<{ nurseUserId: number; assignedRooms: string[] }> {
+    const assignedRooms = await this.repository.assignRoomsToNurse(nurseUserId, roomCodes);
+    return { nurseUserId, assignedRooms };
+  }
+
+  async removeRoomAssignment(nurseUserId: number, roomCode: string): Promise<void> {
+    await this.repository.removeRoomAssignment(nurseUserId, roomCode);
+  }
+
+  async getAllHospitalRooms(): Promise<{ roomCode: string; patientCount: number }[]> {
+    return this.repository.getAllHospitalRooms();
   }
 }

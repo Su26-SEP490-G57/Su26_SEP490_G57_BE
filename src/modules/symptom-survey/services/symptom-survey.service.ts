@@ -463,10 +463,21 @@ export class SymptomSurveyService {
       throw new NotFoundException(`Patient with caseId ${caseId} not found`);
     }
 
-    const currentPodNum = Math.min(Math.max(patient.currentPod ?? 0, 0), 5);
-    const startDate = patient.podStartDate ? new Date(patient.podStartDate) : new Date();
+    let calculatedPod = patient.currentPod ?? 0;
+    if (patient.podStartDate && !patient.isLocked && !patient.erasCompleted) {
+      const elapsedSeconds = (Date.now() - new Date(patient.podStartDate).getTime()) / 1000;
+      if (elapsedSeconds >= 0) {
+        calculatedPod = Math.floor(elapsedSeconds / 86400);
+      }
+    }
+    const currentPodNum = Math.min(Math.max(calculatedPod, 0), 7);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const startDate = patient.podStartDate
+      ? new Date(patient.podStartDate)
+      : new Date(today.getTime() - currentPodNum * 86400000);
+    startDate.setHours(0, 0, 0, 0);
 
     const [allSurveys] = await this.repository.findAllByPatient(caseId, 1, 100);
     const surveyMap = new Map<number, SymptomSurvey>();

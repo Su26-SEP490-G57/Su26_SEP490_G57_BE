@@ -72,4 +72,74 @@ export class NurseRepository {
 
     return { total, active, inactive: total - active };
   }
+
+  async findAssignedRoomsByNurse(nurseUserId: number): Promise<string[]> {
+    const rows = await this.userRepo.manager.query<{ room_code: string }[]>(
+      `SELECT room_code FROM room_nurse_assignments WHERE nurse_user_id = $1 ORDER BY room_code ASC`,
+      [nurseUserId],
+    );
+    return rows.map((r) => r.room_code);
+  }
+
+  async findAssignedRoomsForNurses(nurseUserIds: number[]): Promise<Map<number, string[]>> {
+    const map = new Map<number, string[]>();
+    if (nurseUserIds.length === 0) return map;
+
+    const rows = await this.userRepo.manager.query<{ nurse_user_id: number; room_code: string }[]>(
+      `SELECT nurse_user_id, room_code FROM room_nurse_assignments WHERE nurse_user_id = ANY($1) ORDER BY room_code ASC`,
+      [nurseUserIds],
+    );
+
+    for (const r of rows) {
+      if (!map.has(r.nurse_user_id)) {
+        map.set(r.nurse_user_id, []);
+      }
+      map.get(r.nurse_user_id)!.push(r.room_code);
+    }
+    return map;
+  }
+
+  async assignRoomsToNurse(nurseUserId: number, roomCodes: string[]): Promise<string[]> {
+    const cleanRoomCodes = Array.from(new Set(roomCodes.map((r) => r.trim()).filter(Boolean)));
+
+    await this.userRepo.manager.transaction(async (transactionalEntityManager) => {
+      await transactionalEntityManager.query(
+        `DELETE FROM room_nurse_assignments WHERE nurse_user_id = $1`,
+        [nurseUserId],
+      );
+
+      for (const roomCode of cleanRoomCodes) {
+        await transactionalEntityManager.query(
+          `INSERT INTO room_nurse_assignments (room_code, nurse_user_id, assigned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`,
+          [roomCode, nurseUserId],
+        );
+      }
+    });
+
+    return cleanRoomCodes;
+  }
+
+  async removeRoomAssignment(nurseUserId: number, roomCode: string): Promise<void> {
+    await this.userRepo.manager.query(
+      `DELETE FROM room_nurse_assignments WHERE nurse_user_id = $1 AND room_code = $2`,
+      [nurseUserId, roomCode],
+    );
+  }
+
+  async getAllHospitalRooms(): Promise<{ roomCode: string; patientCount: number }[]> {
+    const rows = await this.userRepo.manager.query<{ room_code: string; patient_count: string }[]>(`
+      SELECT 
+        split_part(room_bed, '/', 1) AS room_code,
+        COUNT(*)::int AS patient_count
+      FROM patient_cases
+      WHERE room_bed IS NOT NULL AND room_bed != '' AND eras_completed = false
+      GROUP BY split_part(room_bed, '/', 1)
+      ORDER BY room_code ASC
+    `);
+
+    return rows.map((r) => ({
+      roomCode: r.room_code,
+      patientCount: parseInt(r.patient_count ?? '0', 10),
+    }));
+  }
 }
