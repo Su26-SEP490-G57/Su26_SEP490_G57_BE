@@ -31,6 +31,12 @@ export class AlertResponseDto {
   @ApiPropertyOptional({ example: 'Patient responded well.' })
   nursingNote!: string | null;
 
+  @ApiPropertyOptional({ example: '2026-08-13T08:35:00.000Z' })
+  handledAt!: Date | null;
+
+  @ApiPropertyOptional({ example: 12 })
+  handledByUserId!: number | null;
+
   @ApiPropertyOptional({ example: null })
   closedAt!: Date | null;
 }

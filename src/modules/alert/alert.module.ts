@@ -27,6 +27,7 @@ import { RoomNurseAssignmentRepository } from './repositories/room-nurse-assignm
     RoomNurseAssignmentRepository,
     PatientRepository,
     AlertGateway,
+    AlertGateway,
     NotificationService,
     PatientReminderSchedulerService,
   ],
