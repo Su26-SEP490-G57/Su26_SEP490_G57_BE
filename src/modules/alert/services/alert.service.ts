@@ -58,15 +58,23 @@ export class AlertService {
     this.alertGateway.emitNewAlert(response);
 
     const pushTitle = saved.alertType === 'RED' ? '🔴 Cảnh báo khẩn' : '🟡 Cần theo dõi';
-    const pushBody = `${patientName} • ${room} • ${
+    const pushBody = `${room} • ${patientName} • ${
       saved.alertType === 'RED' ? 'Mức đỏ' : 'Mức vàng'
     }`;
 
-    // Push Notification cho Mobile: fan-out tới ONLY nurses ĐƯỢC GÁN phòng
+    // Push Notification cho Mobile: fan-out tới nurses ĐƯỢC GÁN phòng (hoặc tất cả điều dưỡng nếu chưa phân công)
     const assignedNurseIds = await this.roomNurseRepository.getAssignedNurses(roomCode);
 
     if (assignedNurseIds.length > 0) {
       await this.notificationService.sendToNursesSpecific(assignedNurseIds, pushTitle, pushBody, {
+        caseId: saved.caseId,
+        assessmentId: String(saved.assessmentId),
+        patientName,
+        roomBed: room,
+        alertType: saved.alertType,
+      });
+    } else {
+      await this.notificationService.sendToNurses(pushTitle, pushBody, {
         caseId: saved.caseId,
         assessmentId: String(saved.assessmentId),
         patientName,
