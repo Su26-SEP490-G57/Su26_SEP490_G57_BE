@@ -250,6 +250,7 @@ export class SymptomSurveyService {
       );
     }
 
+    // Load options to get score_value
     const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
     const optionMap = new Map(options.map((o) => [o.optionId, o]));

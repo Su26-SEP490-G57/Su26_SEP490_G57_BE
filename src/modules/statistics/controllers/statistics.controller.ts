@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -8,10 +8,14 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AnalyticsOverviewResponseDto } from '../dtos/analytics-overview-response.dto';
 import { AssessmentMatrixResponseDto } from '../dtos/assessment-matrix-response.dto';
+import { CreateEngagementLogDto } from '../dtos/create-engagement-log.dto';
+import { EngagementLogResponseDto } from '../dtos/engagement-log-response.dto';
 import { PatientComplianceResponseDto } from '../dtos/patient-compliance-response.dto';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
 import { RecoveryMatrixResponseDto } from '../dtos/recovery-matrix-response.dto';
@@ -64,6 +68,24 @@ export class StatisticsController {
   @ApiNotFoundResponse({ description: 'Patient not found' })
   getPatientCompliance(@Param('caseId') caseId: string): Promise<PatientComplianceResponseDto> {
     return this.statisticsService.getPatientCompliance(caseId);
+  }
+
+  @Post(':caseId/engagement-logs')
+  @ApiOperation({
+    summary: 'Log a patient app-engagement event (guidance/education viewed)',
+    description:
+      'Called by the patient mobile app when the patient views POD diet guidance or health ' +
+      'education content, so the nurse compliance checklist (GET .../compliance) reflects it. ' +
+      'A Patient caller may only log against their own case.',
+  })
+  @ApiResponse({ status: 201, type: EngagementLogResponseDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  logEngagement(
+    @Param('caseId') caseId: string,
+    @Body() dto: CreateEngagementLogDto,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<EngagementLogResponseDto> {
+    return this.statisticsService.logEngagement(caseId, dto, caller);
   }
 
   @Get(':caseId/assessment-matrix')
