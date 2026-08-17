@@ -13,6 +13,7 @@ import {
   PaginatedAlertsDto,
 } from '../../../src/modules/alert/dtos/alert-response.dto';
 import { Alert } from '../../../src/modules/alert/entities/alert.entity';
+import { RoomNurseAssignment } from '../../../src/modules/alert/entities/room-nurse-assignment.entity';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
 import { UserRoleName } from '../../../src/modules/user/enums/user-role.enum';
@@ -59,6 +60,17 @@ describe('AlertController (integration)', () => {
 
     const loginResponse = await login(httpServer, UserRoleName.NURSE);
     nurseToken = (loginResponse.body as LoginResponse).accessToken;
+    const jwtPayload = JSON.parse(Buffer.from(nurseToken.split('.')[1], 'base64').toString()) as {
+      sub: number;
+    };
+    const nurseId = jwtPayload.sub;
+
+    // Assign nurse to all rooms (P502, P504, P506) to cover all test cases in seed
+    await dataSource.getRepository(RoomNurseAssignment).save([
+      { roomCode: 'P502', nurseUserId: nurseId },
+      { roomCode: 'P504', nurseUserId: nurseId },
+      { roomCode: 'P506', nurseUserId: nurseId },
+    ] as RoomNurseAssignment[]);
 
     // Alerts require a real symptom-survey row for their assessment_id FK, and a
     // real patient case for their case_id FK — neither is part of seed.ts, so
@@ -213,57 +225,39 @@ describe('AlertController (integration)', () => {
     });
   });
 
-  describe('PATCH /alerts/:id/acknowledge', () => {
-    describe('GIVEN a pending alert and a nurseAction/nursingNote body', () => {
-      it('THEN should respond 200 with the alert marked Acknowledged and the notes attached', async () => {
+  describe('PATCH /alerts/:id/handle', () => {
+    describe('GIVEN a pending alert', () => {
+      it('THEN should respond 200 with the alert marked HANDLED', async () => {
         const response = await authed(
-          request(httpServer).patch(`/alerts/${pendingYellowAlertId}/acknowledge`),
-          nurseToken,
-        ).send({ nurseAction: 'Đo lại sinh hiệu', nursingNote: 'Đã xử trí theo phác đồ.' });
-
-        expect(response.status).toBe(200);
-        expect(response.body as AlertResponseDto).toEqual(
-          expect.objectContaining({
-            alertId: pendingYellowAlertId,
-            status: 'HANDLED',
-            nurseAction: 'Đo lại sinh hiệu',
-            nursingNote: 'Đã xử trí theo phác đồ.',
-          }),
-        );
-      });
-
-      // Kept separate from the response-shape assertion above: this is verifying
-      // persistence, a different system than "did the HTTP response look right."
-      it('THEN should persist the Acknowledged status and notes', async () => {
-        await authed(
-          request(httpServer).patch(`/alerts/${pendingYellowAlertId}/acknowledge`),
-          nurseToken,
-        ).send({ nurseAction: 'Đo lại sinh hiệu', nursingNote: 'Đã xử trí theo phác đồ.' });
-
-        const stored = await dataSource
-          .getRepository(Alert)
-          .findOne({ where: { alertId: pendingYellowAlertId } });
-        expect(stored?.status).toBe('HANDLED');
-        expect(stored?.nurseAction).toBe('Đo lại sinh hiệu');
-        expect(stored?.nursingNote).toBe('Đã xử trí theo phác đồ.');
-        expect(stored?.handledAt).toBeInstanceOf(Date);
-      });
-    });
-
-    describe('GIVEN an empty body', () => {
-      it('THEN should respond 200 with the alert Acknowledged and nurseAction/nursingNote left unset', async () => {
-        const response = await authed(
-          request(httpServer).patch(`/alerts/${pendingYellowAlertId}/acknowledge`),
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
           nurseToken,
         ).send({});
 
         expect(response.status).toBe(200);
         expect(response.body as AlertResponseDto).toEqual(
           expect.objectContaining({
-            alertId: pendingYellowAlertId,
+            alertId: pendingRedAlertId,
             status: 'HANDLED',
-            nurseAction: null,
-            nursingNote: null,
+          }),
+        );
+      });
+
+      // Verification of idempotency
+      it('THEN calling twice should still respond 200 and return HANDLED', async () => {
+        await authed(
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
+          nurseToken,
+        ).send({});
+        const response = await authed(
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
+          nurseToken,
+        ).send({});
+
+        expect(response.status).toBe(200);
+        expect(response.body as AlertResponseDto).toEqual(
+          expect.objectContaining({
+            alertId: pendingRedAlertId,
+            status: 'HANDLED',
           }),
         );
       });
@@ -272,7 +266,7 @@ describe('AlertController (integration)', () => {
     describe('GIVEN an alert id that does not exist', () => {
       it('THEN should respond 404 Not Found', async () => {
         const response = await authed(
-          request(httpServer).patch('/alerts/999999/acknowledge'),
+          request(httpServer).patch('/alerts/999999/handle'),
           nurseToken,
         ).send({});
 
@@ -280,21 +274,10 @@ describe('AlertController (integration)', () => {
       });
     });
 
-    describe('GIVEN nurseAction exceeds the 100-character limit', () => {
-      it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(
-          request(httpServer).patch(`/alerts/${pendingYellowAlertId}/acknowledge`),
-          nurseToken,
-        ).send({ nurseAction: 'a'.repeat(101) });
-
-        expect(response.status).toBe(400);
-      });
-    });
-
     describe('GIVEN no Authorization header is present', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer)
-          .patch(`/alerts/${pendingYellowAlertId}/acknowledge`)
+          .patch(`/alerts/${pendingYellowAlertId}/handle`)
           .send({});
 
         expect(response.status).toBe(401);

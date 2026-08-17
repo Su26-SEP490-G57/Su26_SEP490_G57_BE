@@ -837,11 +837,10 @@ describe('SymptomSurveyController (integration)', () => {
           );
         });
 
-        // Documents current behavior rather than asserting a requirement: unlike
-        // the TRIGGERED path, submitSurvey's SCHEDULED branch never calls
-        // repository.saveDetails, so no assessment_details rows exist for a
-        // SCHEDULED submission even though answers were provided.
-        it('THEN should not persist any assessment detail rows for the SCHEDULED submission', async () => {
+        // Like the TRIGGERED path, submitSurvey's SCHEDULED branch also calls
+        // repository.saveDetails, so a snapshot detail row is persisted per
+        // submitted answer.
+        it('THEN should persist an assessment detail row per submitted answer', async () => {
           const now = new Date();
           await dataSource.getRepository(AssessmentTask).save({
             caseId: 'CASE-001',
@@ -865,7 +864,14 @@ describe('SymptomSurveyController (integration)', () => {
           const details = await dataSource.getRepository(AssessmentDetail).find({
             where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
           });
-          expect(details).toEqual([]);
+          expect(details).toHaveLength(1);
+          expect(details[0]).toEqual(
+            expect.objectContaining({
+              questionId,
+              selectedOptionId: greenOptionId,
+              optionTextSnapshot: 'Không',
+            }),
+          );
         });
       });
     });

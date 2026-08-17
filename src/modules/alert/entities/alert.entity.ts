@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
+import { User } from '../../user/entities/user.entity';
 
 export const ALERT_TYPES = ['YELLOW', 'RED'] as const;
 export const ALERT_STATUSES = [
@@ -55,8 +56,18 @@ export class Alert {
   @Column({ name: 'nursing_note', type: 'text', nullable: true })
   nursingNote!: string | null;
 
-  @Column({ name: 'handled_at', type: 'timestamp', nullable: true })
+  @Column({ name: 'handled_at', type: 'timestamp with time zone', nullable: true })
   handledAt!: Date | null;
+
+  @Column({ name: 'handled_by_user_id', type: 'int', nullable: true })
+  handledByUserId!: number | null;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', eager: false, nullable: true })
+  @JoinColumn({ name: 'handled_by_user_id' })
+  handledBy!: User | null;
+
+  @Column({ name: 'unlock_notified_at', type: 'timestamp with time zone', nullable: true })
+  unlockNotifiedAt!: Date | null;
 
   @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
   closedAt!: Date | null;

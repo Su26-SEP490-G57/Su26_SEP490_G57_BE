@@ -58,6 +58,19 @@ export class DeviceService {
     return rows.map((row) => row.fcmToken).filter(Boolean);
   }
 
+  async findActiveTokensForPatientCase(caseId: string): Promise<string[]> {
+    const rows = await this.deviceRepo
+      .createQueryBuilder('device')
+      .innerJoin('device.user', 'user')
+      .where('device.isActive = true')
+      .andWhere('user.isActive = true')
+      .andWhere('user.caseId = :caseId', { caseId })
+      .select('DISTINCT device.fcmToken', 'fcmToken')
+      .getRawMany<{ fcmToken: string }>();
+
+    return rows.map((row) => row.fcmToken).filter(Boolean);
+  }
+
   async findActiveTokensForRoles(roleNames: UserRoleName[]): Promise<string[]> {
     if (!roleNames.length) {
       return [];

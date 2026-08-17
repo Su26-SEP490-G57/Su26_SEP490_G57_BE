@@ -27,10 +27,12 @@ import {
   SurveyQuestionDto,
   SymptomSurveyResponseDto,
 } from '../dtos/symptom-survey-response.dto';
+import { SymptomSurvey } from '../entities/symptom-survey.entity';
+// 'AssessmentTask' là dependency được gọi ngầm trong taskRepository
+// import { AssessmentTask } from '../entities/assessment-task.entity';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
 import { SurveyQuestion } from '../entities/survey-question.entity';
-import { SymptomSurvey } from '../entities/symptom-survey.entity';
 import { SymptomSurveyRepository } from '../repositories/symptom-survey.repository';
 import { AssessmentTaskRepository } from '../repositories/assessment-task.repository';
 
@@ -267,8 +269,22 @@ export class SymptomSurveyService {
     let triage_color = triageResult.triageColor;
     const triggers = triageResult.triggers;
 
-    // NÔN LŨY KẾ
+    // The server determines scheduled versus triggered from the currently open task.
+    // Client-provided assessmentType/scheduledSlot are intentionally ignored.
     const currentPod = await this.repository.findCurrentPod(dto.caseId);
+    const now = new Date();
+    const openScheduledTask = await this.taskRepository.findOpenPendingTask(
+      dto.caseId,
+      currentPod ?? 0,
+      now,
+    );
+
+    if (await this.alertService.isAssessmentLocked(dto.caseId, now)) {
+      throw new ForbiddenException(
+        'Bệnh nhân đang chờ điều dưỡng xử trí cảnh báo ĐỎ hoặc chưa đủ thời gian đánh giá lại.',
+      );
+    }
+
     const vomitCount = await this.repository.countVomitingInPod(dto.caseId, currentPod ?? 0);
     const currentVomitValue = options
       .filter((o) => o.question.clinicalDimension === 'VOMITING')
@@ -279,37 +295,44 @@ export class SymptomSurveyService {
       triggers.push('CONSECUTIVE_VOMITING_ACCUMULATION');
     }
 
-    // BLOCK TRIGGERED IF RED PENDING
-    const pendingRedAlert = await this.alertService.findPendingRedByCaseId(dto.caseId);
-    if (dto.assessmentType === 'TRIGGERED' && pendingRedAlert) {
-      throw new ForbiddenException(
-        'Bệnh nhân đang trong tình trạng cảnh báo ĐỎ. Vui lòng liên hệ điều dưỡng.',
-      );
-    }
-
-    // Kiểm tra task nếu SCHEDULED
-    if (dto.assessmentType === 'SCHEDULED') {
-      const task = await this.taskRepository.findPendingTask(
-        dto.caseId,
-        dto.scheduledSlot || 'MORNING',
-        currentPod ?? 0,
-      );
-      if (!task || task.opensAt > new Date() || task.closesAt < new Date()) {
-        throw new BadRequestException('Invalid or expired scheduled assessment task');
+    if (openScheduledTask !== null) {
+      if (dto.assessmentType !== 'SCHEDULED') {
+        throw new BadRequestException(
+          'Matching scheduled task found; assessmentType must be SCHEDULED',
+        );
       }
 
       const saved = await this.repository.saveSurvey({
         caseId: dto.caseId,
-        evaluationDatetime: new Date(),
+        evaluationDatetime: now,
         podContext: currentPod,
         totalScore: 0,
         triageColor: triage_color,
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         assessmentType: 'SCHEDULED',
-        scheduledSlot: dto.scheduledSlot,
+        scheduledSlot: openScheduledTask.scheduledSlot,
         triageTriggers: triggers,
       });
-      await this.taskRepository.markCompleted(task.assessmentTaskId, saved.assessmentId);
+      await this.taskRepository.markCompleted(
+        openScheduledTask.assessmentTaskId,
+        saved.assessmentId,
+      );
+
+      const detailData = dto.answers.map((answer) => {
+        const opt = optionMap.get(answer.selectedOptionId)!;
+        return {
+          assessmentId: saved.assessmentId,
+          questionId: answer.questionId,
+          selectedOptionId: answer.selectedOptionId,
+          scoreEarned: opt.scoreValue,
+          questionTextSnapshot: opt.question.questionText,
+          optionTextSnapshot: opt.optionText,
+          clinicalDimensionSnapshot: opt.question.clinicalDimension ?? '',
+          optionTriageLevelSnapshot: opt.optionTriageLevel ?? '',
+          normalizedValueSnapshot: opt.normalizedValue,
+        } as AssessmentDetail;
+      });
+      await this.repository.saveDetails(detailData);
 
       // Sync patient level based on latest triage result
       await this.repository.syncPatientLevel(saved.caseId, triage_color);
@@ -318,7 +341,7 @@ export class SymptomSurveyService {
       this.statisticsGateway.emitAssessmentSubmitted({
         caseId: saved.caseId,
         assessmentId: saved.assessmentId,
-        podContext: saved.podContext,
+        podContext: saved.podContext ?? 0,
         triageColor: triage_color,
       });
 
@@ -334,15 +357,13 @@ export class SymptomSurveyService {
 
       return this.toResponse(saved);
     } else {
-      if (pendingRedAlert) {
-        throw new ForbiddenException(
-          'Cannot submit triggered assessment while a RED alert is pending',
-        );
+      if (dto.assessmentType === 'SCHEDULED') {
+        throw new BadRequestException('Invalid or expired scheduled assessment task');
       }
 
       const saved = await this.repository.saveSurvey({
         caseId: dto.caseId,
-        evaluationDatetime: new Date(),
+        evaluationDatetime: now,
         podContext: currentPod,
         totalScore: 0,
         triageColor: triage_color,

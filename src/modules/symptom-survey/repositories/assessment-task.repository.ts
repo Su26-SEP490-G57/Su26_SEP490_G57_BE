@@ -10,19 +10,20 @@ export class AssessmentTaskRepository {
     private readonly repo: Repository<AssessmentTask>,
   ) {}
 
-  async findPendingTask(
+  async findOpenPendingTask(
     caseId: string,
-    slot: 'MORNING' | 'AFTERNOON',
     pod: number,
+    now: Date,
   ): Promise<AssessmentTask | null> {
-    return this.repo.findOne({
-      where: {
-        caseId,
-        podContext: pod,
-        scheduledSlot: slot,
-        status: 'PENDING',
-      },
-    });
+    return this.repo
+      .createQueryBuilder('task')
+      .where('task.case_id = :caseId', { caseId })
+      .andWhere('task.pod_context = :pod', { pod })
+      .andWhere('task.status = :status', { status: 'PENDING' })
+      .andWhere('task.opens_at <= :now', { now })
+      .andWhere('task.closes_at >= :now', { now })
+      .orderBy('task.opens_at', 'ASC')
+      .getOne();
   }
 
   async create(task: Partial<AssessmentTask>): Promise<AssessmentTask> {
