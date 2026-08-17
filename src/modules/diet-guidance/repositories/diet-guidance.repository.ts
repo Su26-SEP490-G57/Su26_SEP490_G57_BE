@@ -12,7 +12,25 @@ export class DietGuidanceRepository {
     private readonly opTypeRepo: Repository<OperationType>,
     @InjectRepository(PodProtocol)
     private readonly podRepo: Repository<PodProtocol>,
+    @InjectRepository(Patient)
+    private readonly patientRepo: Repository<Patient>,
   ) {}
+
+  findPatientByCaseId(caseId: string): Promise<Patient | null> {
+    return this.patientRepo.findOne({
+      where: { caseId },
+      relations: ['operationType'],
+    });
+  }
+
+  findPodByOperationAndDietLevel(
+    operationTypeId: number,
+    dietLevel: number,
+  ): Promise<PodProtocol | null> {
+    return this.podRepo.findOne({
+      where: { operationTypeId, dietLevel },
+    });
+  }
 
   // ── Operation Types ──────────────────────────────────────────────────────────
 

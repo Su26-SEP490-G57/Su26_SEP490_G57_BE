@@ -12,6 +12,7 @@ import { TimezoneInterceptor } from '../../../src/common/interceptors/timezone.i
 import { LoginResponse } from '../../../src/modules/auth/services/auth.service';
 import { PodLockResponseDto } from '../../../src/modules/patient/dtos/pod-lock.dto';
 import { Patient } from '../../../src/modules/patient/entities/patient.entity';
+import { PodProtocolTrackingLog } from '../../../src/modules/patient/entities/pod-protocol-tracking-log.entity';
 import { PatientGateway } from '../../../src/modules/patient/gateways/patient.gateway';
 import {
   CurrentPodResponse,
@@ -92,7 +93,10 @@ describe('PatientController (integration)', () => {
   describe('GET /patients', () => {
     describe('GIVEN no filters', () => {
       it('THEN should respond 200 with all 10 seeded active patients ordered Red→Yellow→Green then by case id', async () => {
-        const response = await authed(request(httpServer).get('/patients'), nurseToken);
+        // Head Nurse: not subject to the Nurse-role room-based auto-filter (see the
+        // dedicated "GIVEN a Nurse caller" / "GIVEN a Head Nurse caller" tests below),
+        // since this test asserts the full unfiltered roster.
+        const response = await authed(request(httpServer).get('/patients'), headNurseToken);
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedPatients;
@@ -119,6 +123,7 @@ describe('PatientController (integration)', () => {
         const body = response.body as PaginatedPatients;
         const caseOne = body.data.find((p) => p.caseId === 'CASE-001');
         expect(caseOne?.currentPod).toBe(2);
+        expect(caseOne?.currentDietLevel).toBe(0);
         expect(caseOne?.level?.name).toBe('Yellow');
         expect(caseOne?.account?.username).toBe('patient01');
         expect(caseOne?.account?.fullName).toBe('Nguyễn Văn An');
@@ -157,7 +162,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with only patients at that level', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ level: 'Red' }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -171,7 +176,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with only patients of that operation type', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ operationTypeId: 1 }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -185,7 +190,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with patients ordered by currentPod ascending', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ sortBy: 'pod' }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -203,7 +208,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 200 with a page of that size and the correct total', async () => {
         const response = await authed(
           request(httpServer).get('/patients').query({ page: 1, limit: 3 }),
-          nurseToken,
+          headNurseToken,
         );
 
         expect(response.status).toBe(200);
@@ -221,7 +226,7 @@ describe('PatientController (integration)', () => {
       });
 
       it('THEN should respond 200 excluding the completed patient from the list and total', async () => {
-        const response = await authed(request(httpServer).get('/patients'), nurseToken);
+        const response = await authed(request(httpServer).get('/patients'), headNurseToken);
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedPatients;
@@ -246,6 +251,68 @@ describe('PatientController (integration)', () => {
         const response = await request(httpServer).get('/patients');
 
         expect(response.status).toBe(401);
+      });
+    });
+
+    describe('GIVEN a Nurse caller and no nurseUserId query param', () => {
+      it("THEN should auto-filter to only patients in the nurse's assigned rooms", async () => {
+        const response = await authed(request(httpServer).get('/patients'), nurseToken);
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(6);
+        expect(body.data.map((p) => p.caseId).sort()).toEqual([
+          'CASE-001',
+          'CASE-002',
+          'CASE-003',
+          'CASE-004',
+          'CASE-005',
+          'CASE-006',
+        ]);
+      });
+    });
+
+    describe('GIVEN a Head Nurse caller and no nurseUserId query param', () => {
+      it('THEN should NOT auto-filter and should respond with all active patients', async () => {
+        const response = await authed(request(httpServer).get('/patients'), headNurseToken);
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(10);
+      });
+    });
+
+    describe('GIVEN an explicit nurseUserId query param for a nurse with assigned rooms', () => {
+      it("THEN should respond 200 with only patients in that nurse's assigned rooms", async () => {
+        const response = await authed(
+          request(httpServer).get('/patients').query({ nurseUserId: 3 }),
+          headNurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(6);
+        expect(
+          body.data.every((p) =>
+            ['CASE-001', 'CASE-002', 'CASE-003', 'CASE-004', 'CASE-005', 'CASE-006'].includes(
+              p.caseId,
+            ),
+          ),
+        ).toBe(true);
+      });
+    });
+
+    describe('GIVEN a nurseUserId query param for a nurse with no assigned rooms', () => {
+      it('THEN should respond 200 with an empty result set', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients').query({ nurseUserId: 2 }),
+          headNurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(0);
+        expect(body.data).toEqual([]);
       });
     });
   });
@@ -733,6 +800,163 @@ describe('PatientController (integration)', () => {
         const response = await request(httpServer)
           .patch('/patients/CASE-001/pod-lock')
           .send({ isLocked: true, holdReason: 'Bất kỳ' });
+
+        expect(response.status).toBe(401);
+      });
+    });
+  });
+
+  describe('PATCH /patients/:id/diet-level', () => {
+    describe('GIVEN a valid dietLevel and a Nurse caller', () => {
+      it('THEN should respond 200 with the diet level updated on the returned patient', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          nurseToken,
+        ).send({ dietLevel: 2 });
+
+        expect(response.status).toBe(200);
+        const body = response.body as PatientWithAccount;
+        expect(body.caseId).toBe('CASE-001');
+        expect(body.currentDietLevel).toBe(2);
+      });
+
+      // Kept separate from the response-shape assertion above: this is verifying
+      // persistence, a different system than "did the HTTP response look right."
+      it('THEN should persist the updated currentDietLevel', async () => {
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+          dietLevel: 2,
+        });
+
+        const stored = await dataSource
+          .getRepository(Patient)
+          .findOne({ where: { caseId: 'CASE-001' } });
+        expect(stored?.currentDietLevel).toBe(2);
+      });
+
+      // Kept separate: the audit log write is an independent side effect from
+      // the persisted currentDietLevel column itself.
+      it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+          dietLevel: 2,
+        });
+
+        const logs = await dataSource
+          .getRepository(PodProtocolTrackingLog)
+          .find({ where: { caseId: 'CASE-001' }, order: { changedAt: 'DESC' } });
+        expect(logs[0]).toEqual(
+          expect.objectContaining({
+            oldStatus: 'Mức ăn 0',
+            newStatus: 'Mức ăn 2',
+            actionType: 'Nurse_Acknowledge',
+            changedById: 3,
+          }),
+        );
+      });
+    });
+
+    describe('GIVEN dietLevel=4 and the patient has not yet reached the soft diet POD', () => {
+      it('THEN should persist podSoftDietReached as the current POD', async () => {
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+          dietLevel: 4,
+        });
+
+        const stored = await dataSource
+          .getRepository(Patient)
+          .findOne({ where: { caseId: 'CASE-001' } });
+        expect(stored?.podSoftDietReached).toBe(2);
+      });
+    });
+
+    describe('GIVEN dietLevel=4 and the patient already reached the soft diet POD', () => {
+      beforeEach(async () => {
+        await dataSource
+          .getRepository(Patient)
+          .update({ caseId: 'CASE-001' }, { podSoftDietReached: 1 });
+      });
+
+      it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+          dietLevel: 4,
+        });
+
+        const stored = await dataSource
+          .getRepository(Patient)
+          .findOne({ where: { caseId: 'CASE-001' } });
+        expect(stored?.podSoftDietReached).toBe(1);
+      });
+    });
+
+    describe('GIVEN a dietLevel above the allowed maximum', () => {
+      it('THEN should respond 400 Bad Request', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          nurseToken,
+        ).send({ dietLevel: 5 });
+
+        expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN a negative dietLevel', () => {
+      it('THEN should respond 400 Bad Request', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          nurseToken,
+        ).send({ dietLevel: -1 });
+
+        expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN the request is missing the required dietLevel field', () => {
+      it('THEN should respond 400 Bad Request', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          nurseToken,
+        ).send({});
+
+        expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN a Head Nurse caller', () => {
+      it('THEN should respond 200 (Head Nurse is allowed to update diet level)', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          headNurseToken,
+        ).send({ dietLevel: 1 });
+
+        expect(response.status).toBe(200);
+      });
+    });
+
+    describe('GIVEN a Patient caller (not Nurse/Head Nurse)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          patientToken,
+        ).send({ dietLevel: 1 });
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN a case id that does not exist', () => {
+      it('THEN should respond 404 Not Found', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-999/diet-level'),
+          nurseToken,
+        ).send({ dietLevel: 1 });
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('GIVEN no Authorization header is present', () => {
+      it('THEN should respond 401 Unauthorized', async () => {
+        const response = await request(httpServer)
+          .patch('/patients/CASE-001/diet-level')
+          .send({ dietLevel: 1 });
 
         expect(response.status).toBe(401);
       });

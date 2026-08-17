@@ -124,6 +124,13 @@ export class SymptomSurveyRepository {
     }
   }
 
+  async lockPatientCase(caseId: string, reason: string): Promise<void> {
+    await this.patientRepo.update(
+      { caseId },
+      { isLocked: true, lockedAt: new Date(), reasonHoldPod: reason },
+    );
+  }
+
   findById(assessmentId: number): Promise<SymptomSurvey | null> {
     return this.surveyRepo.findOne({ where: { assessmentId: assessmentId } });
   }

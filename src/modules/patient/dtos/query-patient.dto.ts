@@ -45,6 +45,15 @@ export class QueryPatientDto {
   room?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter patients assigned to rooms of a specific nurse (nurse user ID)',
+    example: 3,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  nurseUserId?: number;
+
+  @ApiPropertyOptional({
     enum: PATIENT_SORT_FIELDS,
     description:
       'Column to sort by. When omitted, defaults to level (Red→Yellow→Green) then oldest case first.',

@@ -164,6 +164,22 @@ export class PatientRepository {
       qb.andWhere("split_part(patient.room_bed, '/', 1) = :room", { room: query.room });
     }
 
+    if (query.nurseUserId) {
+      const assignedRoomsRows = await this.dataSource.query<{ room_code: string }[]>(
+        `SELECT room_code FROM room_nurse_assignments WHERE nurse_user_id = $1`,
+        [query.nurseUserId],
+      );
+      const assignedRooms = assignedRoomsRows.map((r) => r.room_code);
+      if (assignedRooms.length === 0) {
+        // Nurse has no assigned rooms -> return empty result set
+        return [[], 0];
+      }
+      qb.andWhere(
+        "(split_part(patient.room_bed, '/', 1) IN (:...assignedRooms) OR patient.room_bed IN (:...assignedRooms))",
+        { assignedRooms },
+      );
+    }
+
     // Sorting
     if (query.sortBy === 'pod') {
       qb.orderBy('patient.currentPod', query.sortOrder ?? 'ASC', 'NULLS LAST');

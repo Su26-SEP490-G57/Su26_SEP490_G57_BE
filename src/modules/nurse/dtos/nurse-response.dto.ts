@@ -31,6 +31,9 @@ export class NurseResponseDto {
   @ApiProperty({ example: true })
   isActive!: boolean;
 
+  @ApiPropertyOptional({ example: ['P502', 'P503'], description: 'Rooms assigned to nurse' })
+  assignedRooms?: string[];
+
   @ApiProperty({ example: '2026-06-01T00:00:00.000Z' })
   createdAt!: Date;
 

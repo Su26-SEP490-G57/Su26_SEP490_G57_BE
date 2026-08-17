@@ -6,9 +6,12 @@ import { NurseController } from './controllers/nurse.controller';
 import { NurseRepository } from './repositories/nurse.repository';
 import { NurseService } from './services/nurse.service';
 
+import { RoomNurseAssignment } from './entities/room-nurse-assignment.entity';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), UsersModule],
+  imports: [TypeOrmModule.forFeature([User, RoomNurseAssignment]), UsersModule],
   controllers: [NurseController],
   providers: [NurseService, NurseRepository],
+  exports: [NurseService, NurseRepository],
 })
 export class NurseModule {}

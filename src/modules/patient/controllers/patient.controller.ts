@@ -28,6 +28,7 @@ import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-respon
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
+import { UpdateDietLevelDto } from '../dtos/update-diet-level.dto';
 import { UpdatePodLevelDto } from '../dtos/update-pod-level.dto';
 import {
   CurrentPodResponse,
@@ -72,11 +73,23 @@ export class PatientController {
   @ApiOperation({
     summary: 'Get the priority patient list',
     description:
-      'Paginated patient list. Supports search by case_id/full name, filter by level and operation type, ' +
+      'Paginated patient list. Supports search by case_id/full name, filter by level, operation type, nurseUserId, ' +
       'and sort by POD. Default ordering: level (Red→Yellow→Green) then oldest case to the newest.',
   })
   @ApiResponse({ status: 200, type: PaginatedPatientsDto })
-  getAllPatients(@Query() query: QueryPatientDto): Promise<PaginatedPatients> {
+  getAllPatients(
+    @CurrentUser() user: { id: number; roles?: string[] },
+    @Query() query: QueryPatientDto,
+  ): Promise<PaginatedPatients> {
+    if (
+      user?.id &&
+      !query.nurseUserId &&
+      user.roles?.includes('Nurse') &&
+      !user.roles?.includes('Head_Nurse') &&
+      !user.roles?.includes('Admin')
+    ) {
+      query.nurseUserId = user.id;
+    }
     return this.patientService.getAllPatients(query);
   }
 
@@ -153,6 +166,22 @@ export class PatientController {
     @CurrentUser() user: { id: number },
   ): Promise<PodLockResponseDto> {
     return this.patientService.lockPod(id, dto, user.id);
+  }
+
+  @Patch(':id/diet-level')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Update diet level for a patient based on clinical tolerance',
+    description: 'Nurse/Head Nurse only. Updates current_diet_level (0 to 4).',
+  })
+  @ApiResponse({ status: 200, type: PatientListItemDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  updateDietLevel(
+    @Param('id') id: string,
+    @Body() dto: UpdateDietLevelDto,
+    @CurrentUser() user: { id: number },
+  ): Promise<PatientWithAccount> {
+    return this.patientService.updateDietLevel(id, dto.dietLevel, user.id);
   }
 
   @Patch(':id/pod-level')

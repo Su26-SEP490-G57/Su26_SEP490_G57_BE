@@ -29,13 +29,41 @@ import {
   PodProtocolResponseDto,
   UpdatePodProtocolDto,
 } from '../dtos/pod-protocol.dto';
+import { DailyDietProgressionSchedulerService } from '../services/daily-diet-progression-scheduler.service';
 import { DietGuidanceService } from '../services/diet-guidance.service';
 
 @ApiTags('Diet Guidance')
 @ApiBearerAuth()
 @Controller('diet-guidance')
 export class DietGuidanceController {
-  constructor(private readonly service: DietGuidanceService) {}
+  constructor(
+    private readonly service: DietGuidanceService,
+    private readonly schedulerService: DailyDietProgressionSchedulerService,
+  ) {}
+
+  // ── Patient Diet Guidance ───────────────────────────────────────────────────
+
+  @Get('patient/:caseId/current')
+  @ApiOperation({
+    summary: 'Get current diet guidance for a patient based on their currentDietLevel',
+  })
+  @ApiResponse({ status: 200, type: PodProtocolResponseDto })
+  async getCurrentPatientDietGuidance(
+    @Param('caseId') caseId: string,
+  ): Promise<PodProtocolResponseDto | null> {
+    return this.service.getCurrentDietGuidanceForPatient(caseId);
+  }
+
+  @Post('cron/process-daily-diet-progression')
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({
+    summary: 'Manually trigger end-of-day daily diet progression scan',
+    description:
+      'Scans all active patients, auto-advances diet level if latest assessment is GREEN, maintains if YELLOW/RED/missing.',
+  })
+  async triggerDailyDietProgression() {
+    return this.schedulerService.processDailyDietProgression();
+  }
 
   // ── Operation Types ──────────────────────────────────────────────────────────
 
