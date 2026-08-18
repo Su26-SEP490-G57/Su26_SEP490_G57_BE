@@ -64,6 +64,11 @@ export interface EngagementSummaryRow {
   appAccessCount: number;
 }
 
+export interface AssessmentSlotStatusRow {
+  scheduledSlot: 'MORNING' | 'AFTERNOON';
+  status: 'PENDING' | 'COMPLETED' | 'MISSED';
+}
+
 export interface AssessmentDetailCellRow {
   pod: number;
   questionId: number;
@@ -301,6 +306,22 @@ export class StatisticsRepository {
   ): Promise<AppEngagementLog> {
     const log = this.engagementLogRepo.create({ caseId, ...data });
     return this.engagementLogRepo.save(log);
+  }
+
+  /**
+   * MORNING/AFTERNOON scheduled-assessment status for one POD day (normally
+   * today's `currentPod`) — the two rows created by `AssessmentTaskSchedulerService`
+   * at 00:00. Returns fewer than 2 rows if the daily cron hasn't run yet for this POD.
+   */
+  async getAssessmentSlotStatuses(caseId: string, pod: number): Promise<AssessmentSlotStatusRow[]> {
+    return this.dataSource.query<AssessmentSlotStatusRow[]>(
+      `
+      SELECT scheduled_slot AS "scheduledSlot", status
+      FROM assessment_tasks
+      WHERE case_id = $1 AND pod_context = $2
+      `,
+      [caseId, pod],
+    );
   }
 
   /**
