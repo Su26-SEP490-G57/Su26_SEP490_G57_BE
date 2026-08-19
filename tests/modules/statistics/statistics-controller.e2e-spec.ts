@@ -479,6 +479,87 @@ describe('StatisticsController (integration)', () => {
           expectedAssessmentCount: 3,
           complianceRate: 1 / 3,
           isCompliant: false,
+          // currentPod is 2 ("today"), which has no assessment_tasks rows in
+          // this fixture -> both scheduled slots default to PENDING.
+          morningAssessmentStatus: 'PENDING',
+          afternoonAssessmentStatus: 'PENDING',
+          isDailyCompliant: false,
+        });
+      });
+    });
+
+    describe('GIVEN a patient whose today (currentPod) MORNING and AFTERNOON tasks are both COMPLETED and who has viewed guidance and education', () => {
+      it('THEN should respond 200 with isDailyCompliant true', async () => {
+        // CASE-002's seeded currentPod is 1.
+        await dataSource.getRepository(AppEngagementLog).save({
+          caseId: 'CASE-002',
+          viewedGuidance: true,
+          viewedEducation: true,
+          reminderCount: 0,
+          appAccessCount: 1,
+        });
+        await dataSource.getRepository(AssessmentTask).save([
+          {
+            caseId: 'CASE-002',
+            podContext: 1,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(),
+            closesAt: new Date(),
+            status: 'COMPLETED',
+            completedAt: new Date(),
+          },
+          {
+            caseId: 'CASE-002',
+            podContext: 1,
+            scheduledSlot: 'AFTERNOON',
+            opensAt: new Date(),
+            closesAt: new Date(),
+            status: 'COMPLETED',
+            completedAt: new Date(),
+          },
+        ]);
+
+        const response = await authed(
+          request(httpServer).get('/patients/CASE-002/compliance'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PatientComplianceResponseDto;
+        expect(body.morningAssessmentStatus).toBe('COMPLETED');
+        expect(body.afternoonAssessmentStatus).toBe('COMPLETED');
+        expect(body.isDailyCompliant).toBe(true);
+      });
+    });
+
+    describe('GIVEN a patient whose ERAS protocol has not started (currentPod is null)', () => {
+      it('THEN should respond 200 with null slot statuses and isDailyCompliant false', async () => {
+        await dataSource.getRepository(Patient).save({
+          caseId: 'CASE-NO-POD',
+          currentPod: null,
+        });
+
+        const response = await authed(
+          request(httpServer).get('/patients/CASE-NO-POD/compliance'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body as PatientComplianceResponseDto).toEqual({
+          caseId: 'CASE-NO-POD',
+          currentPod: null,
+          hasEngagementLog: false,
+          viewedGuidance: false,
+          viewedEducation: false,
+          reminderCount: 0,
+          appAccessCount: 0,
+          assessmentCompletedCount: 0,
+          expectedAssessmentCount: 0,
+          complianceRate: 0,
+          isCompliant: false,
+          morningAssessmentStatus: null,
+          afternoonAssessmentStatus: null,
+          isDailyCompliant: false,
         });
       });
     });

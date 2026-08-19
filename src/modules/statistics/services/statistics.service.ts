@@ -203,28 +203,48 @@ export class StatisticsService {
     const patient = await this.patientRepository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
 
-    const [engagement, assessmentCompletedCount] = await Promise.all([
+    const currentPod = patient.currentPod;
+    const [engagement, assessmentCompletedCount, todaySlots] = await Promise.all([
       this.repository.getEngagementSummary(caseId),
       this.repository.getAssessmentCompletedCount(caseId),
+      currentPod !== null
+        ? this.repository.getAssessmentSlotStatuses(caseId, currentPod)
+        : Promise.resolve([]),
     ]);
 
-    const currentPod = patient.currentPod;
     const expectedAssessmentCount = currentPod !== null ? currentPod + 1 : 0;
     const complianceRate =
       expectedAssessmentCount > 0 ? assessmentCompletedCount / expectedAssessmentCount : 0;
+
+    const slotStatus = (slot: 'MORNING' | 'AFTERNOON') =>
+      currentPod === null
+        ? null
+        : (todaySlots.find((s) => s.scheduledSlot === slot)?.status ?? 'PENDING');
+    const morningAssessmentStatus = slotStatus('MORNING');
+    const afternoonAssessmentStatus = slotStatus('AFTERNOON');
+
+    const viewedGuidance = engagement?.viewedGuidance ?? false;
+    const viewedEducation = engagement?.viewedEducation ?? false;
 
     return {
       caseId,
       currentPod,
       hasEngagementLog: engagement !== null,
-      viewedGuidance: engagement?.viewedGuidance ?? false,
-      viewedEducation: engagement?.viewedEducation ?? false,
+      viewedGuidance,
+      viewedEducation,
       reminderCount: engagement?.reminderCount ?? 0,
       appAccessCount: engagement?.appAccessCount ?? 0,
       assessmentCompletedCount,
       expectedAssessmentCount,
       complianceRate,
       isCompliant: complianceRate >= COMPLIANCE_THRESHOLD,
+      morningAssessmentStatus,
+      afternoonAssessmentStatus,
+      isDailyCompliant:
+        viewedGuidance &&
+        viewedEducation &&
+        morningAssessmentStatus === 'COMPLETED' &&
+        afternoonAssessmentStatus === 'COMPLETED',
     };
   }
 
