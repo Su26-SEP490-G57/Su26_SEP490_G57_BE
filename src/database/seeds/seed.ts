@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt';
+﻿import * as bcrypt from 'bcrypt';
 import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
 import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
@@ -605,6 +605,7 @@ export async function seed(
       surgeryDate: formatISO(subDays(now, 7), { representation: 'date' }),
       roomBed: 'P502',
       currentPod: 2,
+      currentDietLevel: 2,
       podStartDate: formatISO(subDays(now, 2), { representation: 'date' }),
       assessmentTimeAgo: 15,
       assignedNurse: savedUsers[2],
@@ -623,6 +624,7 @@ export async function seed(
       surgeryDate: formatISO(subDays(now, 10), { representation: 'date' }),
       roomBed: 'P502',
       currentPod: 1,
+      currentDietLevel: 1,
       podStartDate: formatISO(subDays(now, 1), { representation: 'date' }),
       assessmentTimeAgo: 8,
       assignedNurse: savedUsers[2],
@@ -641,6 +643,7 @@ export async function seed(
       surgeryDate: formatISO(subDays(now, 5), { representation: 'date' }),
       roomBed: 'P502',
       currentPod: 3,
+      currentDietLevel: 2,
       podStartDate: formatISO(subDays(now, 3), { representation: 'date' }),
       assessmentTimeAgo: 8,
       assignedNurse: savedUsers[2],

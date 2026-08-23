@@ -29,6 +29,15 @@ export class AlertRepository {
     });
   }
 
+  findAllPendingByCaseId(caseId: string): Promise<Alert[]> {
+    return this.repo.find({
+      where: {
+        caseId: caseId,
+        status: 'PENDING_REVIEW',
+      },
+    });
+  }
+
   findAll(query: QueryAlertDto): Promise<[Alert[], number]> {
     const where: FindOptionsWhere<Alert> = {};
 

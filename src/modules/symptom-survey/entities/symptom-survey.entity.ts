@@ -41,4 +41,25 @@ export class SymptomSurvey {
   /** Legacy score retained only during the compatibility migration period. */
   @Column({ name: 'total_score', type: 'int', default: 0 })
   totalScore!: number;
+
+  /**
+   * Phân biệt bài đánh giá khảo sát thường (SURVEY) với đánh giá lại lâm sàng
+   * do điều dưỡng tạo thủ công (REASSESSMENT). Mặc định SURVEY để tương thích ngược.
+   */
+  @Column({ name: 'source', type: 'varchar', length: 20, default: 'SURVEY' })
+  source!: 'SURVEY' | 'REASSESSMENT' | 'NOTE';
+
+  /**
+   * Ghi chú lâm sàng đính kèm (chỉ dùng cho REASSESSMENT).
+   * Null với các bài đánh giá khảo sát thông thường.
+   */
+  @Column({ name: 'nurse_note', type: 'text', nullable: true })
+  nurseNote!: string | null;
+
+  /**
+   * ID điều dưỡng tạo đánh giá lại (FK sang users.id).
+   * Null với các bài đánh giá khảo sát do bệnh nhân tự làm.
+   */
+  @Column({ name: 'nurse_id', type: 'int', nullable: true })
+  nurseId!: number | null;
 }

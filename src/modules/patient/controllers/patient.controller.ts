@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
+import { CreateReassessmentDto } from '../../symptom-survey/dtos/create-reassessment.dto';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
@@ -138,6 +139,26 @@ export class PatientController {
     @Query('limit') limit = 10,
   ): Promise<PaginatedAssessmentHistoryDto> {
     return this.symptomSurveyService.getAssessmentHistory(id, +page, +limit);
+  }
+
+  @Post(':id/reassessments')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @ApiOperation({
+    summary: 'Submit a clinical reassessment for a patient (Nurse/Head Nurse only)',
+    description:
+      'Điều dưỡng tạo đánh giá lại lâm sàng — cập nhật triage color bệnh nhân kèm ghi chú, ' +
+      'không cần câu trả lời khảo sát. Bản ghi được lưu vào patient_assessments với source=REASSESSMENT ' +
+      'và details=[], nên tự nhiên có thứ tự đúng trong GET assessments timeline.',
+  })
+  @ApiResponse({ status: 201 })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  submitReassessment(
+    @Param('id') id: string,
+    @Body() dto: CreateReassessmentDto,
+    @CurrentUser() caller: { id: number; roles?: string[]; caseId?: string },
+  ) {
+    dto.caseId = id; // Override caseId từ URL param để tránh spoofing
+    return this.symptomSurveyService.submitReassessment(dto, caller as any);
   }
 
   @Post(':id/start-eras')
