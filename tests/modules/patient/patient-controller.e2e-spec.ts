@@ -122,7 +122,7 @@ describe('PatientController (integration)', () => {
 
         const body = response.body as PaginatedPatients;
         const caseOne = body.data.find((p) => p.caseId === 'CASE-001');
-        expect(caseOne?.currentPod).toBe(2);
+        expect(caseOne?.currentPod).toBe(1);
         expect(caseOne?.currentDietLevel).toBe(0);
         expect(caseOne?.level?.name).toBe('Yellow');
         expect(caseOne?.account?.username).toBe('patient01');
@@ -197,7 +197,7 @@ describe('PatientController (integration)', () => {
         const body = response.body as PaginatedPatients;
         const pods = body.data.map((p) => p.currentPod);
         expect(pods[0]).toBe(0);
-        expect(pods[pods.length - 1]).toBe(5);
+        expect(pods[pods.length - 1]).toBe(4);
         for (let i = 1; i < pods.length; i++) {
           expect(pods[i]! >= pods[i - 1]!).toBe(true);
         }
@@ -475,7 +475,7 @@ describe('PatientController (integration)', () => {
         expect(response.status).toBe(200);
         expect(response.body as CurrentPodResponse).toEqual({
           caseId: 'CASE-001',
-          currentPod: 2,
+          currentPod: 1,
           isLocked: false,
           holdReason: null,
         });

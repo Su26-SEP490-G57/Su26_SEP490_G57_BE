@@ -361,7 +361,7 @@ describe('StatisticsController (integration)', () => {
             caseId: 'CASE-001',
             fullName: 'Nguyễn Văn An',
             roomBed: 'P502',
-            currentPod: 2,
+            currentPod: 1,
             level: { id: 2, name: 'Yellow' },
             operationType: { id: 2, name: 'Phẫu thuật đại trực tràng' },
           }),
@@ -467,7 +467,7 @@ describe('StatisticsController (integration)', () => {
         expect(response.status).toBe(200);
         expect(response.body as PatientComplianceResponseDto).toEqual({
           caseId: 'CASE-001',
-          currentPod: 2,
+          currentPod: 1,
           hasEngagementLog: true,
           viewedGuidance: true,
           viewedEducation: false,
@@ -476,8 +476,8 @@ describe('StatisticsController (integration)', () => {
           // Only POD0 has both MORNING and AFTERNOON tasks COMPLETED; POD1's
           // lone MORNING completion doesn't count, POD2 has none.
           assessmentCompletedCount: 1,
-          expectedAssessmentCount: 3,
-          complianceRate: 1 / 3,
+          expectedAssessmentCount: 2,
+          complianceRate: 0.5,
           isCompliant: false,
         });
       });
@@ -552,8 +552,8 @@ describe('StatisticsController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as AssessmentMatrixResponseDto;
         expect(body.caseId).toBe('CASE-001');
-        expect(body.currentPod).toBe(2);
-        expect(body.pods).toEqual([0, 1, 2]);
+        expect(body.currentPod).toBe(1);
+        expect(body.pods).toEqual([0, 1]);
         expect(body.unassignedAssessmentCount).toBe(0);
 
         const question = body.questions.find((q) => q.questionId === questionId);

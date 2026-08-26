@@ -16,8 +16,11 @@ export class AlertResponseDto {
   @ApiProperty({ example: 'YELLOW', enum: ['YELLOW', 'RED'] })
   alertType!: string;
 
-  @ApiProperty({ example: 'Pending' })
+  @ApiProperty({ example: 'Đang chờ xử trí' })
   status!: string;
+
+  @ApiPropertyOptional({ example: true })
+  isOverdue?: boolean;
 
   @ApiPropertyOptional({ example: true })
   isAutoProgression!: boolean | null;

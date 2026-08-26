@@ -24,13 +24,21 @@ export class AlertService {
   ) {}
 
   private toResponse(alert: Alert): AlertResponseDto {
+    const isPending = alert.status === 'PENDING_REVIEW';
+    const isOverdue =
+      isPending && alert.triggeredAt
+        ? new Date().getTime() - alert.triggeredAt.getTime() >
+          RED_ASSESSMENT_LOCK_MINUTES * 60 * 1000
+        : false;
+
     return {
       alertId: alert.alertId,
       caseId: alert.caseId,
       assessmentId: alert.assessmentId,
       surveyScore: alert.surveyScore,
       alertType: alert.alertType,
-      status: alert.status,
+      status: alert.status === 'PENDING_REVIEW' ? 'Đang chờ xử trí' : 'Đã xử trí',
+      isOverdue,
       isAutoProgression: alert.isAutoProgression,
       triggeredAt: alert.triggeredAt,
       nurseAction: alert.nurseAction,

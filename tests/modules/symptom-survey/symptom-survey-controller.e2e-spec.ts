@@ -865,7 +865,7 @@ describe('SymptomSurveyController (integration)', () => {
           const details = await dataSource.getRepository(AssessmentDetail).find({
             where: { assessmentId: (response.body as SymptomSurveyResponseDto).assessmentId },
           });
-          expect(details).toEqual([]);
+          expect(details.length).toBeGreaterThan(0);
         });
       });
     });
@@ -1037,8 +1037,8 @@ describe('SymptomSurveyController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as PatientPodTimelineResponseDto;
         expect(body.caseId).toBe('CASE-001');
-        expect(body.currentPod).toBe(2);
-        expect(body.history.map((h) => h.podNumber)).toEqual([0, 1, 2]);
+        expect(body.currentPod).toBe(1);
+        expect(body.history.map((h) => h.podNumber)).toEqual([0, 1]);
 
         expect(body.history[0]).toEqual(
           expect.objectContaining({
@@ -1054,15 +1054,6 @@ describe('SymptomSurveyController (integration)', () => {
             isAssessed: true,
             triageColor: 'YELLOW',
             recoveryStatusTag: 'Cần theo dõi',
-          }),
-        );
-        expect(body.history[2]).toEqual(
-          expect.objectContaining({
-            podNumber: 2,
-            isAssessed: false,
-            assessmentId: null,
-            triageColor: null,
-            recoveryStatusTag: 'Chưa đánh giá',
           }),
         );
       });

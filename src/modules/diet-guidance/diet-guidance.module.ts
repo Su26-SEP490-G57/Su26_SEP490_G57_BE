@@ -9,6 +9,8 @@ import { PodProtocol } from './entities/pod-protocol.entity';
 import { DietGuidanceRepository } from './repositories/diet-guidance.repository';
 import { DailyDietProgressionSchedulerService } from './services/daily-diet-progression-scheduler.service';
 import { DietGuidanceService } from './services/diet-guidance.service';
+import { Alert } from '../alert/entities/alert.entity';
+import { AlertRepository } from '../alert/repositories/alert.repository';
 
 @Module({
   imports: [
@@ -18,10 +20,16 @@ import { DietGuidanceService } from './services/diet-guidance.service';
       Patient,
       SymptomSurvey,
       PodProtocolTrackingLog,
+      Alert,
     ]),
   ],
   controllers: [DietGuidanceController],
-  providers: [DietGuidanceService, DietGuidanceRepository, DailyDietProgressionSchedulerService],
+  providers: [
+    DietGuidanceService,
+    DietGuidanceRepository,
+    DailyDietProgressionSchedulerService,
+    AlertRepository,
+  ],
   exports: [DietGuidanceService, DailyDietProgressionSchedulerService],
 })
 export class DietGuidanceModule {}
