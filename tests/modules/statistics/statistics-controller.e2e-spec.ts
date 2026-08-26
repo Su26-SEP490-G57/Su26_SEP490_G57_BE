@@ -13,6 +13,7 @@ import { Patient } from '../../../src/modules/patient/entities/patient.entity';
 import { PodProtocolTrackingLog } from '../../../src/modules/patient/entities/pod-protocol-tracking-log.entity';
 import { AnalyticsOverviewResponseDto } from '../../../src/modules/statistics/dtos/analytics-overview-response.dto';
 import { AssessmentMatrixResponseDto } from '../../../src/modules/statistics/dtos/assessment-matrix-response.dto';
+import { EngagementLogResponseDto } from '../../../src/modules/statistics/dtos/engagement-log-response.dto';
 import { PatientComplianceResponseDto } from '../../../src/modules/statistics/dtos/patient-compliance-response.dto';
 import { RecoveryMatrixResponseDto } from '../../../src/modules/statistics/dtos/recovery-matrix-response.dto';
 import { AppEngagementLog } from '../../../src/modules/statistics/entities/app-engagement-log.entity';
@@ -479,6 +480,87 @@ describe('StatisticsController (integration)', () => {
           expectedAssessmentCount: 2,
           complianceRate: 0.5,
           isCompliant: false,
+          // currentPod is 2 ("today"), which has no assessment_tasks rows in
+          // this fixture -> both scheduled slots default to PENDING.
+          morningAssessmentStatus: 'PENDING',
+          afternoonAssessmentStatus: 'PENDING',
+          isDailyCompliant: false,
+        });
+      });
+    });
+
+    describe('GIVEN a patient whose today (currentPod) MORNING and AFTERNOON tasks are both COMPLETED and who has viewed guidance and education', () => {
+      it('THEN should respond 200 with isDailyCompliant true', async () => {
+        // CASE-002's seeded currentPod is 1.
+        await dataSource.getRepository(AppEngagementLog).save({
+          caseId: 'CASE-002',
+          viewedGuidance: true,
+          viewedEducation: true,
+          reminderCount: 0,
+          appAccessCount: 1,
+        });
+        await dataSource.getRepository(AssessmentTask).save([
+          {
+            caseId: 'CASE-002',
+            podContext: 1,
+            scheduledSlot: 'MORNING',
+            opensAt: new Date(),
+            closesAt: new Date(),
+            status: 'COMPLETED',
+            completedAt: new Date(),
+          },
+          {
+            caseId: 'CASE-002',
+            podContext: 1,
+            scheduledSlot: 'AFTERNOON',
+            opensAt: new Date(),
+            closesAt: new Date(),
+            status: 'COMPLETED',
+            completedAt: new Date(),
+          },
+        ]);
+
+        const response = await authed(
+          request(httpServer).get('/patients/CASE-002/compliance'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PatientComplianceResponseDto;
+        expect(body.morningAssessmentStatus).toBe('COMPLETED');
+        expect(body.afternoonAssessmentStatus).toBe('COMPLETED');
+        expect(body.isDailyCompliant).toBe(true);
+      });
+    });
+
+    describe('GIVEN a patient whose ERAS protocol has not started (currentPod is null)', () => {
+      it('THEN should respond 200 with null slot statuses and isDailyCompliant false', async () => {
+        await dataSource.getRepository(Patient).save({
+          caseId: 'CASE-NO-POD',
+          currentPod: null,
+        });
+
+        const response = await authed(
+          request(httpServer).get('/patients/CASE-NO-POD/compliance'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body as PatientComplianceResponseDto).toEqual({
+          caseId: 'CASE-NO-POD',
+          currentPod: null,
+          hasEngagementLog: false,
+          viewedGuidance: false,
+          viewedEducation: false,
+          reminderCount: 0,
+          appAccessCount: 0,
+          assessmentCompletedCount: 0,
+          expectedAssessmentCount: 0,
+          complianceRate: 0,
+          isCompliant: false,
+          morningAssessmentStatus: null,
+          afternoonAssessmentStatus: null,
+          isDailyCompliant: false,
         });
       });
     });
@@ -580,6 +662,85 @@ describe('StatisticsController (integration)', () => {
     describe('GIVEN no Authorization header is present', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer).get('/patients/CASE-001/assessment-matrix');
+
+        expect(response.status).toBe(401);
+      });
+    });
+  });
+
+  describe('POST /patients/:caseId/engagement-logs', () => {
+    describe('GIVEN a Nurse caller and a viewedGuidance flag', () => {
+      it('THEN should respond 201 with the stored engagement log', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/engagement-logs'),
+          nurseToken,
+        ).send({ viewedGuidance: true });
+
+        expect(response.status).toBe(201);
+        expect(response.body as EngagementLogResponseDto).toEqual({
+          caseId: 'CASE-001',
+          viewedGuidance: true,
+          viewedEducation: null,
+        });
+      });
+    });
+
+    describe('GIVEN a Patient caller logging engagement for their own case', () => {
+      it('THEN should respond 201 with the stored engagement log', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/engagement-logs'),
+          patientToken,
+        ).send({ viewedEducation: true });
+
+        expect(response.status).toBe(201);
+        expect(response.body as EngagementLogResponseDto).toEqual({
+          caseId: 'CASE-001',
+          viewedGuidance: null,
+          viewedEducation: true,
+        });
+      });
+    });
+
+    // patientToken is patient01, whose seeded caseId is CASE-001 — logging
+    // against CASE-002 is a different patient's case.
+    describe('GIVEN a Patient caller logging engagement for a different case', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-002/engagement-logs'),
+          patientToken,
+        ).send({ viewedGuidance: true });
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN neither viewedGuidance nor viewedEducation is provided', () => {
+      it('THEN should respond 400 Bad Request', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/engagement-logs'),
+          nurseToken,
+        ).send({});
+
+        expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN the patient does not exist', () => {
+      it('THEN should respond 404 Not Found', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-999/engagement-logs'),
+          nurseToken,
+        ).send({ viewedGuidance: true });
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('GIVEN no Authorization header is present', () => {
+      it('THEN should respond 401 Unauthorized', async () => {
+        const response = await request(httpServer)
+          .post('/patients/CASE-001/engagement-logs')
+          .send({ viewedGuidance: true });
 
         expect(response.status).toBe(401);
       });

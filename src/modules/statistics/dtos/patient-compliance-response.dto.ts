@@ -37,4 +37,33 @@ export class PatientComplianceResponseDto {
 
   @ApiProperty({ example: false })
   isCompliant!: boolean;
+
+  @ApiPropertyOptional({
+    example: 'COMPLETED',
+    enum: ['PENDING', 'COMPLETED', 'MISSED'],
+    nullable: true,
+    description:
+      "Status of today's (currentPod) MORNING (06:00-08:00) scheduled assessment. " +
+      'null when the patient has no active POD (ERAS not started).',
+  })
+  morningAssessmentStatus!: 'PENDING' | 'COMPLETED' | 'MISSED' | null;
+
+  @ApiPropertyOptional({
+    example: 'PENDING',
+    enum: ['PENDING', 'COMPLETED', 'MISSED'],
+    nullable: true,
+    description:
+      "Status of today's (currentPod) AFTERNOON (16:00-18:00) scheduled assessment. " +
+      'null when the patient has no active POD (ERAS not started).',
+  })
+  afternoonAssessmentStatus!: 'PENDING' | 'COMPLETED' | 'MISSED' | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True only if viewedGuidance AND viewedEducation AND BOTH morning/afternoon scheduled ' +
+      "assessments for today's POD are COMPLETED. Distinct from isCompliant, which is the " +
+      '>= 80% cumulative rate across all elapsed POD days.',
+  })
+  isDailyCompliant!: boolean;
 }
