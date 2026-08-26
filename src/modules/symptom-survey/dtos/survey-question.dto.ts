@@ -20,10 +20,11 @@ export class CreateQuestionOptionDto {
   @MaxLength(255)
   optionText!: string;
 
-  @ApiProperty({ example: 1, description: 'Score contributed when this option is selected' })
+  @ApiPropertyOptional({ example: 1, description: 'DEPRECATED: No longer used' })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  scoreValue!: number;
+  scoreValue?: number;
 }
 
 export class UpdateQuestionOptionDto {
@@ -34,7 +35,7 @@ export class UpdateQuestionOptionDto {
   @MaxLength(255)
   optionText?: string;
 
-  @ApiPropertyOptional({ example: 1 })
+  @ApiPropertyOptional({ example: 1, description: 'DEPRECATED: No longer used' })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -107,6 +108,6 @@ export class QuestionOptionDto {
   @ApiProperty({ example: 'Nhẹ' })
   optionText!: string;
 
-  @ApiProperty({ example: 1 })
-  scoreValue!: number;
+  @ApiPropertyOptional({ example: 1, description: 'DEPRECATED: No longer used' })
+  scoreValue?: number;
 }

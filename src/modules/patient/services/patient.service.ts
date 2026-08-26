@@ -85,16 +85,12 @@ export class PatientService {
     if (patient.currentPod === null || patient.currentPod === undefined) {
       return 0;
     }
-    if (!patient.podStartDate || patient.isLocked || patient.erasCompleted) {
-      return patient.currentPod;
-    }
-    const elapsedSeconds = (Date.now() - new Date(patient.podStartDate).getTime()) / 1000;
-    if (elapsedSeconds < 0) return 0;
-    const computedPod = Math.floor(elapsedSeconds / 86400);
+    // POD hiện tại chính là POD đã lưu (được quản lý bởi Scheduler), không tự tính toán theo thời gian thực
+    const pod = patient.currentPod;
     if (maxPod !== undefined && maxPod !== null) {
-      return Math.min(computedPod, maxPod);
+      return Math.min(pod, maxPod);
     }
-    return computedPod;
+    return pod;
   }
 
   private toResponse(

@@ -15,6 +15,14 @@ export class RoomNurseAssignmentRepository {
     return assignments.map((a) => a.nurseUserId);
   }
 
+  async isNurseAssignedToRoom(nurseUserId: number, roomCode: string): Promise<boolean> {
+    return (
+      (await this.repo.count({
+        where: { nurseUserId, roomCode },
+      })) > 0
+    );
+  }
+
   async bulkAssign(roomCodes: string[], nurseIds: number[]): Promise<void> {
     await this.repo
       .createQueryBuilder()

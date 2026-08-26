@@ -32,6 +32,9 @@ export class SymptomSurvey {
   @Column({ name: 'triage_color', type: 'varchar', length: 20, nullable: true })
   triageColor!: string | null;
 
+  @Column({ name: 'triage_verdict_snapshot', type: 'varchar', length: 20, nullable: true })
+  triageVerdictSnapshot!: string | null;
+
   @Column({ name: 'questionnaire_version_id', type: 'int' })
   questionnaireVersionId!: number;
 

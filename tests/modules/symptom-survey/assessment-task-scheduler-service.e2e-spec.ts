@@ -88,7 +88,7 @@ describe('AssessmentTaskSchedulerService (integration)', () => {
         expect(tasks).toHaveLength(2);
         expect(morning).toEqual(
           expect.objectContaining({
-            podContext: 2,
+            podContext: 1,
             status: 'PENDING',
             opensAt: morningWindow.opensAt,
             closesAt: morningWindow.closesAt,
@@ -96,7 +96,7 @@ describe('AssessmentTaskSchedulerService (integration)', () => {
         );
         expect(afternoon).toEqual(
           expect.objectContaining({
-            podContext: 2,
+            podContext: 1,
             status: 'PENDING',
             opensAt: afternoonWindow.opensAt,
             closesAt: afternoonWindow.closesAt,
