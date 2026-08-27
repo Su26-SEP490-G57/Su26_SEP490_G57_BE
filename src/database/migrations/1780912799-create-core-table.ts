@@ -226,11 +226,11 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO ${schema}."survey_questions" ("question_text", "order_number")
       VALUES
-        ('Bạn có buồn nôn không?', 1),
-        ('Bạn có nôn nhiều không?', 2),
-        ('Bạn có chướng bụng không?', 3),
-        ('Bạn ăn được bao nhiêu?', 4),
-        ('Bạn đã trung tiện chưa?', 5)
+        ('Trong khoảng thời gian từ lần đánh giá trước đến hiện tại, bạn có cảm thấy buồn nôn không?', 1),
+        ('Trong khoảng thời gian từ lần đánh giá trước đến hiện tại, bạn có bị nôn không?', 2),
+        ('Bạn có cảm giác chướng bụng không?', 3),
+        ('Trong bữa ăn gần nhất, bạn đã ăn được khoảng bao nhiêu khẩu phần được cung cấp?', 4),
+        ('Kể từ lần đánh giá trước đến hiện tại, bạn đã trung tiện chưa?', 5)
     `);
 
     await queryRunner.query(`
@@ -240,19 +240,19 @@ export class CreateCoreSchema1780912799000 implements MigrationInterface {
       JOIN (
         VALUES
           (1, 'Không', 0),
-          (1, 'Nhẹ', 1),
-          (1, 'Nhiều', 2),
+          (1, 'Có nhưng vẫn ăn uống được', 1),
+          (1, 'Buồn nôn nhiều, phải ngừng ăn hoặc rất khó ăn', 2),
           (2, 'Không', 0),
-          (2, '1 lần', 2),
-          (2, '≥2 lần', 3),
+          (2, 'Có 1 lần', 2),
+          (2, 'Có từ 2 lần trở lên', 3),
           (3, 'Không', 0),
-          (3, 'Nhẹ', 1),
-          (3, 'Nặng', 2),
-          (4, 'Bình thường', 0),
-          (4, 'Ít', 1),
-          (4, 'Không ăn', 2),
-          (5, 'Có', 0),
-          (5, 'Chưa', 1)
+          (3, 'Có nhưng vẫn sinh hoạt và ăn uống được', 1),
+          (3, 'Chướng nhiều, khó chịu hoặc phải ngừng ăn', 2),
+          (4, 'Ăn được ≥75% khẩu phần', 0),
+          (4, 'Ăn được từ 50% đến dưới 75% khẩu phần', 1),
+          (4, 'Ăn được <50% khẩu phần hoặc không ăn được', 2),
+          (5, 'Đã trung tiện', 0),
+          (5, 'Chưa trung tiện', 1)
       ) AS v("order_number", "option_text", "score_value")
         ON q."order_number" = v."order_number"
     `);
