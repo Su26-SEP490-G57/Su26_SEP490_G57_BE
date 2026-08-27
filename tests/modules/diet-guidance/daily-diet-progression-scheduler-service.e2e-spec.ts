@@ -118,6 +118,10 @@ describe('DailyDietProgressionSchedulerService (integration)', () => {
 
     describe('GIVEN no assessment was completed today but one exists for the patient current POD context', () => {
       it('THEN should fall back to that assessment and advance on GREEN', async () => {
+        // Pin the starting diet level explicitly rather than relying on seed.ts's
+        // incidental value, so this test's ADVANCED-from-X-to-X+1 assertion stays
+        // correct regardless of what seed.ts happens to seed CASE-002 at.
+        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 0 });
         const patient = await patientRepo.findOneOrFail({ where: { caseId: 'CASE-002' } });
 
         // Remove the seed-fixture survey (dated "today" by construction) so the

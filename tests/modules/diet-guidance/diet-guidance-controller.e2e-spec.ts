@@ -760,10 +760,13 @@ describe('DietGuidanceController (integration)', () => {
   });
 
   describe('GET /diet-guidance/patient/:caseId/current', () => {
-    describe('GIVEN a caseId with an operation type and the default currentDietLevel (0)', () => {
+    describe('GIVEN a caseId with an operation type and currentDietLevel 0', () => {
       it('THEN should respond 200 with the dietLevel-0 POD for that patient operation type', async () => {
+        // seed.ts seeds CASE-002 at currentDietLevel 1, so pin it to 0 explicitly
+        // rather than relying on that incidental seed value for this assertion.
+        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 0 });
         const patient = await patientRepo.findOneOrFail({ where: { caseId: 'CASE-002' } });
-        expect(patient.currentDietLevel).toBe(0); // seeded default, not yet progressed
+        expect(patient.currentDietLevel).toBe(0);
         const expectedPod = await podRepo.findOneOrFail({
           where: { operationTypeId: patient.operationTypeId!, dietLevel: 0 },
         });
@@ -851,6 +854,13 @@ describe('DietGuidanceController (integration)', () => {
     });
 
     describe('GIVEN a patient whose latest assessment today is GREEN and below max diet level', () => {
+      // seed.ts seeds CASE-002 at currentDietLevel 1; pin it to 0 explicitly so
+      // this test's Mức ăn 0 -> Mức ăn 1 transition stays correct regardless of
+      // whatever incidental value seed.ts happens to seed CASE-002 at.
+      beforeEach(async () => {
+        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 0 });
+      });
+
       it('THEN should respond 201 advancing that patient from Mức ăn 0 to Mức ăn 1', async () => {
         const surveyRepo = dataSource.getRepository(SymptomSurvey);
         await surveyRepo.save({
@@ -904,6 +914,9 @@ describe('DietGuidanceController (integration)', () => {
 
     describe('GIVEN a patient whose latest assessment today is YELLOW', () => {
       it('THEN should respond 201 maintaining that patient at their current diet level', async () => {
+        // seed.ts seeds CASE-002 at currentDietLevel 1; pin it to 0 explicitly so
+        // this "maintained" assertion doesn't depend on that incidental seed value.
+        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 0 });
         const surveyRepo = dataSource.getRepository(SymptomSurvey);
         await surveyRepo.save({
           caseId: 'CASE-002',
