@@ -10,6 +10,7 @@ import { StatisticsGateway } from '../../statistics/gateways/statistics.gateway'
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../constants/questionnaire-version.constant';
+import { CreateReassessmentDto } from '../dtos/create-reassessment.dto';
 import { CreateSymptomSurveyDto } from '../dtos/create-symptom-survey.dto';
 import {
   CreateQuestionOptionDto,
@@ -434,6 +435,10 @@ export class SymptomSurveyService {
           podContext: survey.podContext,
           totalScore: survey.totalScore,
           triageColor: survey.triageColor,
+          // Phân biệt bài khảo sát thường và đánh giá lại lâm sàng.
+          // source mặc định 'SURVEY' cho các bản ghi cũ chưa có cột này.
+          source: (survey.source ?? 'SURVEY') as 'SURVEY' | 'REASSESSMENT',
+          nurseNote: survey.nurseNote ?? null,
           details: details.map(
             (d): AnswerDetailDto => ({
               questionId: d.questionId,
@@ -448,6 +453,72 @@ export class SymptomSurveyService {
     );
 
     return { data, total, page, limit };
+  }
+
+  /**
+   * Tạo đánh giá lại lâm sàng (Reassessment) do điều dưỡng thực hiện.
+   *
+   * Chiến lược: Lưu vào cùng bảng `patient_assessments` với `source = 'REASSESSMENT'`
+   * và `details = []`. Như vậy `getAssessmentHistory` tự nhiên trả về đúng thứ tự
+   * thời gian mà không cần UNION hay query từ 2 bảng khác nhau.
+   */
+  async submitReassessment(
+    dto: CreateReassessmentDto,
+    caller: UserResponseDto,
+  ): Promise<AssessmentHistoryItemDto> {
+    const patient = await this.repository.findPatientByCaseId(dto.caseId);
+    if (!patient) {
+      throw new NotFoundException(`Patient with caseId ${dto.caseId} not found`);
+    }
+
+    const currentPod = await this.repository.findCurrentPod(dto.caseId);
+    const source = dto.source === 'NOTE' ? 'NOTE' : 'REASSESSMENT';
+    const isNoteOnly = source === 'NOTE';
+
+    // Lưu vào patient_assessments. Nếu là ghi chú đơn thuần (NOTE), triageColor = null.
+    const saved = await this.repository.saveSurvey({
+      caseId: dto.caseId,
+      evaluationDatetime: new Date(),
+      podContext: currentPod,
+      totalScore: 0,
+      triageColor: isNoteOnly ? null : (dto.triageColor ?? null),
+      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+      assessmentType: 'TRIGGERED',
+      triageTriggers: [],
+      source: source,
+      nurseNote: dto.nurseNote ?? null,
+      nurseId: caller.id,
+    });
+
+    // CHỈ CẬP NHẬT TRẠNG THÁI NẾU LÀ REASSESSMENT (KHÔNG ĐỔI TRẠNG THÁI NẾU LÀ GHI CHÚ ĐƠN THUẦN)
+    if (!isNoteOnly && dto.triageColor) {
+      await this.repository.syncPatientLevel(saved.caseId, dto.triageColor);
+
+      // Cập nhật loại cảnh báo (Alert) của bệnh nhân theo triage color vừa đánh giá lại
+      await this.alertService.updateAlertsOnReassessment(
+        saved.caseId,
+        dto.triageColor,
+        saved.assessmentId,
+      );
+
+      this.statisticsGateway.emitAssessmentSubmitted({
+        caseId: saved.caseId,
+        assessmentId: saved.assessmentId,
+        podContext: saved.podContext,
+        triageColor: dto.triageColor,
+      });
+    }
+
+    return {
+      assessmentId: saved.assessmentId,
+      evaluationDatetime: saved.evaluationDatetime,
+      podContext: saved.podContext,
+      totalScore: 0,
+      triageColor: saved.triageColor,
+      source: source,
+      nurseNote: dto.nurseNote ?? null,
+      details: [],
+    };
   }
 
   async getPatientPodHistory(

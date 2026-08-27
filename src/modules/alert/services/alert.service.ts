@@ -58,15 +58,23 @@ export class AlertService {
     this.alertGateway.emitNewAlert(response);
 
     const pushTitle = saved.alertType === 'RED' ? '🔴 Cảnh báo khẩn' : '🟡 Cần theo dõi';
-    const pushBody = `${patientName} • ${room} • ${
+    const pushBody = `${room} • ${patientName} • ${
       saved.alertType === 'RED' ? 'Mức đỏ' : 'Mức vàng'
     }`;
 
-    // Push Notification cho Mobile: fan-out tới ONLY nurses ĐƯỢC GÁN phòng
+    // Push Notification cho Mobile: fan-out tới nurses ĐƯỢC GÁN phòng (hoặc tất cả điều dưỡng nếu chưa phân công)
     const assignedNurseIds = await this.roomNurseRepository.getAssignedNurses(roomCode);
 
     if (assignedNurseIds.length > 0) {
       await this.notificationService.sendToNursesSpecific(assignedNurseIds, pushTitle, pushBody, {
+        caseId: saved.caseId,
+        assessmentId: String(saved.assessmentId),
+        patientName,
+        roomBed: room,
+        alertType: saved.alertType,
+      });
+    } else {
+      await this.notificationService.sendToNurses(pushTitle, pushBody, {
         caseId: saved.caseId,
         assessmentId: String(saved.assessmentId),
         patientName,
@@ -103,5 +111,47 @@ export class AlertService {
 
   async findPendingRedByCaseId(caseId: string): Promise<Alert | null> {
     return this.repository.findPendingRedByCaseId(caseId);
+  }
+
+  async updateAlertsOnReassessment(
+    caseId: string,
+    triageColor: string,
+    assessmentId?: number,
+  ): Promise<void> {
+    const pendingAlerts = await this.repository.findAllPendingByCaseId(caseId);
+
+    if (pendingAlerts.length > 0) {
+      for (const alert of pendingAlerts) {
+        if (triageColor === 'GREEN') {
+          // Bệnh nhân ổn định -> Đánh dấu cảnh báo đã được xử lý thành công
+          alert.status = 'HANDLED';
+          alert.handledAt = new Date();
+          alert.nursingNote = 'Đã cập nhật trạng thái người bệnh về Ổn định (GREEN).';
+        } else {
+          // Cập nhật loại cảnh báo (RED hoặc YELLOW) theo triage color mới
+          alert.alertType = triageColor as 'RED' | 'YELLOW';
+        }
+
+        const saved = await this.repository.save(alert);
+        this.alertGateway.emitNewAlert(this.toResponse(saved));
+      }
+    } else if (
+      (triageColor === 'RED' || triageColor === 'YELLOW') &&
+      assessmentId &&
+      assessmentId > 0
+    ) {
+      // Bệnh nhân chưa có cảnh báo pending nhưng vừa được đánh giá lại sang RED hoặc YELLOW
+      const saved = await this.repository.save({
+        caseId: caseId,
+        assessmentId: assessmentId,
+        surveyScore: 0,
+        alertType: triageColor,
+        status: 'PENDING_REVIEW',
+        isAutoProgression: false,
+        triggeredAt: new Date(),
+      });
+
+      this.alertGateway.emitNewAlert(this.toResponse(saved));
+    }
   }
 }
