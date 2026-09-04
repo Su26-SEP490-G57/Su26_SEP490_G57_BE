@@ -1,4 +1,4 @@
-﻿import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
 import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
@@ -7,6 +7,7 @@ import { Level } from 'src/modules/patient/entities/level.entity';
 import { OperationType } from 'src/modules/patient/entities/operation-type.entity';
 import { Patient } from 'src/modules/patient/entities/patient.entity';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from 'src/modules/symptom-survey/constants/questionnaire-version.constant';
+import { AssessmentDetail } from 'src/modules/symptom-survey/entities/assessment-detail.entity';
 import { QuestionOption } from 'src/modules/symptom-survey/entities/question-option.entity';
 import { SurveyQuestion } from 'src/modules/symptom-survey/entities/survey-question.entity';
 import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
@@ -782,27 +783,110 @@ export async function seed(
   log('   - Room distribution: P502(3), P504(3), P506(4)');
   log('   - Level distribution: Red(3), Yellow(3), Green(4)');
 
-  const symptomSurveys: DeepPartial<SymptomSurvey>[] = savedPatientCases.map((patient) => {
-    const levelName = patient.level!.levelName;
+  // Bảng phân bổ thứ tự diễn tiến triage color cho các ngày lịch sử hậu phẫu (POD 0 -> currentPod)
+  const historyProgression: Record<string, string[]> = {
+    'CASE-001': ['Green', 'Green', 'Yellow'],
+    'CASE-002': ['Yellow', 'Green'],
+    'CASE-003': ['Green', 'Yellow', 'Yellow', 'Red'],
+    'CASE-004': ['Yellow', 'Green', 'Green'],
+    'CASE-005': ['Green', 'Green', 'Yellow', 'Green', 'Yellow'],
+    'CASE-006': ['Yellow', 'Red'],
+    'CASE-007': ['Yellow', 'Yellow', 'Green', 'Green', 'Green', 'Green'],
+    'CASE-008': ['Yellow'],
+    'CASE-009': ['Green', 'Yellow', 'Yellow', 'Red'],
+    'CASE-010': ['Red', 'Yellow', 'Yellow', 'Green', 'Green'],
+  };
 
-    const survey = {
-      caseId: patient.caseId,
-      evaluationDatetime: subMinutes(now, patient.assessmentTimeAgo),
-      podContext: patient.currentPod,
-      totalScore: levelToScore[levelName.toUpperCase() as keyof typeof levelToScore],
-      triageColor: levelName,
-      questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
-    };
+  const symptomSurveys: DeepPartial<SymptomSurvey>[] = [];
 
-    log(
-      `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} (score: ${survey.totalScore}) - ${patient.assessmentTimeAgo} minute(s) ago`,
-    );
+  for (const patient of savedPatientCases) {
+    const caseId = patient.caseId;
+    const maxPod = patient.currentPod ?? 0;
+    const progression = historyProgression[caseId] ?? [];
 
-    return survey;
+    for (let pod = 0; pod <= maxPod; pod++) {
+      const isCurrentPod = pod === maxPod;
+      const triageColor = pod < progression.length ? progression[pod] : patient.level!.levelName;
+
+      let evalDate: Date;
+      if (isCurrentPod) {
+        evalDate = subMinutes(now, patient.assessmentTimeAgo);
+      } else {
+        const pastDaysAgo = maxPod - pod;
+        const pastDay = subDays(now, pastDaysAgo);
+        pastDay.setHours(20, 0, 0, 0);
+        evalDate = pastDay;
+      }
+
+      const totalScore = levelToScore[triageColor.toUpperCase() as keyof typeof levelToScore] ?? 1;
+
+      symptomSurveys.push({
+        caseId: caseId,
+        evaluationDatetime: evalDate,
+        podContext: pod,
+        totalScore: totalScore,
+        triageColor: triageColor,
+        source: 'SURVEY',
+        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
+      });
+
+      log(
+        `   ✅ Assessment for ${caseId} (POD ${pod}): ${triageColor} (score: ${totalScore}) at ${evalDate.toISOString()}`,
+      );
+    }
+  }
+
+  const savedSurveys = await symptomSurveysRepository.save(symptomSurveys);
+  log(`✅ ${savedSurveys.length} patient assessments seeded across POD 0 to current POD`);
+
+  // Seed AssessmentDetails cho toàn bộ các bài đánh giá khảo sát để hiện đúng trên bảng Tuân thủ (Compliance Matrix)
+  const assessmentDetailsRepository = dataSource.getRepository(AssessmentDetail);
+  const surveyQuestionsRepository = dataSource.getRepository(SurveyQuestion);
+
+  const questions = await surveyQuestionsRepository.find({
+    relations: ['options'],
+    order: { orderNumber: 'ASC' },
   });
 
-  await symptomSurveysRepository.save(symptomSurveys);
-  log('✅ 10 patient assessments seeded');
+  const detailsToSave: DeepPartial<AssessmentDetail>[] = [];
+
+  for (const survey of savedSurveys) {
+    const triage = (survey.triageColor ?? 'Green').toUpperCase();
+
+    for (const q of questions) {
+      if (!q.options || q.options.length === 0) continue;
+
+      const sortedOptions = [...q.options].sort(
+        (a, b) => (a.scoreValue ?? 0) - (b.scoreValue ?? 0),
+      );
+
+      let selectedOption: QuestionOption;
+      if (triage === 'GREEN') {
+        selectedOption = sortedOptions[0];
+      } else if (triage === 'YELLOW') {
+        selectedOption = sortedOptions[Math.min(1, sortedOptions.length - 1)];
+      } else {
+        selectedOption = sortedOptions[sortedOptions.length - 1];
+      }
+
+      detailsToSave.push({
+        assessmentId: survey.assessmentId,
+        questionId: q.questionId,
+        selectedOptionId: selectedOption.optionId,
+        questionTextSnapshot: q.questionText,
+        optionTextSnapshot: selectedOption.optionText,
+        clinicalDimensionSnapshot: q.clinicalDimension ?? '',
+        optionTriageLevelSnapshot: selectedOption.optionTriageLevel ?? '',
+        normalizedValueSnapshot: selectedOption.normalizedValue ?? null,
+        scoreEarned: selectedOption.scoreValue ?? 0,
+      });
+    }
+  }
+
+  if (detailsToSave.length > 0) {
+    await assessmentDetailsRepository.save(detailsToSave);
+    log(`✅ ${detailsToSave.length} assessment question details seeded for compliance matrix`);
+  }
 
   // Seed Room Nurse Assignments for nurse01 (ID 3) -> P502, P504
   await queryRunner.query(`TRUNCATE TABLE "room_nurse_assignments" CASCADE;`);
