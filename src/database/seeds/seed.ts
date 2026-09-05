@@ -83,6 +83,10 @@ export async function seed(
       id: 4,
       ...UserRole.PATIENT,
     },
+    {
+      id: 5,
+      ...UserRole.DOCTOR,
+    },
   ];
 
   const savedRoles = await rolesRepository.save(roles);
@@ -90,7 +94,11 @@ export async function seed(
 
   const ADMIN_HASH = await bcrypt.hash('Admin@123', SALT_ROUNDS);
   const NURSE_HASH = await bcrypt.hash('Nurse@123', SALT_ROUNDS);
+  const DOCTOR_HASH = await bcrypt.hash('Doctor@123', SALT_ROUNDS);
   const PATIENT_HASH = await bcrypt.hash('Patient@123', SALT_ROUNDS);
+
+  // savedRoles index: 0=Admin, 1=Head_Nurse, 2=Nurse, 3=Patient, 4=Doctor
+  const doctorRole = savedRoles[4];
 
   const users: DeepPartial<User>[] = [
     {
@@ -117,6 +125,15 @@ export async function seed(
       passwordHash: NURSE_HASH,
       fullName: 'Điều dưỡng 01',
       roles: [savedRoles[2]],
+      caseId: null,
+      isActive: true,
+    },
+    {
+      id: 14,
+      username: 'doctor01',
+      passwordHash: DOCTOR_HASH,
+      fullName: 'BS. Nguyễn Văn Khoa',
+      roles: [doctorRole],
       caseId: null,
       isActive: true,
     },
