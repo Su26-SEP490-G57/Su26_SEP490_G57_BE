@@ -127,8 +127,8 @@ export class PatientController {
   }
 
   @Get(':id/assessments')
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
-  @ApiOperation({ summary: 'Get assessment history for a patient (Nurse/Head Nurse only)' })
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Get assessment history for a patient' })
   @ApiResponse({ status: 200, type: PaginatedAssessmentHistoryDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -142,11 +142,11 @@ export class PatientController {
   }
 
   @Post(':id/reassessments')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Submit a clinical reassessment for a patient (Nurse/Head Nurse only)',
+    summary: 'Submit a clinical reassessment for a patient (Nurse/Head Nurse/Doctor)',
     description:
-      'Điều dưỡng tạo đánh giá lại lâm sàng — cập nhật triage color bệnh nhân kèm ghi chú, ' +
+      'Điều dưỡng hoặc Bác sĩ tạo đánh giá lại lâm sàng — cập nhật triage color bệnh nhân kèm ghi chú, ' +
       'không cần câu trả lời khảo sát. Bản ghi được lưu vào patient_assessments với source=REASSESSMENT ' +
       'và details=[], nên tự nhiên có thứ tự đúng trong GET assessments timeline.',
   })
@@ -162,8 +162,8 @@ export class PatientController {
   }
 
   @Post(':id/start-eras')
-  @Roles(UserRoleName.HEAD_NURSE)
-  @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse only)' })
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse/Doctor only)' })
   @ApiResponse({ status: 201 })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @ApiResponse({ status: 400, description: 'ERAS already started' })
@@ -172,11 +172,11 @@ export class PatientController {
   }
 
   @Patch(':id/pod-lock')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
     summary: 'Lock or unlock POD progression for a patient',
     description:
-      'Nurse/Head Nurse only. When locking, holdReason is required. Emits real-time WebSocket event pod.locked / pod.unlocked to /patients namespace.',
+      'Nurse/Head Nurse/Doctor. When locking, holdReason is required. Emits real-time WebSocket event pod.locked / pod.unlocked to /patients namespace.',
   })
   @ApiResponse({ status: 200, type: PodLockResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -190,10 +190,10 @@ export class PatientController {
   }
 
   @Patch(':id/diet-level')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
     summary: 'Update diet level for a patient based on clinical tolerance',
-    description: 'Nurse/Head Nurse only. Updates current_diet_level (0 to 4).',
+    description: 'Nurse/Head Nurse/Doctor. Updates current_diet_level (0 to 4).',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -206,11 +206,11 @@ export class PatientController {
   }
 
   @Patch(':id/pod-level')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
     summary: 'Manually adjust POD level for a patient (rollback only)',
     description:
-      'Nurse/Head Nurse only. Allows rolling back to a previous POD level. ' +
+      'Nurse/Head Nurse/Doctor. Allows rolling back to a previous POD level. ' +
       'The new podLevel must be >= 0 and < current_pod (only backward movement allowed).',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
