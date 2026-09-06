@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt';
+﻿import * as bcrypt from 'bcrypt';
 import { formatISO, subDays, subMinutes } from 'date-fns';
 import 'dotenv/config';
 import { PodProtocol } from 'src/modules/diet-guidance/entities/pod-protocol.entity';
@@ -132,7 +132,7 @@ export async function seed(
       id: 14,
       username: 'doctor01',
       passwordHash: DOCTOR_HASH,
-      fullName: 'BS. Nguyễn Văn Khoa',
+      fullName: 'Nguyễn Văn Khoa',
       roles: [doctorRole],
       caseId: null,
       isActive: true,

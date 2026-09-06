@@ -36,9 +36,9 @@ export class StatisticsController {
 
   @Get('analytics/overview')
   @UseGuards(RolesGuard)
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Ward-level analytics overview (Nurse/Head Nurse only)',
+    summary: 'Ward-level analytics overview (Nurse/Head Nurse/Doctor)',
     description:
       'Symptom trend by POD and ERAS-compliance breakdown for the patient cohort matching the ' +
       'same filters as GET /patients (search/level/operationTypeId/room).',
@@ -50,8 +50,8 @@ export class StatisticsController {
 
   @Get(':caseId/recovery-matrix')
   @UseGuards(RolesGuard)
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
-  @ApiOperation({ summary: 'Recovery matrix for a patient (Nurse/Head Nurse only)' })
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Recovery matrix for a patient (Nurse/Head Nurse/Doctor)' })
   @ApiResponse({ status: 200, type: RecoveryMatrixResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   getRecoveryMatrix(@Param('caseId') caseId: string): Promise<RecoveryMatrixResponseDto> {
@@ -60,9 +60,9 @@ export class StatisticsController {
 
   @Get(':caseId/compliance')
   @UseGuards(RolesGuard)
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'App-engagement / assessment compliance for a patient (Nurse/Head Nurse only)',
+    summary: 'App-engagement / assessment compliance for a patient (Nurse/Head Nurse/Doctor)',
   })
   @ApiResponse({ status: 200, type: PatientComplianceResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -90,9 +90,9 @@ export class StatisticsController {
 
   @Get(':caseId/assessment-matrix')
   @UseGuards(RolesGuard)
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Per-question assessment matrix across PODs for a patient (Nurse/Head Nurse only)',
+    summary: 'Per-question assessment matrix across PODs for a patient (Nurse/Head Nurse/Doctor)',
   })
   @ApiResponse({ status: 200, type: AssessmentMatrixResponseDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
