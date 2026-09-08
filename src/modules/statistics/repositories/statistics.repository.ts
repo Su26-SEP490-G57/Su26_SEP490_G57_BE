@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
+import { QueryPatientComplianceListDto } from '../dtos/query-patient-compliance-list.dto';
 import { Patient } from '../../patient/entities/patient.entity';
 import { AppEngagementLog } from '../entities/app-engagement-log.entity';
 
@@ -11,6 +12,13 @@ export interface CohortPatient {
   caseId: string;
   currentPod: number | null;
   podStartDate: Date | null;
+}
+
+/** A patient's cohort-relevant fields + identity, for the compliance-list endpoint. */
+export interface CohortPatientWithIdentity extends CohortPatient {
+  fullName: string | null;
+  roomBed: string | null;
+  level: { id: number; name: string } | null;
 }
 
 export interface SymptomTrendQuestionRow {
@@ -135,6 +143,82 @@ export class StatisticsRepository {
       caseId: p.caseId,
       currentPod: p.currentPod,
       podStartDate: p.podStartDate,
+    }));
+  }
+
+  /**
+   * Patients matching the same filter vocabulary as GET /patients (search /
+   * level / operationTypeId / room / nurseUserId), including identity fields,
+   * for GET /patients/analytics/compliance-list. Unpaginated — the caller
+   * paginates after computing/filtering on the per-row compliance fields.
+   */
+  async findCohortWithIdentity(
+    query: QueryPatientComplianceListDto,
+  ): Promise<CohortPatientWithIdentity[]> {
+    const qb = this.patientRepo
+      .createQueryBuilder('patient')
+      .leftJoin('patient.level', 'level')
+      .leftJoinAndMapOne(
+        'patient.account',
+        User,
+        'account',
+        'account.caseId = patient.caseId AND account.deletedAt IS NULL',
+      )
+      .select([
+        'patient.caseId',
+        'patient.currentPod',
+        'patient.podStartDate',
+        'patient.roomBed',
+        'level.levelId',
+        'level.levelName',
+        'account.id',
+        'account.fullName',
+      ])
+      .where('patient.deletedAt IS NULL')
+      .andWhere('patient.erasCompleted = false');
+
+    if (query.search) {
+      qb.andWhere('(patient.caseId ILIKE :search OR account.fullName ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
+    }
+    if (query.level) {
+      qb.andWhere('level.levelName = :level', { level: query.level });
+    }
+    if (query.operationTypeId !== undefined) {
+      qb.andWhere('patient.operationTypeId = :operationTypeId', {
+        operationTypeId: query.operationTypeId,
+      });
+    }
+    if (query.room) {
+      qb.andWhere("split_part(patient.room_bed, '/', 1) = :room", { room: query.room });
+    }
+
+    if (query.nurseUserId) {
+      const assignedRoomsRows = await this.dataSource.query<{ room_code: string }[]>(
+        `SELECT room_code FROM room_nurse_assignments WHERE nurse_user_id = $1`,
+        [query.nurseUserId],
+      );
+      const assignedRooms = assignedRoomsRows.map((r) => r.room_code);
+      if (assignedRooms.length === 0) return [];
+      qb.andWhere(
+        "(split_part(patient.room_bed, '/', 1) IN (:...assignedRooms) OR patient.room_bed IN (:...assignedRooms))",
+        { assignedRooms },
+      );
+    }
+
+    // Deterministic order so page/limit slicing (done in-memory by the
+    // service, after the compliance filters) is stable across requests.
+    qb.orderBy('patient.caseId', 'ASC');
+
+    const patients = await qb.getMany();
+    return patients.map((p) => ({
+      caseId: p.caseId,
+      currentPod: p.currentPod,
+      podStartDate: p.podStartDate,
+      roomBed: p.roomBed,
+      fullName: p.account?.fullName ?? null,
+      level: p.level ? { id: p.level.levelId, name: p.level.levelName } : null,
     }));
   }
 
@@ -344,6 +428,78 @@ export class StatisticsRepository {
       [caseId],
     );
     return rows[0]?.count ?? 0;
+  }
+
+  // ── Batch (compliance-list) variants of the per-patient compliance reads ──
+  // Same semantics as their single-caseId counterparts above, but batched
+  // across a cohort of case IDs to avoid N+1 queries.
+
+  /** Batched `getEngagementSummary` — keyed by caseId; a missing key means "no engagement log row". */
+  async getEngagementSummaryBatch(caseIds: string[]): Promise<Map<string, EngagementSummaryRow>> {
+    if (caseIds.length === 0) return new Map();
+    const rows = await this.dataSource.query<Array<EngagementSummaryRow & { caseId: string }>>(
+      `
+      SELECT
+        case_id                                    AS "caseId",
+        COALESCE(bool_or(viewed_guidance), false)  AS "viewedGuidance",
+        COALESCE(bool_or(viewed_education), false) AS "viewedEducation",
+        COALESCE(SUM(reminder_count), 0)::int      AS "reminderCount",
+        COALESCE(SUM(app_access_count), 0)::int    AS "appAccessCount"
+      FROM app_engagement_logs
+      WHERE case_id = ANY($1)
+      GROUP BY case_id
+      `,
+      [caseIds],
+    );
+    return new Map(rows.map((r) => [r.caseId, r]));
+  }
+
+  /**
+   * Batched `getAssessmentSlotStatuses` — each patient's own `pod` (normally
+   * currentPod) is matched pairwise via `cases`, keyed by caseId.
+   */
+  async getAssessmentSlotStatusesBatch(
+    cases: Array<{ caseId: string; pod: number }>,
+  ): Promise<Map<string, AssessmentSlotStatusRow[]>> {
+    const map = new Map<string, AssessmentSlotStatusRow[]>();
+    if (cases.length === 0) return map;
+    const caseIds = cases.map((c) => c.caseId);
+    const pods = cases.map((c) => c.pod);
+    const rows = await this.dataSource.query<Array<AssessmentSlotStatusRow & { caseId: string }>>(
+      `
+      SELECT at.case_id AS "caseId", at.scheduled_slot AS "scheduledSlot", at.status
+      FROM assessment_tasks at
+      JOIN UNNEST($1::text[], $2::int[]) AS t(case_id, pod_context)
+        ON at.case_id = t.case_id AND at.pod_context = t.pod_context
+      `,
+      [caseIds, pods],
+    );
+    for (const r of rows) {
+      const list = map.get(r.caseId) ?? [];
+      list.push({ scheduledSlot: r.scheduledSlot, status: r.status });
+      map.set(r.caseId, list);
+    }
+    return map;
+  }
+
+  /** Batched `getAssessmentCompletedCount` — keyed by caseId; a missing key means 0. */
+  async getAssessmentCompletedCountBatch(caseIds: string[]): Promise<Map<string, number>> {
+    if (caseIds.length === 0) return new Map();
+    const rows = await this.dataSource.query<Array<{ caseId: string; count: number }>>(
+      `
+      SELECT case_id AS "caseId", COUNT(*)::int AS count
+      FROM (
+        SELECT case_id, pod_context
+        FROM assessment_tasks
+        WHERE case_id = ANY($1) AND status = 'COMPLETED'
+        GROUP BY case_id, pod_context
+        HAVING COUNT(DISTINCT scheduled_slot) >= 2
+      ) completed_pods
+      GROUP BY case_id
+      `,
+      [caseIds],
+    );
+    return new Map(rows.map((r) => [r.caseId, r.count]));
   }
 
   // ── Per-patient: assessment matrix ───────────────────────────────────────

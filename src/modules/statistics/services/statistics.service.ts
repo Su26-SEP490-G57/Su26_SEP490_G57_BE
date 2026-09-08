@@ -14,10 +14,17 @@ import {
 import { AssessmentMatrixResponseDto } from '../dtos/assessment-matrix-response.dto';
 import { CreateEngagementLogDto } from '../dtos/create-engagement-log.dto';
 import { EngagementLogResponseDto } from '../dtos/engagement-log-response.dto';
+import { PaginatedPatientComplianceListDto } from '../dtos/patient-compliance-list-response.dto';
 import { PatientComplianceResponseDto } from '../dtos/patient-compliance-response.dto';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
+import { QueryPatientComplianceListDto } from '../dtos/query-patient-compliance-list.dto';
 import { RecoveryMatrixResponseDto } from '../dtos/recovery-matrix-response.dto';
-import { DefaultQuestionRow, StatisticsRepository } from '../repositories/statistics.repository';
+import {
+  AssessmentSlotStatusRow,
+  DefaultQuestionRow,
+  EngagementSummaryRow,
+  StatisticsRepository,
+} from '../repositories/statistics.repository';
 
 /**
  * A patient is "compliant" once they've completed BOTH periodic assessments
@@ -199,6 +206,58 @@ export class StatisticsService {
 
   // ── Per-patient: compliance ───────────────────────────────────────────────
 
+  /**
+   * Threshold/rate math shared by GET .../compliance (single patient) and
+   * GET /patients/analytics/compliance-list (batch) — kept in one place so
+   * the two endpoints can never drift apart.
+   */
+  private computeComplianceFields(params: {
+    currentPod: number | null;
+    assessmentCompletedCount: number;
+    engagement: EngagementSummaryRow | null;
+    slots: AssessmentSlotStatusRow[];
+  }): {
+    viewedGuidance: boolean;
+    viewedEducation: boolean;
+    expectedAssessmentCount: number;
+    complianceRate: number;
+    isCompliant: boolean;
+    morningAssessmentStatus: 'PENDING' | 'COMPLETED' | 'MISSED' | null;
+    afternoonAssessmentStatus: 'PENDING' | 'COMPLETED' | 'MISSED' | null;
+    isDailyCompliant: boolean;
+  } {
+    const { currentPod, assessmentCompletedCount, engagement, slots } = params;
+
+    const expectedAssessmentCount = currentPod !== null ? currentPod + 1 : 0;
+    const complianceRate =
+      expectedAssessmentCount > 0 ? assessmentCompletedCount / expectedAssessmentCount : 0;
+
+    const slotStatus = (slot: 'MORNING' | 'AFTERNOON') =>
+      currentPod === null
+        ? null
+        : (slots.find((s) => s.scheduledSlot === slot)?.status ?? 'PENDING');
+    const morningAssessmentStatus = slotStatus('MORNING');
+    const afternoonAssessmentStatus = slotStatus('AFTERNOON');
+
+    const viewedGuidance = engagement?.viewedGuidance ?? false;
+    const viewedEducation = engagement?.viewedEducation ?? false;
+
+    return {
+      viewedGuidance,
+      viewedEducation,
+      expectedAssessmentCount,
+      complianceRate,
+      isCompliant: complianceRate >= COMPLIANCE_THRESHOLD,
+      morningAssessmentStatus,
+      afternoonAssessmentStatus,
+      isDailyCompliant:
+        viewedGuidance &&
+        viewedEducation &&
+        morningAssessmentStatus === 'COMPLETED' &&
+        afternoonAssessmentStatus === 'COMPLETED',
+    };
+  }
+
   async getPatientCompliance(caseId: string): Promise<PatientComplianceResponseDto> {
     const patient = await this.patientRepository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
@@ -212,40 +271,100 @@ export class StatisticsService {
         : Promise.resolve([]),
     ]);
 
-    const expectedAssessmentCount = currentPod !== null ? currentPod + 1 : 0;
-    const complianceRate =
-      expectedAssessmentCount > 0 ? assessmentCompletedCount / expectedAssessmentCount : 0;
-
-    const slotStatus = (slot: 'MORNING' | 'AFTERNOON') =>
-      currentPod === null
-        ? null
-        : (todaySlots.find((s) => s.scheduledSlot === slot)?.status ?? 'PENDING');
-    const morningAssessmentStatus = slotStatus('MORNING');
-    const afternoonAssessmentStatus = slotStatus('AFTERNOON');
-
-    const viewedGuidance = engagement?.viewedGuidance ?? false;
-    const viewedEducation = engagement?.viewedEducation ?? false;
+    const compliance = this.computeComplianceFields({
+      currentPod,
+      assessmentCompletedCount,
+      engagement,
+      slots: todaySlots,
+    });
 
     return {
       caseId,
       currentPod,
       hasEngagementLog: engagement !== null,
-      viewedGuidance,
-      viewedEducation,
       reminderCount: engagement?.reminderCount ?? 0,
       appAccessCount: engagement?.appAccessCount ?? 0,
       assessmentCompletedCount,
-      expectedAssessmentCount,
-      complianceRate,
-      isCompliant: complianceRate >= COMPLIANCE_THRESHOLD,
-      morningAssessmentStatus,
-      afternoonAssessmentStatus,
-      isDailyCompliant:
-        viewedGuidance &&
-        viewedEducation &&
-        morningAssessmentStatus === 'COMPLETED' &&
-        afternoonAssessmentStatus === 'COMPLETED',
+      ...compliance,
     };
+  }
+
+  // ── Ward-level: paginated compliance-checklist list ──────────────────────
+
+  /**
+   * Paginated, filterable list of patients + their compliance-checklist
+   * status for the Nurse Dashboard "Non-Compliant Patients Detail Screen"
+   * (SEP490-414). Fetches the full matching cohort, batches the
+   * engagement/assessment reads (no N+1), computes per-row compliance via
+   * `computeComplianceFields` (same logic as GET .../compliance), applies the
+   * checklist-specific filters in-memory, then paginates.
+   */
+  async getComplianceList(
+    query: QueryPatientComplianceListDto,
+  ): Promise<PaginatedPatientComplianceListDto> {
+    const cohort = await this.repository.findCohortWithIdentity(query);
+    const caseIds = cohort.map((c) => c.caseId);
+    const podPairs = cohort
+      .filter((c): c is (typeof cohort)[number] & { currentPod: number } => c.currentPod !== null)
+      .map((c) => ({ caseId: c.caseId, pod: c.currentPod }));
+
+    const [engagementMap, completedMap, slotMap] = await Promise.all([
+      this.repository.getEngagementSummaryBatch(caseIds),
+      this.repository.getAssessmentCompletedCountBatch(caseIds),
+      this.repository.getAssessmentSlotStatusesBatch(podPairs),
+    ]);
+
+    let rows = cohort.map((patient) => {
+      const compliance = this.computeComplianceFields({
+        currentPod: patient.currentPod,
+        assessmentCompletedCount: completedMap.get(patient.caseId) ?? 0,
+        engagement: engagementMap.get(patient.caseId) ?? null,
+        slots: slotMap.get(patient.caseId) ?? [],
+      });
+      return {
+        caseId: patient.caseId,
+        fullName: patient.fullName,
+        roomBed: patient.roomBed,
+        currentPod: patient.currentPod,
+        level: patient.level,
+        viewedGuidance: compliance.viewedGuidance,
+        viewedEducation: compliance.viewedEducation,
+        morningAssessmentStatus: compliance.morningAssessmentStatus,
+        afternoonAssessmentStatus: compliance.afternoonAssessmentStatus,
+        complianceRate: compliance.complianceRate,
+        isCompliant: compliance.isCompliant,
+        isDailyCompliant: compliance.isDailyCompliant,
+      };
+    });
+
+    if (query.overallStatus && query.overallStatus !== 'ALL') {
+      const wantCompliant = query.overallStatus === 'COMPLIANT';
+      rows = rows.filter((r) => r.isCompliant === wantCompliant);
+    }
+    if (query.dietaryNotViewed) {
+      rows = rows.filter((r) => !r.viewedGuidance);
+    }
+    if (query.healthEducationNotViewed) {
+      rows = rows.filter((r) => !r.viewedEducation);
+    }
+    if (query.missedMorning) {
+      rows = rows.filter((r) => r.morningAssessmentStatus === 'MISSED');
+    }
+    if (query.missedAfternoon) {
+      rows = rows.filter((r) => r.afternoonAssessmentStatus === 'MISSED');
+    }
+    if (query.missedBoth) {
+      rows = rows.filter(
+        (r) => r.morningAssessmentStatus === 'MISSED' && r.afternoonAssessmentStatus === 'MISSED',
+      );
+    }
+
+    const total = rows.length;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const data = rows.slice((page - 1) * limit, (page - 1) * limit + limit);
+
+    return { data, total, page, limit };
   }
 
   /** Called by the patient app when guidance/education content is viewed. */
