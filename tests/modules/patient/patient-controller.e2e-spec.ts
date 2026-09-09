@@ -856,7 +856,6 @@ describe('PatientController (integration)', () => {
       it('THEN should persist the updated currentDietLevel', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 2,
-          reason: 'L� do h?p l?',
           reason: 'Bệnh nhân đã dung nạp tốt',
         });
 
@@ -871,7 +870,6 @@ describe('PatientController (integration)', () => {
       it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 2,
-          reason: 'L� do h?p l?',
           reason: 'Bệnh nhân đã dung nạp tốt',
         });
 
@@ -893,7 +891,6 @@ describe('PatientController (integration)', () => {
       it('THEN should persist podSoftDietReached as the current POD', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
-          reason: 'L� do h?p l?',
           reason: 'Mức cuối',
         });
 
@@ -914,7 +911,6 @@ describe('PatientController (integration)', () => {
       it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
-          reason: 'L� do h?p l?',
           reason: 'Mức cuối',
         });
 

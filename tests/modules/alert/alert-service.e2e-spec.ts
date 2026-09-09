@@ -254,7 +254,7 @@ describe('AlertService (integration)', () => {
       });
       await alertService.handleAlert(created.alertId, nurse01Caller);
 
-      const afterCooldown = new Date(created.triggeredAt.getTime() + 60 * 60 * 1000 + 1);
+      const afterCooldown = new Date(created.triggeredAt!.getTime() + 60 * 60 * 1000 + 1);
       await expect(alertService.isAssessmentLocked('CASE-001', afterCooldown)).resolves.toBe(false);
     });
 
