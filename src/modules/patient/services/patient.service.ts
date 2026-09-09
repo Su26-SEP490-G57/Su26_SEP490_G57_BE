@@ -144,6 +144,13 @@ export class PatientService {
     };
   }
 
+  async getPatientByCaseId(caseId: string): Promise<PatientWithAccount> {
+    const patient = await this.repository.findByIdWithRelations(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    return this.toResponse(patient);
+  }
+
   /**
    * Get the maximum POD level for a given operation type based on pod_protocols table.
    * Returns the count of POD protocols - 1 (since POD starts from 0).
@@ -361,9 +368,15 @@ export class PatientService {
    * Patient-role login account (users.case_id = patient_cases.case_id).
    */
   async createPatient(dto: CreatePatientDto): Promise<PatientWithAccount> {
-    if (await this.repository.caseIdExists(dto.caseId)) {
-      throw new ConflictException(`Patient case "${dto.caseId}" already exists`);
+    const nextId = await this.dataSource.query<{ nextval: number }[]>(
+      `SELECT nextval('case_id_seq')`,
+    );
+    const caseId = `CASE-${String(nextId[0].nextval).padStart(3, '0')}`;
+
+    if (await this.repository.caseIdExists(caseId)) {
+      throw new ConflictException(`Patient case "${caseId}" already exists`);
     }
+    // ...
 
     const username = dto.username ?? dto.caseId;
     if (await this.repository.findUserByUsername(username)) {
@@ -374,12 +387,18 @@ export class PatientService {
 
     const passwordHash = await bcrypt.hash(dto.password ?? DEFAULT_PATIENT_PASSWORD, SALT_ROUNDS);
 
+    // Compute BMI if weight/height are valid
+    let bmi: number | null = null;
+    if (dto.weight && dto.height && dto.height > 0) {
+      bmi = parseFloat((dto.weight / (dto.height / 100) ** 2).toFixed(1));
+    }
+
     const created = await this.repository.createWithAccount({
-      caseId: dto.caseId,
-      ...this.toCaseFields(dto),
+      caseId,
+      ...this.toCaseFields({ ...dto, bmi: dto.bmi ?? bmi }),
       currentPod: dto.currentPod ?? 0,
       account: {
-        username,
+        username: dto.username ?? caseId,
         passwordHash,
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber ?? null,

@@ -139,7 +139,7 @@ export class PatientRepository {
       .leftJoinAndSelect('patient.operationType', 'operationType');
 
     // Filter out completed patients (show only active patients)
-    qb.andWhere('patient.erasCompleted = :completed', { completed: false });
+    // qb.andWhere('patient.erasCompleted = :completed', { completed: false });
 
     // Search by caseId or patient full name
     if (query.search) {

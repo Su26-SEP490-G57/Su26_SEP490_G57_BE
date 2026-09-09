@@ -62,7 +62,7 @@ export class DietGuidanceController {
       'Scans all active patients, auto-advances diet level if latest assessment is GREEN, maintains if YELLOW/RED/missing.',
   })
   async triggerDailyDietProgression() {
-    return this.schedulerService.handleDailyDietProgression();
+    return this.schedulerService.processDailyDietProgression();
   }
 
   // ── Operation Types ──────────────────────────────────────────────────────────
