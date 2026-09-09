@@ -553,6 +553,37 @@ describe('PatientController (integration)', () => {
     });
   });
 
+  describe('GET /patients/:caseId', () => {
+    it('returns the current clinical profile and linked account for an existing case', async () => {
+      const response = await authed(request(httpServer).get('/patients/CASE-001'), nurseToken);
+
+      expect(response.status).toBe(200);
+      expect(response.body as PatientWithAccount).toMatchObject({
+        caseId: 'CASE-001',
+        currentPod: 1,
+        currentDietLevel: 0,
+        level: { name: 'Yellow' },
+        operationType: { name: 'Phẫu thuật đại trực tràng' },
+        account: {
+          username: 'patient01',
+          fullName: 'Nguyễn Văn An',
+        },
+      });
+    });
+
+    it('returns 404 for a case that does not exist', async () => {
+      const response = await authed(request(httpServer).get('/patients/CASE-999'), nurseToken);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 401 when the caller is not authenticated', async () => {
+      const response = await request(httpServer).get('/patients/CASE-001');
+
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe('POST /patients/:id/start-eras', () => {
     describe('GIVEN a Head Nurse caller and a patient that has not started ERAS', () => {
       beforeEach(async () => {
@@ -812,7 +843,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 2 });
+        ).send({ dietLevel: 2, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(200);
         const body = response.body as PatientWithAccount;
@@ -825,6 +856,8 @@ describe('PatientController (integration)', () => {
       it('THEN should persist the updated currentDietLevel', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 2,
+          reason: 'L� do h?p l?',
+          reason: 'Bệnh nhân đã dung nạp tốt',
         });
 
         const stored = await dataSource
@@ -838,6 +871,8 @@ describe('PatientController (integration)', () => {
       it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 2,
+          reason: 'L� do h?p l?',
+          reason: 'Bệnh nhân đã dung nạp tốt',
         });
 
         const logs = await dataSource
@@ -858,6 +893,8 @@ describe('PatientController (integration)', () => {
       it('THEN should persist podSoftDietReached as the current POD', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
+          reason: 'L� do h?p l?',
+          reason: 'Mức cuối',
         });
 
         const stored = await dataSource
@@ -877,6 +914,8 @@ describe('PatientController (integration)', () => {
       it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
+          reason: 'L� do h?p l?',
+          reason: 'Mức cuối',
         });
 
         const stored = await dataSource
@@ -891,7 +930,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 5 });
+        ).send({ dietLevel: 5, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(400);
       });
@@ -924,7 +963,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           headNurseToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(200);
       });
@@ -935,7 +974,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           patientToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(403);
       });
@@ -946,7 +985,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-999/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(404);
       });
@@ -956,7 +995,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer)
           .patch('/patients/CASE-001/diet-level')
-          .send({ dietLevel: 1 });
+          .send({ dietLevel: 1, reason: 'L� do h?p l?' });
 
         expect(response.status).toBe(401);
       });

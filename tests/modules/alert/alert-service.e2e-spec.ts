@@ -105,7 +105,7 @@ describe('AlertService (integration)', () => {
             assessmentId: surveyId,
             surveyScore: 15,
             alertType: 'RED',
-            status: 'PENDING_REVIEW',
+            status: 'Đang chờ xử trí',
             isAutoProgression: true,
             nurseAction: null,
             nursingNote: null,
@@ -214,6 +214,62 @@ describe('AlertService (integration)', () => {
 
         expect(notificationService.sendToNursesSpecific).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('isAssessmentLocked()', () => {
+    it('allows assessment when no RED alert exists', async () => {
+      await expect(alertService.isAssessmentLocked('CASE-002')).resolves.toBe(false);
+    });
+
+    it('keeps assessment locked while a RED alert is pending', async () => {
+      await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        surveyScore: 15,
+        alertType: 'RED',
+      });
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
+    });
+
+    it('keeps assessment locked after handling until the cooldown elapses', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        surveyScore: 15,
+        alertType: 'RED',
+      });
+      await alertService.handleAlert(created.alertId, nurse01Caller);
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
+    });
+
+    it('allows assessment after handling and the cooldown has elapsed', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        surveyScore: 15,
+        alertType: 'RED',
+      });
+      await alertService.handleAlert(created.alertId, nurse01Caller);
+
+      const afterCooldown = new Date(created.triggeredAt.getTime() + 60 * 60 * 1000 + 1);
+      await expect(alertService.isAssessmentLocked('CASE-001', afterCooldown)).resolves.toBe(false);
+    });
+
+    it('fails safe when a RED alert is missing its trigger timestamp', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        surveyScore: 15,
+        alertType: 'RED',
+      });
+      await dataSource
+        .getRepository(Alert)
+        .update({ alertId: created.alertId }, { triggeredAt: null });
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
     });
   });
 
