@@ -135,8 +135,9 @@ export class AlertService {
     const latestRedAlert = await this.repository.findLatestRedAlertByCaseId(caseId);
     if (!latestRedAlert) return false;
 
-    if (latestRedAlert.status === 'PENDING_REVIEW') return true;
-    if (latestRedAlert.status !== 'HANDLED' || !latestRedAlert.triggeredAt) return false;
+    // Fail safe: after any RED alert, assessment remains locked until both
+    // clinical safeguards are proven — nurse handling and elapsed cooldown.
+    if (latestRedAlert.status !== 'HANDLED' || !latestRedAlert.triggeredAt) return true;
 
     return now < this.getUnlockAt(latestRedAlert.triggeredAt);
   }

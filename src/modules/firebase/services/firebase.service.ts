@@ -9,12 +9,20 @@ import { readFileSync } from 'fs';
 export class FirebaseService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
+  private get isDisabled(): boolean {
+    return this.configService.get<string>('FIREBASE_DISABLED') === 'true';
+  }
+
   async sendToToken(
     token: string,
     title: string,
     body: string,
     data?: Record<string, string>,
   ): Promise<string> {
+    if (this.isDisabled) {
+      return 'firebase-disabled';
+    }
+
     console.log('Sending FCM to:', token);
 
     const message: admin.messaging.Message = {
@@ -60,7 +68,7 @@ export class FirebaseService implements OnModuleInit {
   }
 
   onModuleInit() {
-    if (admin.apps.length > 0) {
+    if (this.isDisabled || admin.apps.length > 0) {
       return;
     }
 
