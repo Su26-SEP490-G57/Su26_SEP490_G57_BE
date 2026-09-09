@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AcknowledgeAlertDto } from '../dtos/acknowledge-alert.dto';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
@@ -12,6 +12,8 @@ import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assign
 
 @Injectable()
 export class AlertService {
+  private readonly logger = new Logger(AlertService.name);
+
   constructor(
     private readonly repository: AlertRepository,
     private readonly alertGateway: AlertGateway,
@@ -30,6 +32,7 @@ export class AlertService {
       status: alert.status,
       isAutoProgression: alert.isAutoProgression,
       triggeredAt: alert.triggeredAt,
+      handledAt: alert.handledAt,
       nurseAction: alert.nurseAction,
       nursingNote: alert.nursingNote,
       closedAt: alert.closedAt,
@@ -96,17 +99,59 @@ export class AlertService {
     };
   }
 
+  async getDoctorNotifications(query: QueryAlertDto): Promise<PaginatedAlertsDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const [alerts, total] = await this.repository.findHandledForDoctor(page, limit);
+
+    return {
+      data: alerts.map((alert) => this.toResponse(alert)),
+      total,
+      page,
+      limit,
+    };
+  }
+
   async acknowledgeAlert(alertId: number, dto: AcknowledgeAlertDto): Promise<AlertResponseDto> {
     const alert = await this.repository.findById(alertId);
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
 
+    const isNewlyHandled = alert.status !== 'HANDLED';
     alert.status = 'HANDLED';
     alert.handledAt = new Date();
     if (dto.nurseAction !== undefined) alert.nurseAction = dto.nurseAction;
     if (dto.nursingNote !== undefined) alert.nursingNote = dto.nursingNote;
 
     const saved = await this.repository.save(alert);
-    return this.toResponse(saved);
+    const response = this.toResponse(saved);
+    if (!isNewlyHandled) return response;
+
+    this.alertGateway.emitAlertHandled(response);
+
+    try {
+      const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
+      const patientName = patient?.account?.fullName ?? saved.caseId;
+      await this.notificationService.sendToDoctors(
+        'Đã hoàn thành xử trí',
+        `Điều dưỡng đã hoàn thành xử trí cảnh báo cho ${patientName}.`,
+        {
+          route: '/doctor/alerts',
+          caseId: saved.caseId,
+          assessmentId: String(saved.assessmentId),
+          alertId: String(saved.alertId),
+          alertType: saved.alertType,
+        },
+      );
+    } catch (error) {
+      // Persisting the nurse's completed intervention must not fail merely
+      // because delivery to a doctor's device is temporarily unavailable.
+      this.logger.error(
+        `Unable to notify doctors for handled alert #${saved.alertId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    return response;
   }
 
   async findPendingRedByCaseId(caseId: string): Promise<Alert | null> {

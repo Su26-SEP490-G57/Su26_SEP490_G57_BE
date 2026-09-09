@@ -193,16 +193,23 @@ export class PatientController {
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
     summary: 'Update diet level for a patient based on clinical tolerance',
-    description: 'Nurse/Head Nurse/Doctor. Updates current_diet_level (0 to 4).',
+    description:
+      'Nurse/Head Nurse/Doctor. Nurses can safely lower the level; doctors can also increase it. Updates current_diet_level (0 to 4).',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   updateDietLevel(
     @Param('id') id: string,
     @Body() dto: UpdateDietLevelDto,
-    @CurrentUser() user: { id: number },
+    @CurrentUser() user: { id: number; roles?: string[] },
   ): Promise<PatientWithAccount> {
-    return this.patientService.updateDietLevel(id, dto.dietLevel, user.id);
+    return this.patientService.updateDietLevel(
+      id,
+      dto.dietLevel,
+      user.id,
+      undefined,
+      user.roles?.includes(UserRoleName.DOCTOR) ?? false,
+    );
   }
 
   @Patch(':id/pod-level')
