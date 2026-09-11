@@ -10,6 +10,8 @@ import { AcknowledgeAlertDto } from '../dtos/acknowledge-alert.dto';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { AlertService } from '../services/alert.service';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 
 @ApiTags('Alerts')
 @ApiBearerAuth()
@@ -25,6 +27,14 @@ export class AlertController {
   @ApiResponse({ status: 200, type: PaginatedAlertsDto })
   getAlerts(@Query() query: QueryAlertDto): Promise<PaginatedAlertsDto> {
     return this.alertService.getAlerts(query);
+  }
+
+  @Get('doctor-notifications')
+  @Roles(UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Get notifications of alerts handled by nurses for doctors' })
+  @ApiResponse({ status: 200, type: PaginatedAlertsDto })
+  getDoctorNotifications(@Query() query: QueryAlertDto): Promise<PaginatedAlertsDto> {
+    return this.alertService.getDoctorNotifications(query);
   }
 
   @Patch(':id/acknowledge')

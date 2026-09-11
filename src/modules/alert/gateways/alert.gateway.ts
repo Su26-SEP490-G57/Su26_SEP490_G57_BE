@@ -30,4 +30,9 @@ export class AlertGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('alert.created', alert);
     this.logger.log(`Alert emitted: alert_id=${alert.alertId}, type=${alert.alertType}`);
   }
+
+  emitAlertHandled(alert: AlertResponseDto): void {
+    this.server.emit('alert.handled', alert);
+    this.logger.log(`Handled alert emitted: alert_id=${alert.alertId}`);
+  }
 }

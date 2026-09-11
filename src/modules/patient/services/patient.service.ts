@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -255,6 +256,7 @@ export class PatientService {
     newDietLevel: number,
     changedById: number | null = null,
     reason?: string | null,
+    canIncrease = false,
   ): Promise<PatientWithAccount> {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
@@ -264,6 +266,9 @@ export class PatientService {
     }
 
     const previousLevel = patient.currentDietLevel ?? 0;
+    if (newDietLevel > previousLevel && !canIncrease) {
+      throw new ForbiddenException('Only doctors can increase the diet level');
+    }
 
     const updatePayload: Partial<Patient> = { currentDietLevel: newDietLevel };
     if (newDietLevel === 4 && patient.podSoftDietReached === null) {

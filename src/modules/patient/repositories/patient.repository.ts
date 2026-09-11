@@ -138,8 +138,11 @@ export class PatientRepository {
       .leftJoinAndSelect('patient.level', 'level')
       .leftJoinAndSelect('patient.operationType', 'operationType');
 
-    // Filter out completed patients (show only active patients)
-    qb.andWhere('patient.erasCompleted = :completed', { completed: false });
+    // Nurses work from the active queue. Doctors can review every case in the
+    // ward, including patients whose ERAS protocol is completed.
+    if (!query.includeCompleted) {
+      qb.andWhere('patient.erasCompleted = :completed', { completed: false });
+    }
 
     // Search by caseId or patient full name
     if (query.search) {
