@@ -82,6 +82,12 @@ export class PatientController {
     @CurrentUser() user: { id: number; roles?: string[] },
     @Query() query: QueryPatientDto,
   ): Promise<PaginatedPatients> {
+    // The application represents one ward. Doctors are responsible for every
+    // case in that ward, including patients whose ERAS protocol is completed.
+    if (user.roles?.includes(UserRoleName.DOCTOR)) {
+      query.includeCompleted = true;
+    }
+
     if (
       user?.id &&
       !query.nurseUserId &&

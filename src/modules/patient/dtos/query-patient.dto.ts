@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { LevelNames, Levels } from '../constants/levels.constant';
 
 export const PATIENT_SORT_FIELDS = ['pod'] as const;
@@ -52,6 +52,15 @@ export class QueryPatientDto {
   @Type(() => Number)
   @IsInt()
   nurseUserId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Include cases whose ERAS protocol has been completed',
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  includeCompleted?: boolean;
 
   @ApiPropertyOptional({
     enum: PATIENT_SORT_FIELDS,
