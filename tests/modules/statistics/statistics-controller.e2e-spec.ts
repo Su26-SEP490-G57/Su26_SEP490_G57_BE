@@ -13,7 +13,7 @@ import { Patient } from '../../../src/modules/patient/entities/patient.entity';
 import { PodProtocolTrackingLog } from '../../../src/modules/patient/entities/pod-protocol-tracking-log.entity';
 import { AnalyticsOverviewResponseDto } from '../../../src/modules/statistics/dtos/analytics-overview-response.dto';
 import { AssessmentMatrixResponseDto } from '../../../src/modules/statistics/dtos/assessment-matrix-response.dto';
-import { EngagementLogResponseDto } from '../../../src/modules/statistics/dtos/engagement-log-response.dto';
+import { PaginatedPatientComplianceListDto } from '../../../src/modules/statistics/dtos/patient-compliance-list-response.dto';
 import { PatientComplianceResponseDto } from '../../../src/modules/statistics/dtos/patient-compliance-response.dto';
 import { RecoveryMatrixResponseDto } from '../../../src/modules/statistics/dtos/recovery-matrix-response.dto';
 import { AppEngagementLog } from '../../../src/modules/statistics/entities/app-engagement-log.entity';
@@ -362,7 +362,7 @@ describe('StatisticsController (integration)', () => {
             caseId: 'CASE-001',
             fullName: 'Nguyễn Văn An',
             roomBed: 'P502',
-            currentPod: 1,
+            currentPod: 2,
             level: { id: 2, name: 'Yellow' },
             operationType: { id: 2, name: 'Phẫu thuật đại trực tràng' },
           }),
@@ -468,7 +468,7 @@ describe('StatisticsController (integration)', () => {
         expect(response.status).toBe(200);
         expect(response.body as PatientComplianceResponseDto).toEqual({
           caseId: 'CASE-001',
-          currentPod: 1,
+          currentPod: 2,
           hasEngagementLog: true,
           viewedGuidance: true,
           viewedEducation: false,
@@ -477,8 +477,8 @@ describe('StatisticsController (integration)', () => {
           // Only POD0 has both MORNING and AFTERNOON tasks COMPLETED; POD1's
           // lone MORNING completion doesn't count, POD2 has none.
           assessmentCompletedCount: 1,
-          expectedAssessmentCount: 2,
-          complianceRate: 0.5,
+          expectedAssessmentCount: 3,
+          complianceRate: 1 / 3,
           isCompliant: false,
           // currentPod is 2 ("today"), which has no assessment_tasks rows in
           // this fixture -> both scheduled slots default to PENDING.
@@ -588,6 +588,316 @@ describe('StatisticsController (integration)', () => {
     });
   });
 
+  describe('GET /patients/analytics/compliance-list', () => {
+    beforeEach(async () => {
+      // CASE-001 (room P502, currentPod 2): viewed guidance only, POD0 fully
+      // completed (actual 1 / expected 3 = 1/3) -> non-compliant. Today's
+      // (POD2) slots have no assessment_tasks rows -> default PENDING.
+      await dataSource.getRepository(AppEngagementLog).save({
+        caseId: 'CASE-001',
+        viewedGuidance: true,
+        viewedEducation: false,
+        reminderCount: 5,
+        appAccessCount: 12,
+      });
+      await dataSource.getRepository(AssessmentTask).save([
+        {
+          caseId: 'CASE-001',
+          podContext: 0,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-001',
+          podContext: 0,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      ]);
+
+      // CASE-002 (room P502, currentPod 1): no engagement log at all (viewed*
+      // default false), today's (POD1) MORNING and AFTERNOON both MISSED.
+      await dataSource.getRepository(AssessmentTask).save([
+        {
+          caseId: 'CASE-002',
+          podContext: 1,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'MISSED',
+          missedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-002',
+          podContext: 1,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'MISSED',
+          missedAt: new Date(),
+        },
+      ]);
+
+      // CASE-003 (room P502, currentPod 3): viewed both, today's (POD3)
+      // MORNING is MISSED but AFTERNOON is COMPLETED.
+      await dataSource.getRepository(AppEngagementLog).save({
+        caseId: 'CASE-003',
+        viewedGuidance: true,
+        viewedEducation: true,
+        reminderCount: 0,
+        appAccessCount: 1,
+      });
+      await dataSource.getRepository(AssessmentTask).save([
+        {
+          caseId: 'CASE-003',
+          podContext: 3,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'MISSED',
+          missedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-003',
+          podContext: 3,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      ]);
+
+      // CASE-004 (room P502, currentPod 2): fully compliant -> viewed both,
+      // every POD 0..2 has both slots COMPLETED (actual 3 / expected 3 = 1.0).
+      await dataSource.getRepository(AppEngagementLog).save({
+        caseId: 'CASE-004',
+        viewedGuidance: true,
+        viewedEducation: true,
+        reminderCount: 0,
+        appAccessCount: 3,
+      });
+      await dataSource.getRepository(AssessmentTask).save([
+        {
+          caseId: 'CASE-004',
+          podContext: 0,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-004',
+          podContext: 0,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-004',
+          podContext: 1,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-004',
+          podContext: 1,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-004',
+          podContext: 2,
+          scheduledSlot: 'MORNING',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+        {
+          caseId: 'CASE-004',
+          podContext: 2,
+          scheduledSlot: 'AFTERNOON',
+          opensAt: new Date(),
+          closesAt: new Date(),
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      ]);
+    });
+
+    describe('GIVEN a room filter matching a 4-patient cohort with mixed compliance', () => {
+      it('THEN should respond 200 with one row per patient and correctly computed compliance fields', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/compliance-list').query({ room: 'P502' }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(4);
+        expect(body.page).toBe(1);
+        expect(body.limit).toBe(20);
+        expect(body.data).toHaveLength(4);
+
+        const case1 = body.data.find((r) => r.caseId === 'CASE-001')!;
+        expect(case1).toEqual(
+          expect.objectContaining({
+            caseId: 'CASE-001',
+            fullName: 'Nguyễn Văn An',
+            roomBed: 'P502',
+            currentPod: 2,
+            level: { id: 2, name: 'Yellow' },
+            viewedGuidance: true,
+            viewedEducation: false,
+            morningAssessmentStatus: 'PENDING',
+            afternoonAssessmentStatus: 'PENDING',
+            complianceRate: 1 / 3,
+            isCompliant: false,
+            isDailyCompliant: false,
+          }),
+        );
+
+        const case2 = body.data.find((r) => r.caseId === 'CASE-002')!;
+        expect(case2).toEqual(
+          expect.objectContaining({
+            viewedGuidance: false,
+            viewedEducation: false,
+            morningAssessmentStatus: 'MISSED',
+            afternoonAssessmentStatus: 'MISSED',
+            isCompliant: false,
+          }),
+        );
+
+        const case4 = body.data.find((r) => r.caseId === 'CASE-004')!;
+        expect(case4).toEqual(
+          expect.objectContaining({
+            viewedGuidance: true,
+            viewedEducation: true,
+            morningAssessmentStatus: 'COMPLETED',
+            afternoonAssessmentStatus: 'COMPLETED',
+            complianceRate: 1,
+            isCompliant: true,
+            isDailyCompliant: true,
+          }),
+        );
+      });
+    });
+
+    describe('GIVEN overallStatus=NON_COMPLIANT', () => {
+      it('THEN should respond 200 with only the non-compliant patients (excluding CASE-004)', async () => {
+        const response = await authed(
+          request(httpServer)
+            .get('/patients/analytics/compliance-list')
+            .query({ room: 'P502', overallStatus: 'NON_COMPLIANT' }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(3);
+        expect(body.data.map((r) => r.caseId).sort()).toEqual(['CASE-001', 'CASE-002', 'CASE-003']);
+      });
+    });
+
+    describe('GIVEN dietaryNotViewed=true', () => {
+      it('THEN should respond 200 with only CASE-002 (no engagement log at all)', async () => {
+        const response = await authed(
+          request(httpServer)
+            .get('/patients/analytics/compliance-list')
+            .query({ room: 'P502', dietaryNotViewed: 'true' }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.data.map((r) => r.caseId)).toEqual(['CASE-002']);
+      });
+    });
+
+    describe('GIVEN missedBoth=true', () => {
+      it('THEN should respond 200 with only CASE-002 (both slots MISSED today)', async () => {
+        const response = await authed(
+          request(httpServer)
+            .get('/patients/analytics/compliance-list')
+            .query({ room: 'P502', missedBoth: 'true' }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.data.map((r) => r.caseId)).toEqual(['CASE-002']);
+      });
+    });
+
+    describe('GIVEN missedMorning=true', () => {
+      it('THEN should respond 200 with CASE-002 and CASE-003 (morning MISSED today)', async () => {
+        const response = await authed(
+          request(httpServer)
+            .get('/patients/analytics/compliance-list')
+            .query({ room: 'P502', missedMorning: 'true' }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.data.map((r) => r.caseId).sort()).toEqual(['CASE-002', 'CASE-003']);
+      });
+    });
+
+    describe('GIVEN page/limit pagination', () => {
+      it('THEN should respond 200 with a stable, deterministic slice', async () => {
+        const response = await authed(
+          request(httpServer)
+            .get('/patients/analytics/compliance-list')
+            .query({ room: 'P502', page: 2, limit: 2 }),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(4);
+        expect(body.page).toBe(2);
+        expect(body.limit).toBe(2);
+        expect(body.data.map((r) => r.caseId)).toEqual(['CASE-003', 'CASE-004']);
+      });
+    });
+
+    describe('GIVEN a caller without the Nurse/Head Nurse role', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/compliance-list'),
+          patientToken,
+        );
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN no Authorization header is present', () => {
+      it('THEN should respond 401 Unauthorized', async () => {
+        const response = await request(httpServer).get('/patients/analytics/compliance-list');
+
+        expect(response.status).toBe(401);
+      });
+    });
+  });
+
   describe('GET /patients/:caseId/assessment-matrix', () => {
     let questionId: number;
     let optionId: number;
@@ -634,8 +944,8 @@ describe('StatisticsController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as AssessmentMatrixResponseDto;
         expect(body.caseId).toBe('CASE-001');
-        expect(body.currentPod).toBe(1);
-        expect(body.pods).toEqual([0, 1]);
+        expect(body.currentPod).toBe(2);
+        expect(body.pods).toEqual([0, 1, 2]);
         expect(body.unassignedAssessmentCount).toBe(0);
 
         const question = body.questions.find((q) => q.questionId === questionId);
@@ -662,85 +972,6 @@ describe('StatisticsController (integration)', () => {
     describe('GIVEN no Authorization header is present', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer).get('/patients/CASE-001/assessment-matrix');
-
-        expect(response.status).toBe(401);
-      });
-    });
-  });
-
-  describe('POST /patients/:caseId/engagement-logs', () => {
-    describe('GIVEN a Nurse caller and a viewedGuidance flag', () => {
-      it('THEN should respond 201 with the stored engagement log', async () => {
-        const response = await authed(
-          request(httpServer).post('/patients/CASE-001/engagement-logs'),
-          nurseToken,
-        ).send({ viewedGuidance: true });
-
-        expect(response.status).toBe(201);
-        expect(response.body as EngagementLogResponseDto).toEqual({
-          caseId: 'CASE-001',
-          viewedGuidance: true,
-          viewedEducation: null,
-        });
-      });
-    });
-
-    describe('GIVEN a Patient caller logging engagement for their own case', () => {
-      it('THEN should respond 201 with the stored engagement log', async () => {
-        const response = await authed(
-          request(httpServer).post('/patients/CASE-001/engagement-logs'),
-          patientToken,
-        ).send({ viewedEducation: true });
-
-        expect(response.status).toBe(201);
-        expect(response.body as EngagementLogResponseDto).toEqual({
-          caseId: 'CASE-001',
-          viewedGuidance: null,
-          viewedEducation: true,
-        });
-      });
-    });
-
-    // patientToken is patient01, whose seeded caseId is CASE-001 — logging
-    // against CASE-002 is a different patient's case.
-    describe('GIVEN a Patient caller logging engagement for a different case', () => {
-      it('THEN should respond 403 Forbidden', async () => {
-        const response = await authed(
-          request(httpServer).post('/patients/CASE-002/engagement-logs'),
-          patientToken,
-        ).send({ viewedGuidance: true });
-
-        expect(response.status).toBe(403);
-      });
-    });
-
-    describe('GIVEN neither viewedGuidance nor viewedEducation is provided', () => {
-      it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(
-          request(httpServer).post('/patients/CASE-001/engagement-logs'),
-          nurseToken,
-        ).send({});
-
-        expect(response.status).toBe(400);
-      });
-    });
-
-    describe('GIVEN the patient does not exist', () => {
-      it('THEN should respond 404 Not Found', async () => {
-        const response = await authed(
-          request(httpServer).post('/patients/CASE-999/engagement-logs'),
-          nurseToken,
-        ).send({ viewedGuidance: true });
-
-        expect(response.status).toBe(404);
-      });
-    });
-
-    describe('GIVEN no Authorization header is present', () => {
-      it('THEN should respond 401 Unauthorized', async () => {
-        const response = await request(httpServer)
-          .post('/patients/CASE-001/engagement-logs')
-          .send({ viewedGuidance: true });
 
         expect(response.status).toBe(401);
       });

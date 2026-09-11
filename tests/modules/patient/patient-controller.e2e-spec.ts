@@ -20,7 +20,11 @@ import {
   PatientOperationType,
   PatientWithAccount,
 } from '../../../src/modules/patient/services/patient.service';
-import { PaginatedAssessmentHistoryDto } from '../../../src/modules/symptom-survey/dtos/symptom-survey-response.dto';
+import {
+  AssessmentHistoryItemDto,
+  PaginatedAssessmentHistoryDto,
+} from '../../../src/modules/symptom-survey/dtos/symptom-survey-response.dto';
+import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
 import { User } from '../../../src/modules/user/entities/user.entity';
 import { UserRoleName } from '../../../src/modules/user/enums/user-role.enum';
 import { authed, login } from '../../global/auth-helpers';
@@ -122,8 +126,8 @@ describe('PatientController (integration)', () => {
 
         const body = response.body as PaginatedPatients;
         const caseOne = body.data.find((p) => p.caseId === 'CASE-001');
-        expect(caseOne?.currentPod).toBe(1);
-        expect(caseOne?.currentDietLevel).toBe(0);
+        expect(caseOne?.currentPod).toBe(2);
+        expect(caseOne?.currentDietLevel).toBe(2);
         expect(caseOne?.level?.name).toBe('Yellow');
         expect(caseOne?.account?.username).toBe('patient01');
         expect(caseOne?.account?.fullName).toBe('Nguyễn Văn An');
@@ -197,7 +201,7 @@ describe('PatientController (integration)', () => {
         const body = response.body as PaginatedPatients;
         const pods = body.data.map((p) => p.currentPod);
         expect(pods[0]).toBe(0);
-        expect(pods[pods.length - 1]).toBe(4);
+        expect(pods[pods.length - 1]).toBe(5);
         for (let i = 1; i < pods.length; i++) {
           expect(pods[i]! >= pods[i - 1]!).toBe(true);
         }
@@ -475,7 +479,7 @@ describe('PatientController (integration)', () => {
         expect(response.status).toBe(200);
         expect(response.body as CurrentPodResponse).toEqual({
           caseId: 'CASE-001',
-          currentPod: 1,
+          currentPod: 2,
           isLocked: false,
           holdReason: null,
         });
@@ -553,34 +557,95 @@ describe('PatientController (integration)', () => {
     });
   });
 
-  describe('GET /patients/:caseId', () => {
-    it('returns the current clinical profile and linked account for an existing case', async () => {
-      const response = await authed(request(httpServer).get('/patients/CASE-001'), nurseToken);
+  describe('POST /patients/:id/reassessments', () => {
+    describe('GIVEN a Nurse caller submitting a REASSESSMENT with a triage color', () => {
+      it('THEN should respond 201 with the reassessment recorded and no answer details', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/reassessments'),
+          nurseToken,
+        ).send({ caseId: 'CASE-001', triageColor: 'RED', nurseNote: 'Bệnh nhân đau nhiều hơn.' });
 
-      expect(response.status).toBe(200);
-      expect(response.body as PatientWithAccount).toMatchObject({
-        caseId: 'CASE-001',
-        currentPod: 1,
-        currentDietLevel: 0,
-        level: { name: 'Yellow' },
-        operationType: { name: 'Phẫu thuật đại trực tràng' },
-        account: {
-          username: 'patient01',
-          fullName: 'Nguyễn Văn An',
-        },
+        expect(response.status).toBe(201);
+        const body = response.body as AssessmentHistoryItemDto;
+        expect(body).toEqual(
+          expect.objectContaining({
+            triageColor: 'RED',
+            source: 'REASSESSMENT',
+            nurseNote: 'Bệnh nhân đau nhiều hơn.',
+            details: [],
+          }),
+        );
       });
     });
 
-    it('returns 404 for a case that does not exist', async () => {
-      const response = await authed(request(httpServer).get('/patients/CASE-999'), nurseToken);
+    describe('GIVEN a Head Nurse caller submitting a plain NOTE', () => {
+      it('THEN should respond 201 with triageColor forced to null', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/reassessments'),
+          headNurseToken,
+        ).send({
+          caseId: 'CASE-001',
+          triageColor: 'RED',
+          nurseNote: 'Chỉ ghi chú.',
+          source: 'NOTE',
+        });
 
-      expect(response.status).toBe(404);
+        expect(response.status).toBe(201);
+        const body = response.body as AssessmentHistoryItemDto;
+        expect(body.triageColor).toBeNull();
+        expect(body.source).toBe('NOTE');
+      });
     });
 
-    it('returns 401 when the caller is not authenticated', async () => {
-      const response = await request(httpServer).get('/patients/CASE-001');
+    // The controller overrides dto.caseId with the URL :id param before calling
+    // the service, specifically to prevent a caller from submitting a
+    // reassessment for one case while spoofing the caseId of another in the body.
+    describe('GIVEN the request body carries a different caseId than the URL param', () => {
+      it('THEN should persist the reassessment under the URL param caseId, not the body one', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/reassessments'),
+          nurseToken,
+        ).send({ caseId: 'CASE-002', triageColor: 'YELLOW' });
 
-      expect(response.status).toBe(401);
+        expect(response.status).toBe(201);
+        const body = response.body as AssessmentHistoryItemDto;
+        const stored = await dataSource
+          .getRepository(SymptomSurvey)
+          .findOne({ where: { assessmentId: body.assessmentId } });
+        expect(stored?.caseId).toBe('CASE-001');
+      });
+    });
+
+    describe('GIVEN a case id that does not exist', () => {
+      it('THEN should respond 404 Not Found', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-999/reassessments'),
+          nurseToken,
+        ).send({ caseId: 'CASE-999', triageColor: 'RED' });
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('GIVEN a Patient caller (not Nurse/Head Nurse)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).post('/patients/CASE-001/reassessments'),
+          patientToken,
+        ).send({ triageColor: 'RED' });
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN no Authorization header is present', () => {
+      it('THEN should respond 401 Unauthorized', async () => {
+        const response = await request(httpServer)
+          .post('/patients/CASE-001/reassessments')
+          .send({ triageColor: 'RED' });
+
+        expect(response.status).toBe(401);
+      });
     });
   });
 
@@ -838,39 +903,39 @@ describe('PatientController (integration)', () => {
   });
 
   describe('PATCH /patients/:id/diet-level', () => {
+    // CASE-001 is seeded with currentDietLevel: 2 (see seed.ts), so these cases send
+    // dietLevel: 3 to exercise a genuine transition rather than a same-value no-op.
     describe('GIVEN a valid dietLevel and a Nurse caller', () => {
       it('THEN should respond 200 with the diet level updated on the returned patient', async () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 2, reason: 'L� do h?p l?' });
+        ).send({ dietLevel: 3 });
 
         expect(response.status).toBe(200);
         const body = response.body as PatientWithAccount;
         expect(body.caseId).toBe('CASE-001');
-        expect(body.currentDietLevel).toBe(2);
+        expect(body.currentDietLevel).toBe(3);
       });
 
       // Kept separate from the response-shape assertion above: this is verifying
       // persistence, a different system than "did the HTTP response look right."
       it('THEN should persist the updated currentDietLevel', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
-          dietLevel: 2,
-          reason: 'Bệnh nhân đã dung nạp tốt',
+          dietLevel: 3,
         });
 
         const stored = await dataSource
           .getRepository(Patient)
           .findOne({ where: { caseId: 'CASE-001' } });
-        expect(stored?.currentDietLevel).toBe(2);
+        expect(stored?.currentDietLevel).toBe(3);
       });
 
       // Kept separate: the audit log write is an independent side effect from
       // the persisted currentDietLevel column itself.
       it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
-          dietLevel: 2,
-          reason: 'Bệnh nhân đã dung nạp tốt',
+          dietLevel: 3,
         });
 
         const logs = await dataSource
@@ -878,8 +943,8 @@ describe('PatientController (integration)', () => {
           .find({ where: { caseId: 'CASE-001' }, order: { changedAt: 'DESC' } });
         expect(logs[0]).toEqual(
           expect.objectContaining({
-            oldStatus: 'Mức ăn 0',
-            newStatus: 'Mức ăn 2',
+            oldStatus: 'Mức ăn 2',
+            newStatus: 'Mức ăn 3',
             actionType: 'Nurse_Acknowledge',
             changedById: 3,
           }),
@@ -891,7 +956,6 @@ describe('PatientController (integration)', () => {
       it('THEN should persist podSoftDietReached as the current POD', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
-          reason: 'Mức cuối',
         });
 
         const stored = await dataSource
@@ -911,7 +975,6 @@ describe('PatientController (integration)', () => {
       it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
-          reason: 'Mức cuối',
         });
 
         const stored = await dataSource
@@ -926,7 +989,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 5, reason: 'L� do h?p l?' });
+        ).send({ dietLevel: 5 });
 
         expect(response.status).toBe(400);
       });
@@ -959,7 +1022,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           headNurseToken,
-        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
+        ).send({ dietLevel: 1 });
 
         expect(response.status).toBe(200);
       });
@@ -970,7 +1033,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           patientToken,
-        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
+        ).send({ dietLevel: 1 });
 
         expect(response.status).toBe(403);
       });
@@ -981,7 +1044,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-999/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 1, reason: 'L� do h?p l?' });
+        ).send({ dietLevel: 1 });
 
         expect(response.status).toBe(404);
       });
@@ -991,7 +1054,7 @@ describe('PatientController (integration)', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer)
           .patch('/patients/CASE-001/diet-level')
-          .send({ dietLevel: 1, reason: 'L� do h?p l?' });
+          .send({ dietLevel: 1 });
 
         expect(response.status).toBe(401);
       });

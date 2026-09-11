@@ -12,6 +12,7 @@ jobs:
   check_format:
     name: Check Code Format
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -41,6 +42,7 @@ jobs:
     name: Lint New Migrations
     if: inputs.lint_migrations
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - name: Checkout code

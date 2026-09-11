@@ -62,6 +62,17 @@ export class AssessmentHistoryItemDto {
 
   @ApiProperty({ type: [AnswerDetailDto] })
   details!: AnswerDetailDto[];
+
+  /**
+   * 'SURVEY' = bài đánh giá khảo sát bệnh nhân tự làm.
+   * 'REASSESSMENT' = đánh giá lại lâm sàng do điều dưỡng tạo (details = []).
+   */
+  @ApiProperty({ example: 'SURVEY', enum: ['SURVEY', 'REASSESSMENT', 'NOTE'] })
+  source!: 'SURVEY' | 'REASSESSMENT' | 'NOTE';
+
+  /** Ghi chú lâm sàng của điều dưỡng — chỉ có khi source = 'REASSESSMENT'. */
+  @ApiPropertyOptional({ example: 'Bệnh nhân ổn định hơn, giảm buồn nôn.' })
+  nurseNote!: string | null;
 }
 
 export class PaginatedAssessmentHistoryDto {

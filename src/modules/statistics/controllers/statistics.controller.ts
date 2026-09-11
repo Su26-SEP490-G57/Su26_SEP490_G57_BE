@@ -16,8 +16,10 @@ import { AnalyticsOverviewResponseDto } from '../dtos/analytics-overview-respons
 import { AssessmentMatrixResponseDto } from '../dtos/assessment-matrix-response.dto';
 import { CreateEngagementLogDto } from '../dtos/create-engagement-log.dto';
 import { EngagementLogResponseDto } from '../dtos/engagement-log-response.dto';
+import { PaginatedPatientComplianceListDto } from '../dtos/patient-compliance-list-response.dto';
 import { PatientComplianceResponseDto } from '../dtos/patient-compliance-response.dto';
 import { QueryAnalyticsOverviewDto } from '../dtos/query-analytics-overview.dto';
+import { QueryPatientComplianceListDto } from '../dtos/query-patient-compliance-list.dto';
 import { RecoveryMatrixResponseDto } from '../dtos/recovery-matrix-response.dto';
 import { StatisticsService } from '../services/statistics.service';
 
@@ -46,6 +48,35 @@ export class StatisticsController {
   @ApiResponse({ status: 200, type: AnalyticsOverviewResponseDto })
   getOverview(@Query() query: QueryAnalyticsOverviewDto): Promise<AnalyticsOverviewResponseDto> {
     return this.statisticsService.getOverview(query);
+  }
+
+  @Get('analytics/compliance-list')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({
+    summary:
+      'Paginated, filterable list of patients + compliance-checklist status (Nurse/Head Nurse only)',
+    description:
+      'Nurse Dashboard "Non-Compliant Patients Detail Screen" (SEP490-414). Shares the cohort ' +
+      'filter vocabulary of GET /patients (search/level/operationTypeId/room/nurseUserId), plus ' +
+      'overallStatus/dietaryNotViewed/healthEducationNotViewed/missedMorning/missedAfternoon/' +
+      'missedBoth. A plain Nurse caller is auto-scoped to their assigned rooms (same as GET /patients).',
+  })
+  @ApiResponse({ status: 200, type: PaginatedPatientComplianceListDto })
+  getComplianceList(
+    @CurrentUser() user: UserResponseDto,
+    @Query() query: QueryPatientComplianceListDto,
+  ): Promise<PaginatedPatientComplianceListDto> {
+    if (
+      user?.id &&
+      !query.nurseUserId &&
+      user.roles?.includes(UserRoleName.NURSE) &&
+      !user.roles?.includes(UserRoleName.HEAD_NURSE) &&
+      !user.roles?.includes(UserRoleName.ADMIN)
+    ) {
+      query.nurseUserId = user.id;
+    }
+    return this.statisticsService.getComplianceList(query);
   }
 
   @Get(':caseId/recovery-matrix')
