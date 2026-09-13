@@ -910,7 +910,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 3 });
+        ).send({ dietLevel: 3, reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.' });
 
         expect(response.status).toBe(200);
         const body = response.body as PatientWithAccount;
@@ -923,6 +923,7 @@ describe('PatientController (integration)', () => {
       it('THEN should persist the updated currentDietLevel', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 3,
+          reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
 
         const stored = await dataSource
@@ -936,6 +937,7 @@ describe('PatientController (integration)', () => {
       it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 3,
+          reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
 
         const logs = await dataSource
@@ -956,6 +958,7 @@ describe('PatientController (integration)', () => {
       it('THEN should persist podSoftDietReached as the current POD', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
+          reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
 
         const stored = await dataSource
@@ -975,6 +978,7 @@ describe('PatientController (integration)', () => {
       it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
         await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
           dietLevel: 4,
+          reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
 
         const stored = await dataSource
@@ -1022,7 +1026,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           headNurseToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'Điều chỉnh mức ăn theo đánh giá lâm sàng.' });
 
         expect(response.status).toBe(200);
       });
@@ -1033,7 +1037,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
           patientToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'Điều chỉnh mức ăn theo đánh giá lâm sàng.' });
 
         expect(response.status).toBe(403);
       });
@@ -1044,7 +1048,7 @@ describe('PatientController (integration)', () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-999/diet-level'),
           nurseToken,
-        ).send({ dietLevel: 1 });
+        ).send({ dietLevel: 1, reason: 'Điều chỉnh mức ăn theo đánh giá lâm sàng.' });
 
         expect(response.status).toBe(404);
       });

@@ -123,7 +123,9 @@ export class SymptomSurveyService {
     return {
       optionId: option.optionId,
       optionText: option.optionText,
-      // scoreValue: option.scoreValue, // Legacy score deprecated
+      optionTriageLevel: option.optionTriageLevel,
+      optionDefinition: option.optionDefinition,
+      normalizedValue: option.normalizedValue,
     };
   }
 
@@ -151,7 +153,9 @@ export class SymptomSurveyService {
         dto.options.map((o) => ({
           questionId: saved.questionId,
           optionText: o.optionText,
-          scoreValue: o.scoreValue,
+          optionTriageLevel: o.optionTriageLevel,
+          optionDefinition: o.optionDefinition ?? null,
+          normalizedValue: o.normalizedValue ?? null,
         })),
       );
     }
@@ -202,7 +206,9 @@ export class SymptomSurveyService {
     const saved = await this.repository.saveOption({
       questionId: questionId,
       optionText: dto.optionText,
-      scoreValue: dto.scoreValue,
+      optionTriageLevel: dto.optionTriageLevel,
+      optionDefinition: dto.optionDefinition ?? null,
+      normalizedValue: dto.normalizedValue ?? null,
     });
     return this.toOptionResponse(saved);
   }
@@ -218,7 +224,9 @@ export class SymptomSurveyService {
     }
 
     if (dto.optionText !== undefined) option.optionText = dto.optionText;
-    if (dto.scoreValue !== undefined) option.scoreValue = dto.scoreValue;
+    if (dto.optionTriageLevel !== undefined) option.optionTriageLevel = dto.optionTriageLevel;
+    if (dto.optionDefinition !== undefined) option.optionDefinition = dto.optionDefinition;
+    if (dto.normalizedValue !== undefined) option.normalizedValue = dto.normalizedValue;
 
     const saved = await this.repository.saveOption(option);
     return this.toOptionResponse(saved);
@@ -255,7 +263,7 @@ export class SymptomSurveyService {
       );
     }
 
-    // Load options to get score_value
+    // Load selected options for clinical triage evaluation.
     const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
     const optionMap = new Map(options.map((o) => [o.optionId, o]));
@@ -298,8 +306,8 @@ export class SymptomSurveyService {
       triggers.push('CONSECUTIVE_VOMITING_ACCUMULATION');
     }
 
-    // Wrap in transaction for ultimate integrity
-    return await this.dataSource.transaction(async (transactionalEntityManager) => {
+    // Persist the assessment, its detail rows, and any scheduled task update atomically.
+    const savedSurvey = await this.dataSource.transaction(async (transactionalEntityManager) => {
       const isScheduled = openScheduledTask !== null;
 
       const survey = transactionalEntityManager.create(SymptomSurvey, {
@@ -320,6 +328,7 @@ export class SymptomSurveyService {
         await this.taskRepository.markCompleted(
           openScheduledTask.assessmentTaskId,
           savedSurvey.assessmentId,
+          transactionalEntityManager,
         );
       }
 
@@ -329,7 +338,6 @@ export class SymptomSurveyService {
           assessmentId: savedSurvey.assessmentId,
           questionId: answer.questionId,
           selectedOptionId: answer.selectedOptionId,
-          scoreEarned: opt.scoreValue,
           questionTextSnapshot: opt.question.questionText,
           optionTextSnapshot: opt.optionText,
           clinicalDimensionSnapshot: opt.question.clinicalDimension ?? '',
@@ -342,9 +350,27 @@ export class SymptomSurveyService {
       // Sync patient level (có thể dùng saveSurvey -> sync)
       await this.repository.syncPatientLevel(savedSurvey.caseId, triage_color);
 
-      // Notify & Alert (vẫn giữ nguyên logic cũ nhưng nằm ngoài transaction chính nếu không muốn block DB)
-      return this.toResponse(savedSurvey);
+      return savedSurvey;
     });
+
+    this.statisticsGateway.emitAssessmentSubmitted({
+      caseId: savedSurvey.caseId,
+      assessmentId: savedSurvey.assessmentId,
+      podContext: savedSurvey.podContext,
+      triageColor: triage_color,
+    });
+
+    // GREEN remains available through the patient-level dashboard filter.
+    // YELLOW and RED additionally create dashboard alert records; only RED sends push notifications.
+    if (triage_color === 'YELLOW' || triage_color === 'RED') {
+      await this.alertService.createAlert({
+        caseId: savedSurvey.caseId,
+        assessmentId: savedSurvey.assessmentId,
+        alertType: triage_color,
+      });
+    }
+
+    return this.toResponse(savedSurvey);
   }
 
   async getLatestByPatient(
@@ -433,7 +459,6 @@ export class SymptomSurveyService {
       caseId: dto.caseId,
       evaluationDatetime: new Date(),
       podContext: currentPod,
-      totalScore: 0,
       triageColor: isNoteOnly ? null : (dto.triageColor ?? null),
       questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       assessmentType: 'TRIGGERED',
@@ -466,7 +491,6 @@ export class SymptomSurveyService {
       assessmentId: saved.assessmentId,
       evaluationDatetime: saved.evaluationDatetime,
       podContext: saved.podContext,
-      totalScore: 0,
       triageColor: saved.triageColor,
       source: source,
       nurseNote: dto.nurseNote ?? null,

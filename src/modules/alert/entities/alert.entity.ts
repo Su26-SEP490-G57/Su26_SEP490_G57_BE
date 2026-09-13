@@ -35,9 +35,6 @@ export class Alert {
   @JoinColumn({ name: 'assessment_id' })
   survey!: SymptomSurvey;
 
-  @Column({ name: 'survey_score', type: 'int', nullable: true })
-  surveyScore!: number | null;
-
   @Column({ name: 'alert_type', type: 'varchar', length: 10 })
   alertType!: AlertType;
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AssessmentTask } from '../entities/assessment-task.entity';
 
 @Injectable()
@@ -30,8 +30,12 @@ export class AssessmentTaskRepository {
     return this.repo.save(this.repo.create(task));
   }
 
-  async markCompleted(taskId: number, assessmentId: number): Promise<void> {
-    await this.repo.update(taskId, {
+  async markCompleted(
+    taskId: number,
+    assessmentId: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await (manager?.getRepository(AssessmentTask) ?? this.repo).update(taskId, {
       status: 'COMPLETED',
       assessmentId,
       completedAt: new Date(),

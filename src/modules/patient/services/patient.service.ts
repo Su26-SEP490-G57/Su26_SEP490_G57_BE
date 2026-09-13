@@ -368,15 +368,9 @@ export class PatientService {
    * Patient-role login account (users.case_id = patient_cases.case_id).
    */
   async createPatient(dto: CreatePatientDto): Promise<PatientWithAccount> {
-    const nextId = await this.dataSource.query<{ nextval: number }[]>(
-      `SELECT nextval('case_id_seq')`,
-    );
-    const caseId = `CASE-${String(nextId[0].nextval).padStart(3, '0')}`;
-
-    if (await this.repository.caseIdExists(caseId)) {
-      throw new ConflictException(`Patient case "${caseId}" already exists`);
+    if (await this.repository.caseIdExists(dto.caseId)) {
+      throw new ConflictException(`Patient case "${dto.caseId}" already exists`);
     }
-    // ...
 
     const username = dto.username ?? dto.caseId;
     if (await this.repository.findUserByUsername(username)) {
@@ -394,11 +388,11 @@ export class PatientService {
     }
 
     const created = await this.repository.createWithAccount({
-      caseId,
+      caseId: dto.caseId,
       ...this.toCaseFields({ ...dto, bmi: dto.bmi ?? bmi }),
       currentPod: dto.currentPod ?? 0,
       account: {
-        username: dto.username ?? caseId,
+        username,
         passwordHash,
         fullName: dto.fullName,
         phoneNumber: dto.phoneNumber ?? null,

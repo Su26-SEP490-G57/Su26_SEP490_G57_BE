@@ -10,9 +10,6 @@ export class AlertResponseDto {
   @ApiProperty({ example: 5 })
   assessmentId!: number;
 
-  @ApiPropertyOptional({ example: 8 })
-  surveyScore!: number | null;
-
   @ApiProperty({ example: 'YELLOW', enum: ['YELLOW', 'RED'] })
   alertType!: string;
 

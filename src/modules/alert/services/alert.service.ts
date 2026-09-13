@@ -35,7 +35,6 @@ export class AlertService {
       alertId: alert.alertId,
       caseId: alert.caseId,
       assessmentId: alert.assessmentId,
-      surveyScore: alert.surveyScore,
       alertType: alert.alertType,
       status: alert.status === 'PENDING_REVIEW' ? 'Đang chờ xử trí' : 'Đã xử trí',
       isOverdue,
@@ -53,7 +52,6 @@ export class AlertService {
     const saved = await this.repository.save({
       caseId: dto.caseId,
       assessmentId: dto.assessmentId,
-      surveyScore: dto.surveyScore,
       alertType: dto.alertType,
       status: 'PENDING_REVIEW',
       isAutoProgression: true,
@@ -79,6 +77,16 @@ export class AlertService {
 
       if (assignedNurseIds.length > 0) {
         await this.notificationService.sendToNursesSpecific(assignedNurseIds, pushTitle, pushBody, {
+          caseId: saved.caseId,
+          assessmentId: String(saved.assessmentId),
+          patientName,
+          roomBed: room,
+          alertType: saved.alertType,
+        });
+      } else {
+        // Fallback: broadcast to all nurses if room has no assignment
+        // Fail-safe behavior for critical RED alerts - better to over-notify than miss
+        await this.notificationService.sendToNurses(pushTitle, pushBody, {
           caseId: saved.caseId,
           assessmentId: String(saved.assessmentId),
           patientName,
@@ -215,7 +223,6 @@ export class AlertService {
       const saved = await this.repository.save({
         caseId: caseId,
         assessmentId: assessmentId,
-        surveyScore: 0,
         alertType: triageColor,
         status: 'PENDING_REVIEW',
         isAutoProgression: false,

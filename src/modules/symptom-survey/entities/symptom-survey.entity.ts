@@ -41,10 +41,6 @@ export class SymptomSurvey {
   @OneToMany(() => AssessmentDetail, (detail) => detail.assessment, { eager: false })
   details!: AssessmentDetail[];
 
-  /** Legacy score retained only during the compatibility migration period. */
-  @Column({ name: 'total_score', type: 'int', default: 0 })
-  totalScore!: number;
-
   /**
    * Phân biệt bài đánh giá khảo sát thường (SURVEY) với đánh giá lại lâm sàng
    * do điều dưỡng tạo thủ công (REASSESSMENT). Mặc định SURVEY để tương thích ngược.
