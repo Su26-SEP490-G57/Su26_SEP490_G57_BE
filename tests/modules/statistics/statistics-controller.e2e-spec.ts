@@ -97,9 +97,9 @@ describe('StatisticsController (integration)', () => {
       const [greenOption, yellowOption, redOption] = await dataSource
         .getRepository(QuestionOption)
         .save([
-          { questionId, optionText: 'Không', scoreValue: 0 },
-          { questionId, optionText: 'Trung bình', scoreValue: 2 },
-          { questionId, optionText: 'Nặng', scoreValue: 5 },
+          { questionId, optionText: 'Không', optionTriageLevel: 'GREEN' },
+          { questionId, optionText: 'Trung bình', optionTriageLevel: 'YELLOW' },
+          { questionId, optionText: 'Nặng', optionTriageLevel: 'RED' },
         ]);
 
       const surveyRepo = dataSource.getRepository(SymptomSurvey);
@@ -111,7 +111,6 @@ describe('StatisticsController (integration)', () => {
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
         podContext: 0,
-        totalScore: 0,
         triageColor: 'GREEN',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -119,13 +118,11 @@ describe('StatisticsController (integration)', () => {
         assessmentId: c1p0.assessmentId,
         questionId,
         selectedOptionId: greenOption.optionId,
-        scoreEarned: 0,
       });
       const c1p1 = await surveyRepo.save({
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
         podContext: 1,
-        totalScore: 5,
         triageColor: 'RED',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -133,13 +130,11 @@ describe('StatisticsController (integration)', () => {
         assessmentId: c1p1.assessmentId,
         questionId,
         selectedOptionId: redOption.optionId,
-        scoreEarned: 5,
       });
       const c1p2 = await surveyRepo.save({
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
         podContext: 2,
-        totalScore: 2,
         triageColor: 'YELLOW',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -147,7 +142,6 @@ describe('StatisticsController (integration)', () => {
         assessmentId: c1p2.assessmentId,
         questionId,
         selectedOptionId: yellowOption.optionId,
-        scoreEarned: 2,
       });
 
       // CASE-002 (room P502, currentPod 1): only a POD0 assessment -> actual
@@ -156,7 +150,6 @@ describe('StatisticsController (integration)', () => {
         caseId: 'CASE-002',
         evaluationDatetime: new Date(),
         podContext: 0,
-        totalScore: 2,
         triageColor: 'YELLOW',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -164,7 +157,6 @@ describe('StatisticsController (integration)', () => {
         assessmentId: c2p0.assessmentId,
         questionId,
         selectedOptionId: yellowOption.optionId,
-        scoreEarned: 2,
       });
 
       // CASE-003 (room P502, currentPod 3): ERAS not started.
@@ -233,8 +225,6 @@ describe('StatisticsController (integration)', () => {
         expect(body.symptomTrend).toEqual([
           {
             pod: 0,
-            questions: [{ questionId, questionKey: 'nausea', avgScore: 1 }],
-            avgTotalScore: 1,
             assessmentCount: 2,
             patientCount: 2,
             redCount: 0,
@@ -243,8 +233,6 @@ describe('StatisticsController (integration)', () => {
           },
           {
             pod: 1,
-            questions: [{ questionId, questionKey: 'nausea', avgScore: 5 }],
-            avgTotalScore: 5,
             assessmentCount: 1,
             patientCount: 1,
             redCount: 1,
@@ -253,8 +241,6 @@ describe('StatisticsController (integration)', () => {
           },
           {
             pod: 2,
-            questions: [{ questionId, questionKey: 'nausea', avgScore: 2 }],
-            avgTotalScore: 2,
             assessmentCount: 1,
             patientCount: 1,
             redCount: 0,
@@ -263,8 +249,6 @@ describe('StatisticsController (integration)', () => {
           },
           {
             pod: 3,
-            questions: [{ questionId, questionKey: 'nausea', avgScore: 0 }],
-            avgTotalScore: 0,
             assessmentCount: 0,
             patientCount: 0,
             redCount: 0,
@@ -917,20 +901,23 @@ describe('StatisticsController (integration)', () => {
       questionId = question.questionId;
       const option = await dataSource
         .getRepository(QuestionOption)
-        .save({ questionId, optionText: 'Nặng', scoreValue: 5 });
+        .save({ questionId, optionText: 'Nặng', optionTriageLevel: 'RED' });
       optionId = option.optionId;
 
       const survey = await dataSource.getRepository(SymptomSurvey).save({
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
         podContext: 1,
+        triageColor: 'RED',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
       await dataSource.getRepository(AssessmentDetail).save({
         assessmentId: survey.assessmentId,
         questionId,
         selectedOptionId: optionId,
-        scoreEarned: 5,
+        questionTextSnapshot: 'Bạn có buồn nôn không?',
+        optionTextSnapshot: 'Nặng',
+        optionTriageLevelSnapshot: 'RED',
       });
     });
 
@@ -951,9 +938,9 @@ describe('StatisticsController (integration)', () => {
         const question = body.questions.find((q) => q.questionId === questionId);
         expect(question).toBeDefined();
         expect(question?.cells).toEqual([
-          { pod: 0, submitted: false, score: null, optionText: null },
-          { pod: 1, submitted: true, score: 5, optionText: 'Nặng' },
-          { pod: 2, submitted: false, score: null, optionText: null },
+          { pod: 0, submitted: false, triageLevel: null, optionText: null },
+          { pod: 1, submitted: true, triageLevel: 'RED', optionText: 'Nặng' },
+          { pod: 2, submitted: false, triageLevel: null, optionText: null },
         ]);
       });
     });

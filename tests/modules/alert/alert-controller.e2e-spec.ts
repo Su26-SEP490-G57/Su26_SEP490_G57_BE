@@ -237,7 +237,7 @@ describe('AlertController (integration)', () => {
         expect(response.body as AlertResponseDto).toEqual(
           expect.objectContaining({
             alertId: pendingRedAlertId,
-            status: 'HANDLED',
+            status: 'Đã xử trí',
           }),
         );
       });
@@ -257,7 +257,7 @@ describe('AlertController (integration)', () => {
         expect(response.body as AlertResponseDto).toEqual(
           expect.objectContaining({
             alertId: pendingRedAlertId,
-            status: 'HANDLED',
+            status: 'Đã xử trí',
           }),
         );
       });

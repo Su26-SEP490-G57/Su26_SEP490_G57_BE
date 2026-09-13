@@ -44,9 +44,9 @@ describe('SymptomSurveyController (integration)', () => {
   let patientTwoToken: string; // patient02, CASE-002
 
   let questionId: number;
-  let greenOptionId: number; // scoreValue 0
-  let yellowOptionId: number; // scoreValue 2
-  let redOptionId: number; // scoreValue 5
+  let greenOptionId: number;
+  let yellowOptionId: number;
+  let redOptionId: number;
 
   beforeAll(async () => {
     dataSource = await getTestDataSource();
@@ -108,9 +108,9 @@ describe('SymptomSurveyController (integration)', () => {
     questionId = question.questionId;
 
     const options = await optionRepo.save([
-      { questionId, optionText: 'Không', scoreValue: 0, optionTriageLevel: 'GREEN' },
-      { questionId, optionText: 'Trung bình', scoreValue: 2, optionTriageLevel: 'YELLOW' },
-      { questionId, optionText: 'Nặng', scoreValue: 5, optionTriageLevel: 'RED' },
+      { questionId, optionText: 'Không', optionTriageLevel: 'GREEN' },
+      { questionId, optionText: 'Trung bình', optionTriageLevel: 'YELLOW' },
+      { questionId, optionText: 'Nặng', optionTriageLevel: 'RED' },
     ]);
     greenOptionId = options[0].optionId;
     yellowOptionId = options[1].optionId;
@@ -195,8 +195,8 @@ describe('SymptomSurveyController (integration)', () => {
           orderNumber: 2,
           isDefault: false,
           options: [
-            { optionText: 'Không', scoreValue: 0 },
-            { optionText: 'Có', scoreValue: 3 },
+            { optionText: 'Không', optionTriageLevel: 'GREEN' },
+            { optionText: 'Có', optionTriageLevel: 'YELLOW' },
           ],
         });
 
@@ -303,11 +303,11 @@ describe('SymptomSurveyController (integration)', () => {
         const response = await authed(
           request(httpServer).post(`/symptom-surveys/questions/${questionId}/options`),
           headNurseToken,
-        ).send({ optionText: 'Rất nặng', scoreValue: 8 });
+        ).send({ optionText: 'Rất nặng', optionTriageLevel: 'RED' });
 
         expect(response.status).toBe(201);
         expect(response.body as QuestionOptionDto).toEqual(
-          expect.objectContaining({ optionText: 'Rất nặng', scoreValue: 8 }),
+          expect.objectContaining({ optionText: 'Rất nặng', optionTriageLevel: 'RED' }),
         );
       });
     });
@@ -317,7 +317,7 @@ describe('SymptomSurveyController (integration)', () => {
         const response = await authed(
           request(httpServer).post('/symptom-surveys/questions/999999/options'),
           headNurseToken,
-        ).send({ optionText: 'x', scoreValue: 1 });
+        ).send({ optionText: 'x', optionTriageLevel: 'YELLOW' });
 
         expect(response.status).toBe(404);
       });
@@ -332,7 +332,7 @@ describe('SymptomSurveyController (integration)', () => {
             `/symptom-surveys/questions/${questionId}/options/${greenOptionId}`,
           ),
           headNurseToken,
-        ).send({ optionText: 'Hoàn toàn không', scoreValue: 0 });
+        ).send({ optionText: 'Hoàn toàn không', optionTriageLevel: 'GREEN' });
 
         expect(response.status).toBe(200);
         expect(response.body as QuestionOptionDto).toEqual(
@@ -346,7 +346,7 @@ describe('SymptomSurveyController (integration)', () => {
         const response = await authed(
           request(httpServer).patch(`/symptom-surveys/questions/${questionId}/options/999999`),
           headNurseToken,
-        ).send({ scoreValue: 1 });
+        ).send({ optionTriageLevel: 'YELLOW' });
 
         expect(response.status).toBe(404);
       });
@@ -417,8 +417,8 @@ describe('SymptomSurveyController (integration)', () => {
   });
 
   describe('POST /symptom-surveys', () => {
-    describe('GIVEN a patient submitting a GREEN-scoring answer for their own case', () => {
-      it('THEN should respond 201 with total_score 0 and triage_color GREEN', async () => {
+    describe('GIVEN a patient submitting a GREEN answer', () => {
+      it('THEN should respond 201 with triage_color GREEN', async () => {
         const response = await authed(
           request(httpServer).post('/symptom-surveys'),
           patientOneToken,
@@ -429,7 +429,7 @@ describe('SymptomSurveyController (integration)', () => {
 
         expect(response.status).toBe(201);
         expect(response.body as SymptomSurveyResponseDto).toEqual(
-          expect.objectContaining({ caseId: 'CASE-001', totalScore: 0, triageColor: 'GREEN' }),
+          expect.objectContaining({ caseId: 'CASE-001', triageColor: 'GREEN' }),
         );
       });
 
@@ -477,7 +477,7 @@ describe('SymptomSurveyController (integration)', () => {
       });
     });
 
-    describe('GIVEN a YELLOW-scoring answer', () => {
+    describe('GIVEN a YELLOW answer', () => {
       it('THEN should respond 201 with triage_color YELLOW and auto-generate a YELLOW alert', async () => {
         const response = await authed(
           request(httpServer).post('/symptom-surveys'),
@@ -504,7 +504,7 @@ describe('SymptomSurveyController (integration)', () => {
       });
     });
 
-    describe('GIVEN a RED-scoring answer', () => {
+    describe('GIVEN a RED answer', () => {
       it('THEN should respond 201 with triage_color RED and auto-generate a RED alert', async () => {
         const response = await authed(
           request(httpServer).post('/symptom-surveys'),
@@ -660,7 +660,6 @@ describe('SymptomSurveyController (integration)', () => {
         const vomitingOption = await dataSource.getRepository(QuestionOption).save({
           questionId: vomitingQuestion.questionId,
           optionText: '1 lần',
-          scoreValue: 0,
           optionTriageLevel: 'GREEN',
           normalizedValue: 1,
         });
@@ -677,7 +676,6 @@ describe('SymptomSurveyController (integration)', () => {
           assessmentId: priorSurvey.assessmentId,
           questionId: vomitingQuestion.questionId,
           selectedOptionId: vomitingOptionId,
-          scoreEarned: 0,
           clinicalDimensionSnapshot: 'VOMITING',
           optionTriageLevelSnapshot: 'GREEN',
           normalizedValueSnapshot: 1,
@@ -713,7 +711,8 @@ describe('SymptomSurveyController (integration)', () => {
             answers: [{ questionId, selectedOptionId: greenOptionId }],
           });
 
-          expect(response.status).toBe(400);
+          // API giờ tự kiểm tra task mà bỏ qua field assessmentType do client gửi nên submit vẫn pass
+          expect(response.status).toBe(201);
         });
       });
 
@@ -739,7 +738,8 @@ describe('SymptomSurveyController (integration)', () => {
             answers: [{ questionId, selectedOptionId: greenOptionId }],
           });
 
-          expect(response.status).toBe(400);
+          // API giờ tự kiểm tra task mà bỏ qua field assessmentType do client gửi nên submit vẫn pass
+          expect(response.status).toBe(201);
         });
       });
 
@@ -765,7 +765,8 @@ describe('SymptomSurveyController (integration)', () => {
             answers: [{ questionId, selectedOptionId: greenOptionId }],
           });
 
-          expect(response.status).toBe(400);
+          // API giờ tự kiểm tra task mà bỏ qua field assessmentType do client gửi nên submit vẫn pass
+          expect(response.status).toBe(201);
         });
       });
 
@@ -876,7 +877,6 @@ describe('SymptomSurveyController (integration)', () => {
       await dataSource.getRepository(SymptomSurvey).save({
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
-        totalScore: 0,
         triageColor: 'GREEN',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -940,7 +940,6 @@ describe('SymptomSurveyController (integration)', () => {
       const survey = await dataSource.getRepository(SymptomSurvey).save({
         caseId: 'CASE-001',
         evaluationDatetime: new Date(),
-        totalScore: 5,
         triageColor: 'RED',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });
@@ -948,7 +947,6 @@ describe('SymptomSurveyController (integration)', () => {
         assessmentId: survey.assessmentId,
         questionId,
         selectedOptionId: redOptionId,
-        scoreEarned: 5,
       });
       surveyId = survey.assessmentId;
     });
@@ -966,7 +964,7 @@ describe('SymptomSurveyController (integration)', () => {
           expect.objectContaining({ assessmentId: surveyId, triageColor: 'RED' }),
         );
         expect(body.details).toEqual([
-          expect.objectContaining({ questionId, selectedOptionId: redOptionId, scoreEarned: 5 }),
+          expect.objectContaining({ questionId, selectedOptionId: redOptionId }),
         ]);
         expect(body.recommendation).toEqual(expect.any(String));
       });
@@ -1009,7 +1007,6 @@ describe('SymptomSurveyController (integration)', () => {
           caseId: 'CASE-001',
           evaluationDatetime: new Date(),
           podContext: 0,
-          totalScore: 0,
           triageColor: 'GREEN',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
@@ -1017,13 +1014,11 @@ describe('SymptomSurveyController (integration)', () => {
           assessmentId: assessedSurvey.assessmentId,
           questionId,
           selectedOptionId: greenOptionId,
-          scoreEarned: 0,
         });
         await dataSource.getRepository(SymptomSurvey).save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date(),
           podContext: 1,
-          totalScore: 2,
           triageColor: 'YELLOW',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
@@ -1037,8 +1032,8 @@ describe('SymptomSurveyController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as PatientPodTimelineResponseDto;
         expect(body.caseId).toBe('CASE-001');
-        expect(body.currentPod).toBe(1);
-        expect(body.history.map((h) => h.podNumber)).toEqual([0, 1]);
+        expect(body.currentPod).toBe(2);
+        expect(body.history.map((h) => h.podNumber)).toEqual([0, 1, 2]);
 
         expect(body.history[0]).toEqual(
           expect.objectContaining({
