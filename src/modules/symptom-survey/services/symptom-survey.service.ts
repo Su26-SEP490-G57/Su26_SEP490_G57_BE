@@ -28,12 +28,15 @@ import {
   SurveyQuestionDto,
   SymptomSurveyResponseDto,
 } from '../dtos/symptom-survey-response.dto';
+import { SymptomSurvey } from '../entities/symptom-survey.entity';
+// 'AssessmentTask' là dependency được gọi ngầm trong taskRepository
+// import { AssessmentTask } from '../entities/assessment-task.entity';
 import { AssessmentDetail } from '../entities/assessment-detail.entity';
 import { QuestionOption } from '../entities/question-option.entity';
 import { SurveyQuestion } from '../entities/survey-question.entity';
-import { SymptomSurvey } from '../entities/symptom-survey.entity';
 import { SymptomSurveyRepository } from '../repositories/symptom-survey.repository';
 import { AssessmentTaskRepository } from '../repositories/assessment-task.repository';
+import { DataSource } from 'typeorm';
 
 const TRIAGE_RECOMMENDATIONS: Record<string, string> = {
   GREEN: 'Bệnh nhân ổn định. Tiếp tục theo dõi thường quy theo phác đồ ERAS.',
@@ -49,6 +52,7 @@ export class SymptomSurveyService {
     private readonly alertService: AlertService,
     private readonly statisticsGateway: StatisticsGateway,
     private readonly taskRepository: AssessmentTaskRepository,
+    private readonly dataSource: DataSource,
   ) {}
 
   // MỚI: Thuật toán Triage biên lâm sàng (không dùng score)
@@ -82,7 +86,7 @@ export class SymptomSurveyService {
       caseId: survey.caseId,
       evaluationDatetime: survey.evaluationDatetime,
       podContext: survey.podContext,
-      totalScore: survey.totalScore, // Tương thích ngược
+      // totalScore: survey.totalScore, // Legacy score deprecated
       triageColor: survey.triageColor,
     };
 
@@ -93,7 +97,7 @@ export class SymptomSurveyService {
           questionText: d.questionTextSnapshot, // Sử dụng snapshot
           selectedOptionId: d.selectedOptionId,
           optionText: d.optionTextSnapshot, // Sử dụng snapshot
-          scoreEarned: d.scoreEarned,
+          // scoreEarned: d.scoreEarned, // Legacy score deprecated
         }),
       );
     }
@@ -119,7 +123,9 @@ export class SymptomSurveyService {
     return {
       optionId: option.optionId,
       optionText: option.optionText,
-      scoreValue: option.scoreValue,
+      optionTriageLevel: option.optionTriageLevel,
+      optionDefinition: option.optionDefinition,
+      normalizedValue: option.normalizedValue,
     };
   }
 
@@ -147,7 +153,9 @@ export class SymptomSurveyService {
         dto.options.map((o) => ({
           questionId: saved.questionId,
           optionText: o.optionText,
-          scoreValue: o.scoreValue,
+          optionTriageLevel: o.optionTriageLevel,
+          optionDefinition: o.optionDefinition ?? null,
+          normalizedValue: o.normalizedValue ?? null,
         })),
       );
     }
@@ -198,7 +206,9 @@ export class SymptomSurveyService {
     const saved = await this.repository.saveOption({
       questionId: questionId,
       optionText: dto.optionText,
-      scoreValue: dto.scoreValue,
+      optionTriageLevel: dto.optionTriageLevel,
+      optionDefinition: dto.optionDefinition ?? null,
+      normalizedValue: dto.normalizedValue ?? null,
     });
     return this.toOptionResponse(saved);
   }
@@ -214,7 +224,9 @@ export class SymptomSurveyService {
     }
 
     if (dto.optionText !== undefined) option.optionText = dto.optionText;
-    if (dto.scoreValue !== undefined) option.scoreValue = dto.scoreValue;
+    if (dto.optionTriageLevel !== undefined) option.optionTriageLevel = dto.optionTriageLevel;
+    if (dto.optionDefinition !== undefined) option.optionDefinition = dto.optionDefinition;
+    if (dto.normalizedValue !== undefined) option.normalizedValue = dto.normalizedValue;
 
     const saved = await this.repository.saveOption(option);
     return this.toOptionResponse(saved);
@@ -251,7 +263,7 @@ export class SymptomSurveyService {
       );
     }
 
-    // Load options to get score_value
+    // Load selected options for clinical triage evaluation.
     const optionIds = dto.answers.map((a) => a.selectedOptionId);
     const options = await this.repository.findOptionsByIds(optionIds);
     const optionMap = new Map(options.map((o) => [o.optionId, o]));
@@ -268,8 +280,22 @@ export class SymptomSurveyService {
     let triage_color = triageResult.triageColor;
     const triggers = triageResult.triggers;
 
-    // NÔN LŨY KẾ
+    // The server determines scheduled versus triggered from the currently open task.
+    // Client-provided assessmentType/scheduledSlot are intentionally ignored.
     const currentPod = await this.repository.findCurrentPod(dto.caseId);
+    const now = new Date();
+    const openScheduledTask = await this.taskRepository.findOpenPendingTask(
+      dto.caseId,
+      currentPod ?? 0,
+      now,
+    );
+
+    if (await this.alertService.isAssessmentLocked(dto.caseId, now)) {
+      throw new ForbiddenException(
+        'Bệnh nhân đang chờ điều dưỡng xử trí cảnh báo ĐỎ hoặc chưa đủ thời gian đánh giá lại.',
+      );
+    }
+
     const vomitCount = await this.repository.countVomitingInPod(dto.caseId, currentPod ?? 0);
     const currentVomitValue = options
       .filter((o) => o.question.clinicalDimension === 'VOMITING')
@@ -280,118 +306,71 @@ export class SymptomSurveyService {
       triggers.push('CONSECUTIVE_VOMITING_ACCUMULATION');
     }
 
-    // BLOCK TRIGGERED IF RED PENDING
-    const pendingRedAlert = await this.alertService.findPendingRedByCaseId(dto.caseId);
-    if (dto.assessmentType === 'TRIGGERED' && pendingRedAlert) {
-      throw new ForbiddenException(
-        'Bệnh nhân đang trong tình trạng cảnh báo ĐỎ. Vui lòng liên hệ điều dưỡng.',
-      );
-    }
+    // Persist the assessment, its detail rows, and any scheduled task update atomically.
+    const savedSurvey = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      const isScheduled = openScheduledTask !== null;
 
-    // Kiểm tra task nếu SCHEDULED
-    if (dto.assessmentType === 'SCHEDULED') {
-      const task = await this.taskRepository.findPendingTask(
-        dto.caseId,
-        dto.scheduledSlot || 'MORNING',
-        currentPod ?? 0,
-      );
-      if (!task || task.opensAt > new Date() || task.closesAt < new Date()) {
-        throw new BadRequestException('Invalid or expired scheduled assessment task');
-      }
-
-      const saved = await this.repository.saveSurvey({
+      const survey = transactionalEntityManager.create(SymptomSurvey, {
         caseId: dto.caseId,
-        evaluationDatetime: new Date(),
+        evaluationDatetime: now,
         podContext: currentPod,
-        totalScore: 0,
         triageColor: triage_color,
+        triageVerdictSnapshot: triage_color, // Snapshot bất biến tại đây
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
-        assessmentType: 'SCHEDULED',
-        scheduledSlot: dto.scheduledSlot,
+        assessmentType: isScheduled ? 'SCHEDULED' : 'TRIGGERED',
+        scheduledSlot: isScheduled ? openScheduledTask.scheduledSlot : null,
         triageTriggers: triggers,
       });
-      await this.taskRepository.markCompleted(task.assessmentTaskId, saved.assessmentId);
 
-      // Sync patient level based on latest triage result
-      await this.repository.syncPatientLevel(saved.caseId, triage_color);
+      const savedSurvey = await transactionalEntityManager.save(survey);
 
-      // Notify the Statistics dashboard so it can refetch without a manual reload
-      this.statisticsGateway.emitAssessmentSubmitted({
-        caseId: saved.caseId,
-        assessmentId: saved.assessmentId,
-        podContext: saved.podContext,
-        triageColor: triage_color,
-      });
-
-      // Auto-generate alert for YELLOW or RED
-      if (triage_color === 'YELLOW' || triage_color === 'RED') {
-        await this.alertService.createAlert({
-          caseId: saved.caseId,
-          assessmentId: saved.assessmentId,
-          surveyScore: 0,
-          alertType: triage_color,
-        });
-      }
-
-      return this.toResponse(saved);
-    } else {
-      if (pendingRedAlert) {
-        throw new ForbiddenException(
-          'Cannot submit triggered assessment while a RED alert is pending',
+      if (isScheduled) {
+        await this.taskRepository.markCompleted(
+          openScheduledTask.assessmentTaskId,
+          savedSurvey.assessmentId,
+          transactionalEntityManager,
         );
       }
 
-      const saved = await this.repository.saveSurvey({
-        caseId: dto.caseId,
-        evaluationDatetime: new Date(),
-        podContext: currentPod,
-        totalScore: 0,
-        triageColor: triage_color,
-        questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
-        assessmentType: 'TRIGGERED',
-        triageTriggers: triggers,
-      });
-
-      // Save detail rows với SNAPHOT
       const detailData = dto.answers.map((answer) => {
         const opt = optionMap.get(answer.selectedOptionId)!;
-        return {
-          assessmentId: saved.assessmentId,
+        return transactionalEntityManager.create(AssessmentDetail, {
+          assessmentId: savedSurvey.assessmentId,
           questionId: answer.questionId,
           selectedOptionId: answer.selectedOptionId,
-          scoreEarned: opt.scoreValue, // Tương thích ngược
           questionTextSnapshot: opt.question.questionText,
           optionTextSnapshot: opt.optionText,
           clinicalDimensionSnapshot: opt.question.clinicalDimension ?? '',
           optionTriageLevelSnapshot: opt.optionTriageLevel ?? '',
           normalizedValueSnapshot: opt.normalizedValue,
-        };
-      });
-      await this.repository.saveDetails(detailData);
-
-      // Sync patient level based on latest triage result
-      await this.repository.syncPatientLevel(saved.caseId, triage_color);
-
-      // Notify the Statistics dashboard so it can refetch without a manual reload
-      this.statisticsGateway.emitAssessmentSubmitted({
-        caseId: saved.caseId,
-        assessmentId: saved.assessmentId,
-        podContext: saved.podContext,
-        triageColor: triage_color,
-      });
-
-      // Auto-generate alert for YELLOW or RED
-      if (triage_color === 'YELLOW' || triage_color === 'RED') {
-        await this.alertService.createAlert({
-          caseId: saved.caseId,
-          assessmentId: saved.assessmentId,
-          surveyScore: 0,
-          alertType: triage_color,
         });
-      }
+      });
+      await transactionalEntityManager.save(detailData);
 
-      return this.toResponse(saved);
+      // Sync patient level (có thể dùng saveSurvey -> sync)
+      await this.repository.syncPatientLevel(savedSurvey.caseId, triage_color);
+
+      return savedSurvey;
+    });
+
+    this.statisticsGateway.emitAssessmentSubmitted({
+      caseId: savedSurvey.caseId,
+      assessmentId: savedSurvey.assessmentId,
+      podContext: savedSurvey.podContext,
+      triageColor: triage_color,
+    });
+
+    // GREEN remains available through the patient-level dashboard filter.
+    // YELLOW and RED additionally create dashboard alert records; only RED sends push notifications.
+    if (triage_color === 'YELLOW' || triage_color === 'RED') {
+      await this.alertService.createAlert({
+        caseId: savedSurvey.caseId,
+        assessmentId: savedSurvey.assessmentId,
+        alertType: triage_color,
+      });
     }
+
+    return this.toResponse(savedSurvey);
   }
 
   async getLatestByPatient(
@@ -433,7 +412,7 @@ export class SymptomSurveyService {
           assessmentId: survey.assessmentId,
           evaluationDatetime: survey.evaluationDatetime,
           podContext: survey.podContext,
-          totalScore: survey.totalScore,
+          // totalScore: survey.totalScore,
           triageColor: survey.triageColor,
           // Phân biệt bài khảo sát thường và đánh giá lại lâm sàng.
           // source mặc định 'SURVEY' cho các bản ghi cũ chưa có cột này.
@@ -445,7 +424,7 @@ export class SymptomSurveyService {
               questionText: d.question.questionText,
               selectedOptionId: d.selectedOptionId,
               optionText: d.selectedOption.optionText,
-              scoreEarned: d.scoreEarned,
+              // scoreEarned: d.scoreEarned, // Legacy score deprecated
             }),
           ),
         };
@@ -480,7 +459,6 @@ export class SymptomSurveyService {
       caseId: dto.caseId,
       evaluationDatetime: new Date(),
       podContext: currentPod,
-      totalScore: 0,
       triageColor: isNoteOnly ? null : (dto.triageColor ?? null),
       questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       assessmentType: 'TRIGGERED',
@@ -513,7 +491,6 @@ export class SymptomSurveyService {
       assessmentId: saved.assessmentId,
       evaluationDatetime: saved.evaluationDatetime,
       podContext: saved.podContext,
-      totalScore: 0,
       triageColor: saved.triageColor,
       source: source,
       nurseNote: dto.nurseNote ?? null,
@@ -534,13 +511,7 @@ export class SymptomSurveyService {
       throw new NotFoundException(`Patient with caseId ${caseId} not found`);
     }
 
-    let calculatedPod = patient.currentPod ?? 0;
-    if (patient.podStartDate && !patient.isLocked && !patient.erasCompleted) {
-      const elapsedSeconds = (Date.now() - new Date(patient.podStartDate).getTime()) / 1000;
-      if (elapsedSeconds >= 0) {
-        calculatedPod = Math.floor(elapsedSeconds / 86400);
-      }
-    }
+    const calculatedPod = patient.currentPod ?? 0;
     const currentPodNum = Math.min(Math.max(calculatedPod, 0), 7);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -589,7 +560,7 @@ export class SymptomSurveyService {
           podNumber: pod,
           isAssessed: true,
           assessmentId: survey.assessmentId,
-          totalScore: survey.totalScore,
+          // totalScore: survey.totalScore,
           triageColor: survey.triageColor,
           recoveryStatusTag,
           completedCount: details.length > 0 ? details.length : totalQuestions,
@@ -600,7 +571,7 @@ export class SymptomSurveyService {
               questionText: d.question.questionText,
               selectedOptionId: d.selectedOptionId,
               optionText: d.selectedOption.optionText,
-              scoreEarned: d.scoreEarned,
+              // scoreEarned: d.scoreEarned, // Legacy score deprecated
             }),
           ),
           medicalFeedback: TRIAGE_RECOMMENDATIONS[triageColor] ?? null,
@@ -611,7 +582,7 @@ export class SymptomSurveyService {
           podNumber: pod,
           isAssessed: false,
           assessmentId: null,
-          totalScore: null,
+          // totalScore: null,
           triageColor: null,
           recoveryStatusTag: 'Chưa đánh giá',
           completedCount: 0,

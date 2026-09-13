@@ -93,7 +93,7 @@ describe('SymptomSurveyService (integration)', () => {
     questionId = question.questionId;
     const option = await dataSource
       .getRepository(QuestionOption)
-      .save({ questionId, optionText: 'Nặng', scoreValue: 5 });
+      .save({ questionId, optionText: 'Nặng', optionTriageLevel: 'RED' });
     optionId = option.optionId;
   });
 
@@ -109,14 +109,12 @@ describe('SymptomSurveyService (integration)', () => {
         const older = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
-          totalScore: 0,
           triageColor: 'GREEN',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         const newer = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
-          totalScore: 5,
           triageColor: 'RED',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
@@ -124,7 +122,6 @@ describe('SymptomSurveyService (integration)', () => {
           assessmentId: newer.assessmentId,
           questionId,
           selectedOptionId: optionId,
-          scoreEarned: 5,
         });
 
         const result = await symptomSurveyService.getAssessmentHistory('CASE-001', 1, 10);
@@ -137,7 +134,7 @@ describe('SymptomSurveyService (integration)', () => {
           older.assessmentId,
         ]);
         expect(result.data[0].details).toEqual([
-          expect.objectContaining({ questionId, selectedOptionId: optionId, scoreEarned: 5 }),
+          expect.objectContaining({ questionId, selectedOptionId: optionId }),
         ]);
         expect(result.data[1].details).toEqual([]);
 
@@ -157,14 +154,12 @@ describe('SymptomSurveyService (integration)', () => {
         const survey = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
-          totalScore: 0,
           triageColor: 'GREEN',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         const reassessment = await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
-          totalScore: 0,
           triageColor: 'YELLOW',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
           source: 'REASSESSMENT',
@@ -195,14 +190,12 @@ describe('SymptomSurveyService (integration)', () => {
         await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-01T08:00:00.000Z'),
-          totalScore: 0,
           triageColor: 'GREEN',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
         await surveyRepo.save({
           caseId: 'CASE-001',
           evaluationDatetime: new Date('2026-07-02T08:00:00.000Z'),
-          totalScore: 5,
           triageColor: 'RED',
           questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
         });
@@ -252,7 +245,6 @@ describe('SymptomSurveyService (integration)', () => {
         expect(result).toEqual(
           expect.objectContaining({
             triageColor: 'RED',
-            totalScore: 0,
             source: 'REASSESSMENT',
             nurseNote: 'Bệnh nhân đau nhiều hơn.',
             details: [],

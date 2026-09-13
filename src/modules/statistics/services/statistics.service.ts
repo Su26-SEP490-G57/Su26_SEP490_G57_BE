@@ -33,20 +33,6 @@ import {
  */
 export const COMPLIANCE_THRESHOLD = 0.8;
 
-/**
- * question_text -> stable camelCase key for the 5 built-in screening
- * questions seeded by `1780912799-create-core-table.ts`. Any other question
- * later marked `is_default = true` falls back to `question_<id>` so the chart
- * never silently drops a column.
- */
-export const DEFAULT_QUESTION_KEY_BY_TEXT: Record<string, string> = {
-  'Bạn có buồn nôn không?': 'nausea',
-  'Bạn có nôn nhiều không?': 'vomiting',
-  'Bạn có chướng bụng không?': 'bloating',
-  'Bạn ăn được bao nhiêu?': 'foodIntake',
-  'Bạn đã trung tiện chưa?': 'flatus',
-};
-
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -55,10 +41,6 @@ export class StatisticsService {
     private readonly repository: StatisticsRepository,
     private readonly patientRepository: PatientRepository,
   ) {}
-
-  private questionKey(q: { questionId: number; questionText: string }): string {
-    return DEFAULT_QUESTION_KEY_BY_TEXT[q.questionText] ?? `question_${q.questionId}`;
-  }
 
   // ── Ward overview ─────────────────────────────────────────────────────────
 
@@ -70,17 +52,8 @@ export class StatisticsService {
       .filter((p): p is number => p !== null && p !== undefined);
     const maxPod = pods.length > 0 ? Math.max(...pods) : null;
 
-    // ── Symptom trend (zero-filled 0..maxPod in this layer, never in SQL) ───
-    const defaultQuestions = await this.repository.getDefaultQuestions();
-    const [questionRows, podRows] = await Promise.all([
-      this.repository.getSymptomTrendQuestionRows(caseIds),
-      this.repository.getSymptomTrendPodRows(caseIds),
-    ]);
-
-    const questionRowMap = new Map<string, number>();
-    for (const r of questionRows) {
-      questionRowMap.set(`${r.pod}-${r.questionId}`, r.avgScore);
-    }
+    // ── Symptom trend (triage count per POD) ─────────────────────────────────
+    const podRows = await this.repository.getSymptomTrendPodRows(caseIds);
     const podRowMap = new Map<number, (typeof podRows)[number]>();
     for (const r of podRows) {
       podRowMap.set(r.pod, r);
@@ -92,12 +65,6 @@ export class StatisticsService {
         const podAgg = podRowMap.get(pod);
         symptomTrend.push({
           pod,
-          questions: defaultQuestions.map((q) => ({
-            questionId: q.questionId,
-            questionKey: this.questionKey(q),
-            avgScore: questionRowMap.get(`${pod}-${q.questionId}`) ?? 0,
-          })),
-          avgTotalScore: podAgg?.avgTotalScore ?? 0,
           assessmentCount: podAgg?.assessmentCount ?? 0,
           patientCount: podAgg?.patientCount ?? 0,
           redCount: podAgg?.redCount ?? 0,
@@ -424,9 +391,15 @@ export class StatisticsService {
     const maxPod = patient.currentPod ?? -1;
     const pods = maxPod >= 0 ? Array.from({ length: maxPod + 1 }, (_, i) => i) : [];
 
-    const cellMap = new Map<string, { score: number; optionText: string }>();
+    const cellMap = new Map<
+      string,
+      { triageLevel: 'GREEN' | 'YELLOW' | 'RED' | null; optionText: string }
+    >();
     for (const c of cells) {
-      cellMap.set(`${c.questionId}-${c.pod}`, { score: c.score, optionText: c.optionText });
+      cellMap.set(`${c.questionId}-${c.pod}`, {
+        triageLevel: c.triageLevel,
+        optionText: c.optionText,
+      });
     }
 
     return {
@@ -440,8 +413,8 @@ export class StatisticsService {
         cells: pods.map((pod) => {
           const hit = cellMap.get(`${q.questionId}-${pod}`);
           return hit
-            ? { pod, submitted: true, score: hit.score, optionText: hit.optionText }
-            : { pod, submitted: false, score: null, optionText: null };
+            ? { pod, submitted: true, triageLevel: hit.triageLevel, optionText: hit.optionText }
+            : { pod, submitted: false, triageLevel: null, optionText: null };
         }),
       })),
       unassignedAssessmentCount,
