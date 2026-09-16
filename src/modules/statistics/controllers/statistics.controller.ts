@@ -52,15 +52,16 @@ export class StatisticsController {
 
   @Get('analytics/compliance-list')
   @UseGuards(RolesGuard)
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.ADMIN)
   @ApiOperation({
     summary:
-      'Paginated, filterable list of patients + compliance-checklist status (Nurse/Head Nurse only)',
+      'Paginated, filterable list of patients + compliance-checklist status (Nurse/Head Nurse/Admin)',
     description:
       'Nurse Dashboard "Non-Compliant Patients Detail Screen" (SEP490-414). Shares the cohort ' +
       'filter vocabulary of GET /patients (search/level/operationTypeId/room/nurseUserId), plus ' +
       'overallStatus/dietaryNotViewed/healthEducationNotViewed/missedMorning/missedAfternoon/' +
-      'missedBoth. A plain Nurse caller is auto-scoped to their assigned rooms (same as GET /patients).',
+      'missedBoth. A plain Nurse caller is auto-scoped to their assigned rooms (same as GET /patients); ' +
+      'Head Nurse and Admin see the full, unfiltered cohort.',
   })
   @ApiResponse({ status: 200, type: PaginatedPatientComplianceListDto })
   getComplianceList(

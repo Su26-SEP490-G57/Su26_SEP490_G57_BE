@@ -36,6 +36,8 @@ describe('StatisticsController (integration)', () => {
   let httpServer: Server;
   let dataSource: DataSource;
   let nurseToken: string;
+  let headNurseToken: string;
+  let adminToken: string;
   let patientToken: string;
 
   beforeAll(async () => {
@@ -64,6 +66,10 @@ describe('StatisticsController (integration)', () => {
 
     const loginNurse = await login(httpServer, UserRoleName.NURSE);
     nurseToken = (loginNurse.body as LoginResponse).accessToken;
+    const loginHeadNurse = await login(httpServer, UserRoleName.HEAD_NURSE);
+    headNurseToken = (loginHeadNurse.body as LoginResponse).accessToken;
+    const loginAdmin = await login(httpServer, UserRoleName.ADMIN);
+    adminToken = (loginAdmin.body as LoginResponse).accessToken;
     const loginPatient = await login(httpServer, UserRoleName.PATIENT);
     patientToken = (loginPatient.body as LoginResponse).accessToken;
   });
@@ -796,6 +802,53 @@ describe('StatisticsController (integration)', () => {
             isDailyCompliant: true,
           }),
         );
+      });
+    });
+
+    describe('GIVEN a Nurse caller and no room or nurseUserId query param', () => {
+      it("THEN should auto-filter to only patients in the nurse's assigned rooms (P502 + P504)", async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/compliance-list'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(6);
+        expect(body.data.map((r) => r.caseId).sort()).toEqual([
+          'CASE-001',
+          'CASE-002',
+          'CASE-003',
+          'CASE-004',
+          'CASE-005',
+          'CASE-006',
+        ]);
+      });
+    });
+
+    describe('GIVEN a Head Nurse caller and no room or nurseUserId query param', () => {
+      it('THEN should NOT auto-filter and should respond with all 10 seeded active patients', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/compliance-list'),
+          headNurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(10);
+      });
+    });
+
+    describe('GIVEN an Admin caller and no room or nurseUserId query param', () => {
+      it('THEN should NOT auto-filter and should respond with all 10 seeded active patients', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/compliance-list'),
+          adminToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatientComplianceListDto;
+        expect(body.total).toBe(10);
       });
     });
 
