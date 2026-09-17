@@ -13,9 +13,6 @@ export class AnswerDetailDto {
 
   @ApiProperty({ example: 'Nhẹ' })
   optionText!: string;
-
-  @ApiProperty({ example: 1 })
-  scoreEarned!: number;
 }
 
 export class SymptomSurveyResponseDto {
@@ -30,9 +27,6 @@ export class SymptomSurveyResponseDto {
 
   @ApiPropertyOptional({ example: 3 })
   podContext!: number | null;
-
-  @ApiProperty({ example: 4 })
-  totalScore!: number;
 
   @ApiProperty({ example: 'GREEN', enum: ['GREEN', 'YELLOW', 'RED'] })
   triageColor!: string | null;
@@ -53,9 +47,6 @@ export class AssessmentHistoryItemDto {
 
   @ApiPropertyOptional({ example: 2 })
   podContext!: number | null;
-
-  @ApiProperty({ example: 4 })
-  totalScore!: number;
 
   @ApiProperty({ example: 'RED', enum: ['GREEN', 'YELLOW', 'RED'] })
   triageColor!: string | null;
@@ -103,7 +94,15 @@ export class SurveyQuestionDto {
   isDefault!: boolean;
 
   @ApiProperty({
-    example: [{ optionId: 1, optionText: 'Không', scoreValue: 0 } satisfies QuestionOptionDto],
+    example: [
+      {
+        optionId: 1,
+        optionText: 'Không',
+        optionTriageLevel: 'GREEN',
+        optionDefinition: 'Không có triệu chứng.',
+        normalizedValue: 0,
+      } satisfies QuestionOptionDto,
+    ],
   })
   options!: QuestionOptionDto[];
 }
@@ -121,8 +120,8 @@ export class PodHistoryItemDto {
   @ApiPropertyOptional({ example: 12 })
   assessmentId!: number | null;
 
-  @ApiPropertyOptional({ example: 1 })
-  totalScore!: number | null;
+  @ApiPropertyOptional({ example: 1, description: 'DEPRECATED: No longer used' })
+  totalScore?: number | null;
 
   @ApiPropertyOptional({ example: 'GREEN', enum: ['GREEN', 'YELLOW', 'RED'] })
   triageColor!: string | null;

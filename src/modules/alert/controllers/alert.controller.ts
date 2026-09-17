@@ -1,4 +1,8 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
+import { CurrentUser } from '../../user/decorators/current-user.decorator';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -6,7 +10,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AcknowledgeAlertDto } from '../dtos/acknowledge-alert.dto';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { AlertService } from '../services/alert.service';
@@ -27,17 +30,19 @@ export class AlertController {
     return this.alertService.getAlerts(query);
   }
 
-  @Patch(':id/acknowledge')
+  @Patch(':id/handle')
+  @Roles(UserRoleName.NURSE)
   @ApiOperation({
-    summary: 'Acknowledge an alert',
-    description: 'Marks the alert as Acknowledged.',
+    summary: 'Confirm that the assigned nurse handled a RED alert',
+    description:
+      'Only a nurse assigned to the patient room can confirm. The operation is idempotent and retains the first handler audit record.',
   })
   @ApiResponse({ status: 200, type: AlertResponseDto })
   @ApiNotFoundResponse({ description: 'Alert not found' })
-  acknowledge(
+  handle(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AcknowledgeAlertDto,
+    @CurrentUser() caller: UserResponseDto,
   ): Promise<AlertResponseDto> {
-    return this.alertService.acknowledgeAlert(id, dto);
+    return this.alertService.handleAlert(id, caller);
   }
 }

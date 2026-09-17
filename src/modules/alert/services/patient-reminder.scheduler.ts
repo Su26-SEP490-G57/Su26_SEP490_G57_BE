@@ -1,12 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { NotificationService } from './notification.service';
+import { AlertService } from './alert.service';
 
 @Injectable()
 export class PatientReminderSchedulerService {
   private readonly logger = new Logger(PatientReminderSchedulerService.name);
 
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly alertService: AlertService,
+  ) {}
+
+  @Cron('0 * * * * *')
+  async notifyPatientsAfterRedUnlock(): Promise<void> {
+    await this.alertService.notifyEligiblePatientsForUnlock();
+  }
 
   //Test reminder cron job
   // @Cron('0 */2 * * * *')

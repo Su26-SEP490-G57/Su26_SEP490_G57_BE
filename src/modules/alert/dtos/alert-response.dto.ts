@@ -10,14 +10,14 @@ export class AlertResponseDto {
   @ApiProperty({ example: 5 })
   assessmentId!: number;
 
-  @ApiPropertyOptional({ example: 8 })
-  surveyScore!: number | null;
-
   @ApiProperty({ example: 'YELLOW', enum: ['YELLOW', 'RED'] })
   alertType!: string;
 
-  @ApiProperty({ example: 'Pending' })
+  @ApiProperty({ example: 'Đang chờ xử trí' })
   status!: string;
+
+  @ApiPropertyOptional({ example: true })
+  isOverdue?: boolean;
 
   @ApiPropertyOptional({ example: true })
   isAutoProgression!: boolean | null;
@@ -30,6 +30,12 @@ export class AlertResponseDto {
 
   @ApiPropertyOptional({ example: 'Patient responded well.' })
   nursingNote!: string | null;
+
+  @ApiPropertyOptional({ example: '2026-08-13T08:35:00.000Z' })
+  handledAt!: Date | null;
+
+  @ApiPropertyOptional({ example: 12 })
+  handledByUserId!: number | null;
 
   @ApiPropertyOptional({ example: null })
   closedAt!: Date | null;
