@@ -36,6 +36,8 @@ describe('StatisticsController (integration)', () => {
   let httpServer: Server;
   let dataSource: DataSource;
   let nurseToken: string;
+  let headNurseToken: string;
+  let adminToken: string;
   let patientToken: string;
 
   beforeAll(async () => {
@@ -64,6 +66,10 @@ describe('StatisticsController (integration)', () => {
 
     const loginNurse = await login(httpServer, UserRoleName.NURSE);
     nurseToken = (loginNurse.body as LoginResponse).accessToken;
+    const loginHeadNurse = await login(httpServer, UserRoleName.HEAD_NURSE);
+    headNurseToken = (loginHeadNurse.body as LoginResponse).accessToken;
+    const loginAdmin = await login(httpServer, UserRoleName.ADMIN);
+    adminToken = (loginAdmin.body as LoginResponse).accessToken;
     const loginPatient = await login(httpServer, UserRoleName.PATIENT);
     patientToken = (loginPatient.body as LoginResponse).accessToken;
   });
