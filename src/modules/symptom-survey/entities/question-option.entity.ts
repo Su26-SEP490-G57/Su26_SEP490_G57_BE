@@ -16,10 +16,6 @@ export class QuestionOption {
   @Column({ name: 'option_text', type: 'varchar', length: 255 })
   optionText!: string;
 
-  /** Legacy score retained only during the compatibility migration period. */
-  @Column({ name: 'score_value', type: 'int' })
-  scoreValue!: number;
-
   @Column({ name: 'option_triage_level', type: 'varchar', length: 15, nullable: true })
   optionTriageLevel!: 'GREEN' | 'YELLOW' | 'RED' | null;
 

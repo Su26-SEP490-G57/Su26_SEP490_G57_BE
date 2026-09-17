@@ -124,7 +124,7 @@ export class CreatePatientDto {
   @Type(() => Number)
   @IsNumber()
   @IsOptional()
-  bmi?: number;
+  bmi?: number | null;
 
   @ApiPropertyOptional({ example: 'Ung thư đại tràng giai đoạn II' })
   @IsString()

@@ -19,12 +19,39 @@ export class AlertRepository {
     return this.repo.findOne({ where: { alertId: alertId } });
   }
 
+  findLatestRedAlertByCaseId(caseId: string): Promise<Alert | null> {
+    return this.repo.findOne({
+      where: { caseId, alertType: 'RED' },
+      order: { triggeredAt: 'DESC', alertId: 'DESC' },
+    });
+  }
+
   findPendingRedByCaseId(caseId: string): Promise<Alert | null> {
     return this.repo.findOne({
       where: {
         caseId: caseId,
         status: 'PENDING_REVIEW',
         alertType: 'RED',
+      },
+      order: { triggeredAt: 'DESC', alertId: 'DESC' },
+    });
+  }
+
+  findHandledRedAwaitingUnlockNotification(before: Date): Promise<Alert[]> {
+    return this.repo
+      .createQueryBuilder('alert')
+      .where('alert.alert_type = :alertType', { alertType: 'RED' })
+      .andWhere('alert.status = :status', { status: 'HANDLED' })
+      .andWhere('alert.unlock_notified_at IS NULL')
+      .andWhere('alert.triggered_at <= :before', { before })
+      .getMany();
+  }
+
+  findAllPendingByCaseId(caseId: string): Promise<Alert[]> {
+    return this.repo.find({
+      where: {
+        caseId: caseId,
+        status: 'PENDING_REVIEW',
       },
     });
   }

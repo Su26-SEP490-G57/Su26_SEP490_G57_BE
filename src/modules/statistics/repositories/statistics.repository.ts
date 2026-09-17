@@ -31,7 +31,6 @@ export interface SymptomTrendQuestionRow {
 
 export interface SymptomTrendPodRow {
   pod: number;
-  avgTotalScore: number;
   assessmentCount: number;
   patientCount: number;
   redCount: number;
@@ -82,8 +81,8 @@ export interface AssessmentDetailCellRow {
   questionId: number;
   questionText: string;
   orderNumber: number | null;
-  score: number;
   optionText: string;
+  triageLevel: 'GREEN' | 'YELLOW' | 'RED' | null;
 }
 
 export interface LatestAssessmentByPodRow {
@@ -246,14 +245,13 @@ export class StatisticsRepository {
     );
   }
 
-  /** Per-POD aggregate: total score / assessment count / triage color breakdown. */
+  /** Per-POD assessment count and clinical triage breakdown. */
   async getSymptomTrendPodRows(caseIds: string[]): Promise<SymptomTrendPodRow[]> {
     if (caseIds.length === 0) return [];
     return this.dataSource.query<SymptomTrendPodRow[]>(
       `
       SELECT
         pa.pod_context                                                AS pod,
-        AVG(pa.total_score)::float8                                   AS "avgTotalScore",
         COUNT(*)::int                                                 AS "assessmentCount",
         COUNT(DISTINCT pa.case_id)::int                               AS "patientCount",
         COUNT(*) FILTER (WHERE pa.triage_color = 'RED')::int          AS "redCount",
@@ -519,7 +517,7 @@ export class StatisticsRepository {
     );
   }
 
-  /** Answer cells (question/score/option) for a fixed set of (deduped) assessment ids. */
+  /** Answer cells (question/clinical triage/option) for a fixed set of assessment ids. */
   async getAssessmentDetailCells(assessmentIds: number[]): Promise<AssessmentDetailCellRow[]> {
     if (assessmentIds.length === 0) return [];
     return this.dataSource.query<AssessmentDetailCellRow[]>(
@@ -527,14 +525,13 @@ export class StatisticsRepository {
       SELECT
         pa.pod_context     AS pod,
         pad.question_id    AS "questionId",
-        sq.question_text   AS "questionText",
-        sq.order_number    AS "orderNumber",
-        pad.score_earned   AS score,
-        qo.option_text     AS "optionText"
+        sq.question_text                    AS "questionText",
+        sq.order_number                     AS "orderNumber",
+        pad.option_text_snapshot            AS "optionText",
+        NULLIF(pad.option_triage_level_snapshot, '') AS "triageLevel"
       FROM patient_assessment_details pad
       JOIN patient_assessments pa ON pa.assessment_id = pad.assessment_id
       JOIN survey_questions sq ON sq.question_id = pad.question_id
-      JOIN question_options qo ON qo.option_id = pad.selected_option_id
       WHERE pad.assessment_id = ANY($1)
       `,
       [assessmentIds],

@@ -99,7 +99,7 @@ describe('Statistics realtime (integration)', () => {
     questionId = question.questionId;
     const option = await dataSource
       .getRepository(QuestionOption)
-      .save({ questionId, optionText: 'Không', scoreValue: 0 });
+      .save({ questionId, optionText: 'Không', optionTriageLevel: 'GREEN' });
     optionId = option.optionId;
   });
 

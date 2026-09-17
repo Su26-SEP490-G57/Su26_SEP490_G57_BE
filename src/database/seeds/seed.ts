@@ -585,11 +585,6 @@ export async function seed(
   log(`✅ ${podProtocols.length} PodProtocols (Diet Guidance) seeded`);
 
   const now = new Date();
-  const levelToScore = {
-    RED: 5,
-    YELLOW: 3,
-    GREEN: 1,
-  } satisfies Record<string, number>;
 
   const patientCases: (DeepPartial<Patient> & { assessmentTimeAgo: number })[] = [
     {
@@ -789,13 +784,13 @@ export async function seed(
       caseId: patient.caseId,
       evaluationDatetime: subMinutes(now, patient.assessmentTimeAgo),
       podContext: patient.currentPod,
-      totalScore: levelToScore[levelName.toUpperCase() as keyof typeof levelToScore],
       triageColor: levelName,
+      triageVerdictSnapshot: levelName.toUpperCase(),
       questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
     };
 
     log(
-      `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} (score: ${survey.totalScore}) - ${patient.assessmentTimeAgo} minute(s) ago`,
+      `   ✅ Assessment for ${survey.caseId}: ${survey.triageColor} - ${patient.assessmentTimeAgo} minute(s) ago`,
     );
 
     return survey;

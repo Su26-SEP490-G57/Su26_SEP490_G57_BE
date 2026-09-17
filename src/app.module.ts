@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { MinAppVersionGuard } from './common/guards/min-app-version.guard';
 import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module';
+import { HealthEducationModule } from './modules/health-education/health-education.module';
 import { HealthModule } from './modules/health/health.module';
 import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
@@ -51,6 +52,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     SymptomSurveyModule,
     AlertModule,
     DietGuidanceModule,
+    HealthEducationModule,
     HealthModule,
   ],
   providers: [

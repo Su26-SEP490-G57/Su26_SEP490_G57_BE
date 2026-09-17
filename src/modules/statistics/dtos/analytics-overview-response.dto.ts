@@ -14,29 +14,9 @@ export class AnalyticsOverviewFiltersDto {
   room?: string;
 }
 
-export class SymptomTrendQuestionDto {
-  @ApiProperty({ example: 3 })
-  questionId!: number;
-
-  @ApiProperty({
-    example: 'bloating',
-    description: 'Stable camelCase key for the default question',
-  })
-  questionKey!: string;
-
-  @ApiProperty({ example: 1.4, description: 'Average score across the cohort for this POD' })
-  avgScore!: number;
-}
-
 export class SymptomTrendPointDto {
   @ApiProperty({ example: 2, description: 'Post-operative day' })
   pod!: number;
-
-  @ApiProperty({ type: [SymptomTrendQuestionDto] })
-  questions!: SymptomTrendQuestionDto[];
-
-  @ApiProperty({ example: 2.1 })
-  avgTotalScore!: number;
 
   @ApiProperty({ example: 12, description: 'Number of assessment submissions for this POD' })
   assessmentCount!: number;

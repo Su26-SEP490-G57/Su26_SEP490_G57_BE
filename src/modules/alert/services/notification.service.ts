@@ -97,6 +97,44 @@ export class NotificationService {
     };
   }
 
+  async sendToPatientCase(
+    caseId: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ attempted: number; sent: number }> {
+    const tokens = await this.deviceService.findActiveTokensForPatientCase(caseId);
+
+    if (!tokens.length) {
+      return { attempted: 0, sent: 0 };
+    }
+
+    const settled = await Promise.allSettled(
+      tokens.map((token) => this.firebaseService.sendToToken(token, title, body, data)),
+    );
+
+    await Promise.all(
+      settled.map(async (result, index) => {
+        if (result.status !== 'rejected') {
+          return;
+        }
+
+        const reason = result.reason as { code?: string };
+        if (
+          reason?.code === 'messaging/registration-token-not-registered' ||
+          reason?.code === 'messaging/invalid-registration-token'
+        ) {
+          await this.deviceService.deactivateByToken(tokens[index]);
+        }
+      }),
+    );
+
+    return {
+      attempted: tokens.length,
+      sent: settled.filter((result) => result.status === 'fulfilled').length,
+    };
+  }
+
   async sendToPatients(
     title: string,
     body: string,

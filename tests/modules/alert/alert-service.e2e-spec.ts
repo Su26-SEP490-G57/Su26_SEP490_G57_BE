@@ -11,11 +11,27 @@ import { Alert } from '../../../src/modules/alert/entities/alert.entity';
 import { NotificationService } from '../../../src/modules/alert/services/notification.service';
 import { DEFAULT_QUESTIONNAIRE_VERSION_ID } from '../../../src/modules/symptom-survey/constants/questionnaire-version.constant';
 import { SymptomSurvey } from '../../../src/modules/symptom-survey/entities/symptom-survey.entity';
+import { UserResponseDto } from '../../../src/modules/user/dtos/user-response.dto';
+import { UserRoleName } from '../../../src/modules/user/enums/user-role.enum';
 import {
   getTestDataSource,
   resetTestDataSource,
   closeTestDataSource,
 } from '../../global/db-context';
+
+// seed.ts assigns nurse01 (user id 3) to room P502, which is where CASE-001's
+// patient case is seeded — see the room-assignment comment further below.
+const nurse01Caller: UserResponseDto = {
+  id: 3,
+  username: 'nurse01',
+  fullName: 'Điều dưỡng 01',
+  phoneNumber: null,
+  caseId: null,
+  roles: [UserRoleName.NURSE],
+  isActive: true,
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+};
 
 // AlertService#createAlert has no HTTP route of its own — it's invoked internally
 // by SymptomSurveyService when a submitted survey crosses an alert threshold — so
@@ -80,7 +96,6 @@ describe('AlertService (integration)', () => {
         const result = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -88,9 +103,8 @@ describe('AlertService (integration)', () => {
           expect.objectContaining({
             caseId: 'CASE-001',
             assessmentId: surveyId,
-            surveyScore: 15,
             alertType: 'RED',
-            status: 'PENDING_REVIEW',
+            status: 'Đang chờ xử trí',
             isAutoProgression: true,
             nurseAction: null,
             nursingNote: null,
@@ -106,7 +120,6 @@ describe('AlertService (integration)', () => {
         const result = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -124,7 +137,6 @@ describe('AlertService (integration)', () => {
         const result = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -141,7 +153,6 @@ describe('AlertService (integration)', () => {
           alertService.createAlert({
             caseId: 'CASE-001',
             assessmentId: 999999,
-            surveyScore: 15,
             alertType: 'RED',
           }),
         ).rejects.toThrow();
@@ -159,7 +170,6 @@ describe('AlertService (integration)', () => {
         const result = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -193,7 +203,6 @@ describe('AlertService (integration)', () => {
         await alertService.createAlert({
           caseId: 'CASE-007',
           assessmentId: unassignedRoomSurvey.assessmentId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -212,7 +221,6 @@ describe('AlertService (integration)', () => {
         await alertService.createAlert({
           caseId: 'CASE-007',
           assessmentId: unassignedRoomSurvey.assessmentId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -236,7 +244,6 @@ describe('AlertService (integration)', () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
         alertGateway.emitNewAlert.mockClear();
@@ -259,7 +266,6 @@ describe('AlertService (integration)', () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
         alertGateway.emitNewAlert.mockClear();
@@ -278,7 +284,6 @@ describe('AlertService (integration)', () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 6,
           alertType: 'YELLOW',
         });
         alertGateway.emitNewAlert.mockClear();
@@ -353,13 +358,64 @@ describe('AlertService (integration)', () => {
     });
   });
 
+  describe('isAssessmentLocked()', () => {
+    it('allows assessment when no RED alert exists', async () => {
+      await expect(alertService.isAssessmentLocked('CASE-002')).resolves.toBe(false);
+    });
+
+    it('keeps assessment locked while a RED alert is pending', async () => {
+      await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        alertType: 'RED',
+      });
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
+    });
+
+    it('keeps assessment locked after handling until the cooldown elapses', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        alertType: 'RED',
+      });
+      await alertService.handleAlert(created.alertId, nurse01Caller);
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
+    });
+
+    it('allows assessment after handling and the cooldown has elapsed', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        alertType: 'RED',
+      });
+      await alertService.handleAlert(created.alertId, nurse01Caller);
+
+      const afterCooldown = new Date(created.triggeredAt!.getTime() + 60 * 60 * 1000 + 1);
+      await expect(alertService.isAssessmentLocked('CASE-001', afterCooldown)).resolves.toBe(false);
+    });
+
+    it('fails safe when a RED alert is missing its trigger timestamp', async () => {
+      const created = await alertService.createAlert({
+        caseId: 'CASE-001',
+        assessmentId: surveyId,
+        alertType: 'RED',
+      });
+      await dataSource
+        .getRepository(Alert)
+        .update({ alertId: created.alertId }, { triggeredAt: null });
+
+      await expect(alertService.isAssessmentLocked('CASE-001')).resolves.toBe(true);
+    });
+  });
+
   describe('findPendingRedByCaseId()', () => {
     describe('GIVEN a PENDING_REVIEW RED alert exists for the case', () => {
       it('THEN should return that alert', async () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
 
@@ -377,7 +433,6 @@ describe('AlertService (integration)', () => {
         await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 6,
           alertType: 'YELLOW',
         });
 
@@ -392,10 +447,9 @@ describe('AlertService (integration)', () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
-          surveyScore: 15,
           alertType: 'RED',
         });
-        await alertService.acknowledgeAlert(created.alertId, {});
+        await alertService.handleAlert(created.alertId, nurse01Caller);
 
         const found = await alertService.findPendingRedByCaseId('CASE-001');
 

@@ -7,8 +7,8 @@ export class AssessmentMatrixCellDto {
   @ApiProperty({ example: true })
   submitted!: boolean;
 
-  @ApiPropertyOptional({ example: 1, nullable: true })
-  score!: number | null;
+  @ApiPropertyOptional({ example: 'YELLOW', enum: ['GREEN', 'YELLOW', 'RED'], nullable: true })
+  triageLevel!: 'GREEN' | 'YELLOW' | 'RED' | null;
 
   @ApiPropertyOptional({ example: 'Thỉnh thoảng', nullable: true })
   optionText!: string | null;

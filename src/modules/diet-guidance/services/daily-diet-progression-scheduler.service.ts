@@ -1,18 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { Alert } from '../../alert/entities/alert.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { PodProtocolTrackingLog } from '../../patient/entities/pod-protocol-tracking-log.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
 
-export interface DailyDietProgressionItem {
+export type DailyDietProgressionAction = 'ADVANCED' | 'MAINTAINED';
+
+export interface DailyDietProgressionDetail {
   caseId: string;
   previousDietLevel: number;
   newDietLevel: number;
-  latestTriageColor: string | null;
-  action: 'ADVANCED' | 'MAINTAINED';
+  latestTriageColor: 'GREEN' | 'YELLOW' | 'RED' | null;
+  action: DailyDietProgressionAction;
   reason: string;
 }
 
@@ -20,7 +23,7 @@ export interface DailyDietProgressionResult {
   totalProcessed: number;
   advancedCount: number;
   maintainedCount: number;
-  details: DailyDietProgressionItem[];
+  details: DailyDietProgressionDetail[];
 }
 
 @Injectable()
@@ -36,161 +39,250 @@ export class DailyDietProgressionSchedulerService {
     private readonly logRepo: Repository<PodProtocolTrackingLog>,
     @InjectRepository(PodProtocol)
     private readonly podRepo: Repository<PodProtocol>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Cron job runs daily at 23:59:00 (Asia/Ho_Chi_Minh) to scan the latest assessment
-   * of each active patient for the day and adjust diet level accordingly.
-   */
-  @Cron('0 59 23 * * *', { timeZone: 'Asia/Ho_Chi_Minh' })
-  async handleDailyCron(): Promise<void> {
-    this.logger.log('Starting End-of-Day Diet Progression Scan...');
+  private get alertRepo() {
+    return this.dataSource.getRepository(Alert);
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async handlePodProgression(): Promise<void> {
+    this.logger.log('🚀 Checking for POD progression...');
+    const patients = await this.patientRepo.find({
+      where: { erasCompleted: false, isLocked: false },
+    });
+
+    const now = new Date();
+    for (const patient of patients) {
+      if (patient.podStartDate) {
+        const elapsedHours =
+          (now.getTime() - new Date(patient.podStartDate).getTime()) / (1000 * 60 * 60);
+        const expectedPod = Math.floor(elapsedHours / 24);
+
+        if (patient.currentPod !== null && expectedPod > patient.currentPod) {
+          patient.currentPod = expectedPod;
+          await this.patientRepo.save(patient);
+          this.logger.log(`✅ POD updated for case ${patient.caseId} to ${expectedPod}`);
+        }
+      }
+    }
+  }
+
+  /** Cron adapter. Clinical progression is implemented by processDailyDietProgression(). */
+  @Cron('1 0 * * *', { timeZone: 'Asia/Ho_Chi_Minh' })
+  async handleDailyDietProgression(): Promise<void> {
     const result = await this.processDailyDietProgression();
     this.logger.log(
-      `End-of-Day Diet Progression completed: ${result.advancedCount} advanced, ${result.maintainedCount} maintained out of ${result.totalProcessed} patients`,
+      `Daily Diet Level scan completed: ${result.advancedCount} advanced, ${result.maintainedCount} maintained.`,
     );
   }
 
   /**
-   * Process daily diet progression for all active ERAS patients.
-   * Can also be called manually via API for testing/auditing.
+   * Applies one auditable Diet Level decision per eligible patient. This method is
+   * intentionally independent of Cron and HTTP so manual runs and scheduled runs
+   * use the identical clinical workflow.
    */
-  async processDailyDietProgression(): Promise<DailyDietProgressionResult> {
+  async processDailyDietProgression(now = new Date()): Promise<DailyDietProgressionResult> {
     const activePatients = await this.patientRepo.find({
-      where: {
-        erasCompleted: false,
-        isLocked: false,
-      },
-      relations: ['operationType'],
+      where: { erasCompleted: false, isLocked: false },
     });
-
-    const today = new Date();
-    const startOfDay = new Date(today);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const result: DailyDietProgressionResult = {
-      totalProcessed: 0,
-      advancedCount: 0,
-      maintainedCount: 0,
-      details: [],
-    };
+    const { start, end } = this.getHoChiMinhDayBounds(now);
+    const details: DailyDietProgressionDetail[] = [];
 
     for (const patient of activePatients) {
-      // Skip if patient has no active POD or hasn't started ERAS
-      if (patient.currentPod === null || !patient.podStartDate) {
-        continue;
-      }
+      // A patient without an active POD has not entered the ERAS workflow.
+      if (patient.currentPod === null || !patient.podStartDate) continue;
 
-      result.totalProcessed++;
-      const currentDietLevel = patient.currentDietLevel ?? 0;
+      const previousDietLevel = patient.currentDietLevel ?? 0;
+      const survey = await this.findLatestEligibleSurvey(
+        patient.caseId,
+        patient.currentPod,
+        start,
+        end,
+      );
+      const latestTriageColor = this.normalizeTriageColor(
+        survey?.triageVerdictSnapshot ?? survey?.triageColor ?? null,
+      );
+      const pendingRedAlert = await this.alertRepo.findOne({
+        where: { caseId: patient.caseId, alertType: 'RED', status: 'PENDING_REVIEW' },
+      });
+      const maxDietLevel = await this.getMaxDietLevel(patient.operationTypeId);
 
-      // 1. Find the latest assessment completed on this day (or current pod context)
-      const latestSurvey = await this.surveyRepo
-        .createQueryBuilder('survey')
-        .where('survey.caseId = :caseId', { caseId: patient.caseId })
-        .andWhere('survey.evaluationDatetime >= :startOfDay', { startOfDay })
-        .andWhere('survey.evaluationDatetime <= :endOfDay', { endOfDay })
-        .orderBy('survey.evaluationDatetime', 'DESC')
-        .getOne();
+      const decision = this.resolveDecision({
+        caseId: patient.caseId,
+        previousDietLevel,
+        latestTriageColor,
+        hasPendingRedAlert: pendingRedAlert !== null,
+        maxDietLevel,
+      });
 
-      const surveyToEvaluate =
-        latestSurvey ??
-        (await this.surveyRepo
-          .createQueryBuilder('survey')
-          .where('survey.caseId = :caseId', { caseId: patient.caseId })
-          .andWhere('survey.podContext = :currentPod', { currentPod: patient.currentPod })
-          .orderBy('survey.evaluationDatetime', 'DESC')
-          .getOne());
-
-      const latestTriageColor = surveyToEvaluate?.triageColor ?? null;
-
-      // 2. Determine max diet level for this patient's operation type
-      let maxDietLevel = 4;
-      if (patient.operationTypeId) {
-        const count = await this.podRepo.count({
-          where: { operationTypeId: patient.operationTypeId },
-        });
-        if (count > 0) {
-          maxDietLevel = count - 1;
-        }
-      }
-
-      // 3. Apply progression rules based on latest triage color
-      if (latestTriageColor === 'GREEN') {
-        if (currentDietLevel < maxDietLevel) {
-          const newDietLevel = currentDietLevel + 1;
-          patient.currentDietLevel = newDietLevel;
-
-          // If reached Level 4 (Chế độ ăn mềm / Soft diet), record pod_soft_diet_reached
-          if (newDietLevel === 4 && patient.podSoftDietReached === null) {
-            patient.podSoftDietReached = patient.currentPod;
-          }
-
-          await this.patientRepo.save(patient);
-
-          // Audit log in tracking logs
-          await this.logRepo.save({
-            caseId: patient.caseId,
-            podNumber: patient.currentPod,
-            oldStatus: `Mức ăn ${currentDietLevel}`,
-            newStatus: `Mức ăn ${newDietLevel}`,
-            actionType: 'System_Auto',
-            holdReason: `Tự động tăng mức ăn (Mức ${currentDietLevel} -> Mức ${newDietLevel}) do đánh giá cuối ngày đạt màu XANH (GREEN - dung nạp tốt).`,
-          });
-
-          result.advancedCount++;
-          result.details.push({
-            caseId: patient.caseId,
-            previousDietLevel: currentDietLevel,
-            newDietLevel,
-            latestTriageColor: 'GREEN',
-            action: 'ADVANCED',
-            reason: `Tự động tăng mức ăn từ Mức ${currentDietLevel} lên Mức ${newDietLevel} (Dung nạp tốt - GREEN)`,
-          });
-        } else {
-          // Already at max level
-          result.maintainedCount++;
-          result.details.push({
-            caseId: patient.caseId,
-            previousDietLevel: currentDietLevel,
-            newDietLevel: currentDietLevel,
-            latestTriageColor: 'GREEN',
-            action: 'MAINTAINED',
-            reason: `Đã đạt mức ăn tối đa (Mức ${currentDietLevel})`,
-          });
-        }
-      } else {
-        // YELLOW, RED, or No Assessment
-        const reason =
-          latestTriageColor === 'YELLOW'
-            ? 'Giữ nguyên mức ăn do đánh giá cuối ngày là VÀNG (YELLOW - cần theo dõi)'
-            : latestTriageColor === 'RED'
-              ? 'Giữ nguyên mức ăn do đánh giá cuối ngày là ĐỎ (RED - cần can thiệp)'
-              : 'Giữ nguyên mức ăn do không có bài đánh giá hợp lệ trong ngày';
-
-        await this.logRepo.save({
-          caseId: patient.caseId,
-          podNumber: patient.currentPod,
-          oldStatus: `Mức ăn ${currentDietLevel}`,
-          newStatus: `Mức ăn ${currentDietLevel}`,
-          actionType: 'System_Auto',
-          holdReason: reason,
-        });
-
-        result.maintainedCount++;
-        result.details.push({
-          caseId: patient.caseId,
-          previousDietLevel: currentDietLevel,
-          newDietLevel: currentDietLevel,
-          latestTriageColor,
-          action: 'MAINTAINED',
-          reason,
-        });
-      }
+      await this.persistDecision(patient, decision);
+      details.push(decision);
     }
 
-    return result;
+    return {
+      totalProcessed: details.length,
+      advancedCount: details.filter((detail) => detail.action === 'ADVANCED').length,
+      maintainedCount: details.filter((detail) => detail.action === 'MAINTAINED').length,
+      details,
+    };
+  }
+
+  private async findLatestEligibleSurvey(
+    caseId: string,
+    currentPod: number,
+    dayStart: Date,
+    dayEnd: Date,
+  ): Promise<SymptomSurvey | null> {
+    const todaySurvey = await this.surveyRepo
+      .createQueryBuilder('survey')
+      .where('survey.caseId = :caseId', { caseId })
+      .andWhere('survey.evaluationDatetime BETWEEN :dayStart AND :dayEnd', { dayStart, dayEnd })
+      .orderBy('survey.evaluationDatetime', 'DESC')
+      .getOne();
+    if (todaySurvey) return todaySurvey;
+
+    return this.surveyRepo
+      .createQueryBuilder('survey')
+      .where('survey.caseId = :caseId', { caseId })
+      .andWhere('survey.podContext = :currentPod', { currentPod })
+      .orderBy('survey.evaluationDatetime', 'DESC')
+      .getOne();
+  }
+
+  private async getMaxDietLevel(operationTypeId: number | null): Promise<number> {
+    if (operationTypeId === null) return 4;
+
+    const protocolCount = await this.podRepo.count({ where: { operationTypeId } });
+    return protocolCount > 0 ? protocolCount - 1 : 4;
+  }
+
+  private resolveDecision(input: {
+    caseId: string;
+    previousDietLevel: number;
+    latestTriageColor: DailyDietProgressionDetail['latestTriageColor'];
+    hasPendingRedAlert: boolean;
+    maxDietLevel: number;
+  }): DailyDietProgressionDetail {
+    const { caseId, previousDietLevel, latestTriageColor, hasPendingRedAlert, maxDietLevel } =
+      input;
+
+    if (!latestTriageColor) {
+      return this.maintained(
+        caseId,
+        previousDietLevel,
+        null,
+        'Không tìm thấy đánh giá hợp lệ cho bệnh nhân.',
+      );
+    }
+    if (hasPendingRedAlert) {
+      return this.maintained(
+        caseId,
+        previousDietLevel,
+        latestTriageColor,
+        'Fail-safe: còn cảnh báo ĐỎ chờ xử trí, không tự động tăng mức ăn.',
+      );
+    }
+    if (latestTriageColor === 'RED') {
+      return this.maintained(
+        caseId,
+        previousDietLevel,
+        latestTriageColor,
+        'Đánh giá gần nhất là ĐỎ.',
+      );
+    }
+    if (latestTriageColor === 'YELLOW') {
+      return this.maintained(
+        caseId,
+        previousDietLevel,
+        latestTriageColor,
+        'Đánh giá gần nhất là VÀNG.',
+      );
+    }
+    if (previousDietLevel >= maxDietLevel) {
+      return this.maintained(
+        caseId,
+        previousDietLevel,
+        latestTriageColor,
+        'Bệnh nhân đã đạt mức ăn tối đa của phác đồ.',
+      );
+    }
+
+    return {
+      caseId,
+      previousDietLevel,
+      newDietLevel: previousDietLevel + 1,
+      latestTriageColor,
+      action: 'ADVANCED',
+      reason: 'Tự động tăng mức ăn: đánh giá gần nhất là XANH và không có cảnh báo ĐỎ chờ xử trí.',
+    };
+  }
+
+  private maintained(
+    caseId: string,
+    dietLevel: number,
+    latestTriageColor: DailyDietProgressionDetail['latestTriageColor'],
+    reason: string,
+  ): DailyDietProgressionDetail {
+    return {
+      caseId,
+      previousDietLevel: dietLevel,
+      newDietLevel: dietLevel,
+      latestTriageColor,
+      action: 'MAINTAINED',
+      reason,
+    };
+  }
+
+  private async persistDecision(
+    patient: Patient,
+    decision: DailyDietProgressionDetail,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      if (decision.action === 'ADVANCED') {
+        patient.currentDietLevel = decision.newDietLevel;
+        if (decision.newDietLevel === 4 && patient.podSoftDietReached === null) {
+          patient.podSoftDietReached = patient.currentPod;
+        }
+        await manager.save(patient);
+      }
+
+      await manager.save(
+        manager.create(PodProtocolTrackingLog, {
+          caseId: patient.caseId,
+          podNumber: patient.currentPod,
+          oldStatus: `Mức ăn ${decision.previousDietLevel}`,
+          newStatus: `Mức ăn ${decision.newDietLevel}`,
+          actionType: 'System_Auto',
+          changedById: null,
+          holdReason: decision.reason,
+        }),
+      );
+    });
+  }
+
+  private normalizeTriageColor(
+    value: string | null,
+  ): DailyDietProgressionDetail['latestTriageColor'] {
+    // Only accept the canonical clinical values written by SymptomSurveyService.
+    // Legacy seed/import values such as "Green" are not valid snapshots and must
+    // fail safe rather than causing automatic Diet Level progression.
+    return value === 'GREEN' || value === 'YELLOW' || value === 'RED' ? value : null;
+  }
+
+  /** Returns UTC instants bounding the current calendar day in Asia/Ho_Chi_Minh (UTC+7). */
+  private getHoChiMinhDayBounds(now: Date): { start: Date; end: Date } {
+    const hoChiMinhTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const start = new Date(
+      Date.UTC(
+        hoChiMinhTime.getUTCFullYear(),
+        hoChiMinhTime.getUTCMonth(),
+        hoChiMinhTime.getUTCDate(),
+        -7,
+      ),
+    );
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+    return { start, end };
   }
 }

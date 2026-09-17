@@ -161,6 +161,14 @@ export class PatientController {
     return this.symptomSurveyService.submitReassessment(dto, caller as any);
   }
 
+  @Get(':caseId')
+  @ApiOperation({ summary: 'Get a patient clinical profile by case ID' })
+  @ApiResponse({ status: 200, type: PatientListItemDto })
+  @ApiNotFoundResponse({ description: 'Patient not found' })
+  getPatientByCaseId(@Param('caseId') caseId: string): Promise<PatientWithAccount> {
+    return this.patientService.getPatientByCaseId(caseId);
+  }
+
   @Post(':id/start-eras')
   @Roles(UserRoleName.HEAD_NURSE)
   @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse only)' })
@@ -202,7 +210,7 @@ export class PatientController {
     @Body() dto: UpdateDietLevelDto,
     @CurrentUser() user: { id: number },
   ): Promise<PatientWithAccount> {
-    return this.patientService.updateDietLevel(id, dto.dietLevel, user.id);
+    return this.patientService.updateDietLevel(id, dto.dietLevel, user.id, dto.reason);
   }
 
   @Patch(':id/pod-level')
