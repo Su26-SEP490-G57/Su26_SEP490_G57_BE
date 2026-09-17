@@ -274,7 +274,7 @@ describe('AlertService (integration)', () => {
 
         expect(alertGateway.emitNewAlert).toHaveBeenCalledTimes(1);
         expect(alertGateway.emitNewAlert).toHaveBeenCalledWith(
-          expect.objectContaining({ alertId: created.alertId, status: 'HANDLED' }),
+          expect.objectContaining({ alertId: created.alertId, status: 'Đã xử trí' }),
         );
       });
     });
