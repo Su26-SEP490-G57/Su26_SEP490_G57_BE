@@ -30,6 +30,11 @@ async function ensureLevelsSeeded(dataSource: DataSource) {
     },
     { levelId: 3, levelName: 'Green', description: 'Low risk - stable', sortOrder: 3 },
   ]);
+
+  // Re-initialize sequence for test consistency
+  if (count === 0) {
+    await dataSource.query(`CREATE SEQUENCE IF NOT EXISTS "case_id_seq" START WITH 11`);
+  }
 }
 
 export async function getTestDataSource() {

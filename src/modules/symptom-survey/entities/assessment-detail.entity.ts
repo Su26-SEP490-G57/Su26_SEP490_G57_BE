@@ -46,8 +46,4 @@ export class AssessmentDetail {
 
   @Column({ name: 'matched_alert_rule_ids', type: 'jsonb', default: '[]' })
   matchedAlertRuleIds!: number[];
-
-  /** Legacy score retained only during the compatibility migration period. */
-  @Column({ name: 'score_earned', type: 'int' })
-  scoreEarned!: number;
 }

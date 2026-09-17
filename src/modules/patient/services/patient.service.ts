@@ -85,16 +85,12 @@ export class PatientService {
     if (patient.currentPod === null || patient.currentPod === undefined) {
       return 0;
     }
-    if (!patient.podStartDate || patient.isLocked || patient.erasCompleted) {
-      return patient.currentPod;
-    }
-    const elapsedSeconds = (Date.now() - new Date(patient.podStartDate).getTime()) / 1000;
-    if (elapsedSeconds < 0) return 0;
-    const computedPod = Math.floor(elapsedSeconds / 86400);
+    // POD hiện tại chính là POD đã lưu (được quản lý bởi Scheduler), không tự tính toán theo thời gian thực
+    const pod = patient.currentPod;
     if (maxPod !== undefined && maxPod !== null) {
-      return Math.min(computedPod, maxPod);
+      return Math.min(pod, maxPod);
     }
-    return computedPod;
+    return pod;
   }
 
   private toResponse(
@@ -146,6 +142,13 @@ export class PatientService {
       page: query.page ?? 1,
       limit: query.limit ?? 10,
     };
+  }
+
+  async getPatientByCaseId(caseId: string): Promise<PatientWithAccount> {
+    const patient = await this.repository.findByIdWithRelations(caseId);
+    if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
+
+    return this.toResponse(patient);
   }
 
   /**
@@ -378,9 +381,15 @@ export class PatientService {
 
     const passwordHash = await bcrypt.hash(dto.password ?? DEFAULT_PATIENT_PASSWORD, SALT_ROUNDS);
 
+    // Compute BMI if weight/height are valid
+    let bmi: number | null = null;
+    if (dto.weight && dto.height && dto.height > 0) {
+      bmi = parseFloat((dto.weight / (dto.height / 100) ** 2).toFixed(1));
+    }
+
     const created = await this.repository.createWithAccount({
       caseId: dto.caseId,
-      ...this.toCaseFields(dto),
+      ...this.toCaseFields({ ...dto, bmi: dto.bmi ?? bmi }),
       currentPod: dto.currentPod ?? 0,
       account: {
         username,

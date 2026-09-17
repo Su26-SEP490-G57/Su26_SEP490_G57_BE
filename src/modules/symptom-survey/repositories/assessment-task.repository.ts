@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AssessmentTask } from '../entities/assessment-task.entity';
 
 @Injectable()
@@ -10,27 +10,32 @@ export class AssessmentTaskRepository {
     private readonly repo: Repository<AssessmentTask>,
   ) {}
 
-  async findPendingTask(
+  async findOpenPendingTask(
     caseId: string,
-    slot: 'MORNING' | 'AFTERNOON',
     pod: number,
+    now: Date,
   ): Promise<AssessmentTask | null> {
-    return this.repo.findOne({
-      where: {
-        caseId,
-        podContext: pod,
-        scheduledSlot: slot,
-        status: 'PENDING',
-      },
-    });
+    return this.repo
+      .createQueryBuilder('task')
+      .where('task.case_id = :caseId', { caseId })
+      .andWhere('task.pod_context = :pod', { pod })
+      .andWhere('task.status = :status', { status: 'PENDING' })
+      .andWhere('task.opens_at <= :now', { now })
+      .andWhere('task.closes_at >= :now', { now })
+      .orderBy('task.opens_at', 'ASC')
+      .getOne();
   }
 
   async create(task: Partial<AssessmentTask>): Promise<AssessmentTask> {
     return this.repo.save(this.repo.create(task));
   }
 
-  async markCompleted(taskId: number, assessmentId: number): Promise<void> {
-    await this.repo.update(taskId, {
+  async markCompleted(
+    taskId: number,
+    assessmentId: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await (manager?.getRepository(AssessmentTask) ?? this.repo).update(taskId, {
       status: 'COMPLETED',
       assessmentId,
       completedAt: new Date(),

@@ -813,17 +813,15 @@ describe('DietGuidanceController (integration)', () => {
   describe('POST /diet-guidance/cron/process-daily-diet-progression', () => {
     describe('GIVEN a Head Nurse caller and the raw seeded patients/assessments', () => {
       // seed.ts's own patient_assessments fixtures store triageColor as
-      // Level.levelName ('Green'/'Yellow'/'Red', title case) rather than the
-      // 'GREEN'/'YELLOW'/'RED' values the real symptom-survey submission flow
-      // writes (see SymptomSurveyService, which types triageColor as
-      // 'GREEN' | 'YELLOW' | 'RED'). That's a pre-existing seed-data quirk
-      // unrelated to this PR's diet-guidance diff, but it means the scheduler's
-      // exact-match comparisons never see a 'GREEN'/'YELLOW'/'RED' string here,
-      // so every seeded patient falls through to "no valid assessment" and
-      // maintains. Documented here as actual behavior against real seed data;
-      // the branches this quirk masks (ADVANCED, YELLOW/RED-maintained, at-max)
-      // are exercised directly below with freshly-seeded, correctly-cased surveys.
-      it('THEN should respond 201 processing all 10 active patients with none advancing', async () => {
+      // Level.levelName ('Green'/'Yellow'/'Red', title case), but also write a
+      // canonical uppercase triageVerdictSnapshot ('GREEN'/'YELLOW'/'RED') —
+      // and the scheduler reads triageVerdictSnapshot ahead of triageColor, so
+      // these raw seeded assessments do resolve to a valid triage color. GREEN
+      // patients below their operation type's max diet level advance; YELLOW/RED
+      // patients maintain. Documented here as actual behavior against real seed
+      // data; the branches this doesn't cover (at-max, missing assessment) are
+      // exercised directly below with freshly-seeded, purpose-built surveys.
+      it('THEN should respond 201 advancing GREEN patients below max and maintaining the rest', async () => {
         const response = await authed(
           request(httpServer).post('/diet-guidance/cron/process-daily-diet-progression'),
           headNurseToken,
@@ -833,8 +831,8 @@ describe('DietGuidanceController (integration)', () => {
         expect(response.body as DailyDietProgressionResult).toEqual(
           expect.objectContaining({
             totalProcessed: 10,
-            advancedCount: 0,
-            maintainedCount: 10,
+            advancedCount: 4,
+            maintainedCount: 6,
           }),
         );
       });
@@ -877,7 +875,12 @@ describe('DietGuidanceController (integration)', () => {
 
         expect(response.status).toBe(201);
         const body = response.body as DailyDietProgressionResult;
-        expect(body.advancedCount).toBe(1);
+        // The cron processes all active patients in one pass, and the other raw
+        // seeded patients (see the "raw seeded patients/assessments" suite above)
+        // independently resolve their own triage color via triageVerdictSnapshot,
+        // so advancedCount here isn't scoped to CASE-002 alone — assert on
+        // CASE-002's own transition instead of the aggregate count.
+        expect(body.advancedCount).toBeGreaterThanOrEqual(1);
         expect(body.details).toEqual(
           expect.arrayContaining([
             expect.objectContaining({

@@ -20,10 +20,23 @@ export class CreateQuestionOptionDto {
   @MaxLength(255)
   optionText!: string;
 
-  @ApiProperty({ example: 1, description: 'Score contributed when this option is selected' })
+  @ApiProperty({ example: 'YELLOW', enum: ['GREEN', 'YELLOW', 'RED'] })
+  @IsString()
+  @IsNotEmpty()
+  optionTriageLevel!: 'GREEN' | 'YELLOW' | 'RED';
+
+  @ApiPropertyOptional({ example: 'Buồn nôn nhẹ nhưng vẫn ăn uống được.' })
+  @IsOptional()
+  @IsString()
+  optionDefinition?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Normalized clinical value for rule evaluation, when applicable.',
+  })
+  @IsOptional()
   @IsInt()
-  @Min(0)
-  scoreValue!: number;
+  normalizedValue?: number;
 }
 
 export class UpdateQuestionOptionDto {
@@ -34,11 +47,21 @@ export class UpdateQuestionOptionDto {
   @MaxLength(255)
   optionText?: string;
 
+  @ApiPropertyOptional({ example: 'YELLOW', enum: ['GREEN', 'YELLOW', 'RED'] })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  optionTriageLevel?: 'GREEN' | 'YELLOW' | 'RED';
+
+  @ApiPropertyOptional({ example: 'Buồn nôn nhẹ nhưng vẫn ăn uống được.' })
+  @IsOptional()
+  @IsString()
+  optionDefinition?: string;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsInt()
-  @Min(0)
-  scoreValue?: number;
+  normalizedValue?: number;
 }
 
 export class CreateSurveyQuestionDto {
@@ -107,6 +130,12 @@ export class QuestionOptionDto {
   @ApiProperty({ example: 'Nhẹ' })
   optionText!: string;
 
-  @ApiProperty({ example: 1 })
-  scoreValue!: number;
+  @ApiProperty({ example: 'YELLOW', enum: ['GREEN', 'YELLOW', 'RED'] })
+  optionTriageLevel!: 'GREEN' | 'YELLOW' | 'RED' | null;
+
+  @ApiPropertyOptional({ example: 'Buồn nôn nhẹ nhưng vẫn ăn uống được.' })
+  optionDefinition!: string | null;
+
+  @ApiPropertyOptional({ example: 1 })
+  normalizedValue!: number | null;
 }

@@ -1,6 +1,7 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
 export default async () => {
+  process.env.FIREBASE_DISABLED = 'true';
   console.log('\n🚀 Starting Global Postgres Testcontainer...');
 
   const container = await new PostgreSqlContainer('postgres:16-alpine')
