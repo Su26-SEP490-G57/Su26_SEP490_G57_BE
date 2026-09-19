@@ -74,8 +74,11 @@ describe('AlertService (integration)', () => {
   beforeEach(async () => {
     await resetTestDataSource();
     alertGateway.emitNewAlert.mockClear();
+    alertGateway.emitAlertHandled.mockClear();
     notificationService.sendToNursesSpecific.mockClear();
     notificationService.sendToNurses.mockClear();
+    notificationService.sendToDoctors.mockClear();
+    notificationService.sendToDoctors.mockResolvedValue({ attempted: 0, sent: 0 });
 
     const survey = await dataSource.getRepository(SymptomSurvey).save({
       caseId: 'CASE-001',
@@ -354,6 +357,123 @@ describe('AlertService (integration)', () => {
           .count({ where: { caseId: 'CASE-001' } });
         expect(count).toBe(0);
         expect(alertGateway.emitNewAlert).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('handleAlert()', () => {
+    // seed.ts assigns nurse01 (user id 3) to room P502, and CASE-001's patient
+    // case is seeded with roomBed 'P502'.
+    describe('GIVEN an assigned nurse handles a pending alert', () => {
+      it('THEN should emit the handled alert over the alert gateway', async () => {
+        const created = await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'RED',
+        });
+        alertGateway.emitNewAlert.mockClear();
+
+        await alertService.handleAlert(created.alertId, nurse01Caller);
+
+        expect(alertGateway.emitAlertHandled).toHaveBeenCalledTimes(1);
+        expect(alertGateway.emitAlertHandled).toHaveBeenCalledWith(
+          expect.objectContaining({ alertId: created.alertId, status: 'Đã xử trí' }),
+        );
+      });
+
+      // Kept separate: notifying doctors is an independent side effect from the
+      // gateway emit and the persisted HANDLED status.
+      it('THEN should notify doctors that the nurse completed handling it', async () => {
+        const created = await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'RED',
+        });
+
+        await alertService.handleAlert(created.alertId, nurse01Caller);
+
+        expect(notificationService.sendToDoctors).toHaveBeenCalledTimes(1);
+        expect(notificationService.sendToDoctors).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining('Nguyễn Văn An'),
+          expect.objectContaining({
+            caseId: 'CASE-001',
+            assessmentId: String(surveyId),
+            alertId: String(created.alertId),
+            alertType: 'RED',
+          }),
+        );
+      });
+    });
+
+    // The doctor-notification fan-out is best-effort: a failure there must not
+    // prevent the nurse's handling action itself from succeeding.
+    describe('GIVEN notifying doctors fails', () => {
+      it('THEN should still resolve with the alert marked HANDLED', async () => {
+        notificationService.sendToDoctors.mockRejectedValue(new Error('FCM unavailable'));
+
+        const created = await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'RED',
+        });
+
+        const result = await alertService.handleAlert(created.alertId, nurse01Caller);
+
+        expect(result).toEqual(
+          expect.objectContaining({ alertId: created.alertId, status: 'Đã xử trí' }),
+        );
+      });
+    });
+
+    // Handling used to be restricted to alertType 'RED'; that restriction was
+    // lifted so a pending YELLOW alert can also be acknowledged.
+    describe('GIVEN a pending YELLOW alert', () => {
+      it('THEN should mark it HANDLED', async () => {
+        const created = await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'YELLOW',
+        });
+
+        const result = await alertService.handleAlert(created.alertId, nurse01Caller);
+
+        expect(result.status).toBe('Đã xử trí');
+      });
+    });
+  });
+
+  describe('getDoctorNotifications()', () => {
+    describe('GIVEN both a HANDLED and a PENDING_REVIEW alert exist', () => {
+      it('THEN should return only the HANDLED alert', async () => {
+        const handled = await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'RED',
+        });
+        await alertService.handleAlert(handled.alertId, nurse01Caller);
+
+        await alertService.createAlert({
+          caseId: 'CASE-001',
+          assessmentId: surveyId,
+          alertType: 'YELLOW',
+        });
+
+        const result = await alertService.getDoctorNotifications({});
+
+        expect(result.total).toBe(1);
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0]).toEqual(
+          expect.objectContaining({ alertId: handled.alertId, status: 'Đã xử trí' }),
+        );
+      });
+    });
+
+    describe('GIVEN no HANDLED alerts exist', () => {
+      it('THEN should return an empty page', async () => {
+        const result = await alertService.getDoctorNotifications({});
+
+        expect(result).toEqual({ data: [], total: 0, page: 1, limit: 20 });
       });
     });
   });

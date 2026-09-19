@@ -172,7 +172,7 @@ describe('UsersController (integration)', () => {
 
         expect(response.status).toBe(200);
         const body = response.body as FindAllResponse;
-        expect(body.total).toBe(13);
+        expect(body.total).toBe(14);
         expect(body.page).toBe(1);
         expect(body.limit).toBe(10);
         expect(body.data).toHaveLength(10);
@@ -217,7 +217,7 @@ describe('UsersController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as FindAllResponse;
         expect(body.data).toHaveLength(5);
-        expect(body.total).toBe(13);
+        expect(body.total).toBe(14);
       });
     });
 

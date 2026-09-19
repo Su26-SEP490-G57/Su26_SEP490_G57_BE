@@ -120,9 +120,6 @@ export class PodHistoryItemDto {
   @ApiPropertyOptional({ example: 12 })
   assessmentId!: number | null;
 
-  @ApiPropertyOptional({ example: 1, description: 'DEPRECATED: No longer used' })
-  totalScore?: number | null;
-
   @ApiPropertyOptional({ example: 'GREEN', enum: ['GREEN', 'YELLOW', 'RED'] })
   triageColor!: string | null;
 

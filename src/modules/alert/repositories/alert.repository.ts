@@ -73,4 +73,13 @@ export class AlertRepository {
       take: limit,
     });
   }
+
+  findHandledForDoctor(page = 1, limit = 20): Promise<[Alert[], number]> {
+    return this.repo.findAndCount({
+      where: { status: 'HANDLED' },
+      order: { handledAt: 'DESC', alertId: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
 }
