@@ -1,20 +1,21 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PatientRepository } from 'src/modules/patient/repositories/patient.repository';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
-
-const RED_ASSESSMENT_LOCK_MINUTES = 60;
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { Alert } from '../entities/alert.entity';
-import { AlertRepository } from '../repositories/alert.repository';
-import { NotificationService } from './notification.service';
-import { PatientRepository } from 'src/modules/patient/repositories/patient.repository';
-import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
-
 import { AlertGateway } from '../gateways/alert.gateway';
+import { AlertRepository } from '../repositories/alert.repository';
+import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
+import { NotificationService } from './notification.service';
+
+const RED_ASSESSMENT_LOCK_MINUTES = 60;
 
 @Injectable()
 export class AlertService {
+  private readonly logger = new Logger(AlertService.name);
+
   constructor(
     private readonly repository: AlertRepository,
     private readonly alertGateway: AlertGateway,
@@ -40,9 +41,9 @@ export class AlertService {
       isOverdue,
       isAutoProgression: alert.isAutoProgression,
       triggeredAt: alert.triggeredAt,
+      handledAt: alert.handledAt,
       nurseAction: alert.nurseAction,
       nursingNote: alert.nursingNote,
-      handledAt: alert.handledAt,
       handledByUserId: alert.handledByUserId,
       closedAt: alert.closedAt,
     };
@@ -109,6 +110,19 @@ export class AlertService {
     };
   }
 
+  async getDoctorNotifications(query: QueryAlertDto): Promise<PaginatedAlertsDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const [alerts, total] = await this.repository.findHandledForDoctor(page, limit);
+
+    return {
+      data: alerts.map((alert) => this.toResponse(alert)),
+      total,
+      page,
+      limit,
+    };
+  }
+
   async handleAlert(alertId: number, caller: UserResponseDto): Promise<AlertResponseDto> {
     const alert = await this.repository.findById(alertId);
     if (!alert) throw new NotFoundException(`Alert #${alertId} not found`);
@@ -117,8 +131,8 @@ export class AlertService {
       return this.toResponse(alert);
     }
 
-    if (alert.alertType !== 'RED' || alert.status !== 'PENDING_REVIEW') {
-      throw new ForbiddenException('Only pending RED alerts can be handled by a nurse');
+    if (alert.status !== 'PENDING_REVIEW') {
+      throw new ForbiddenException('Only pending alerts can be handled by a nurse');
     }
 
     const patient = await this.patientRepository.findByIdWithRelations(alert.caseId);
@@ -135,8 +149,32 @@ export class AlertService {
     alert.handledByUserId = caller.id;
 
     const saved = await this.repository.save(alert);
-    await this.notifyPatientIfEligibleForUnlock(saved);
-    return this.toResponse(saved);
+    const response = this.toResponse(saved);
+
+    this.alertGateway.emitAlertHandled(response);
+
+    try {
+      const patientDetails = await this.patientRepository.findByIdWithRelations(saved.caseId);
+      const patientName = patientDetails?.account?.fullName ?? saved.caseId;
+      await this.notificationService.sendToDoctors(
+        'Đã hoàn thành xử trí',
+        `Điều dưỡng đã hoàn thành xử trí cảnh báo cho ${patientName}.`,
+        {
+          route: '/doctor/alerts',
+          caseId: saved.caseId,
+          assessmentId: String(saved.assessmentId),
+          alertId: String(saved.alertId),
+          alertType: saved.alertType,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Unable to notify doctors for handled alert #${saved.alertId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    return response;
   }
 
   async isAssessmentLocked(caseId: string, now = new Date()): Promise<boolean> {

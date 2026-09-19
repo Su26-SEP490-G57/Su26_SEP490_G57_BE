@@ -86,7 +86,6 @@ export class SymptomSurveyService {
       caseId: survey.caseId,
       evaluationDatetime: survey.evaluationDatetime,
       podContext: survey.podContext,
-      // totalScore: survey.totalScore, // Legacy score deprecated
       triageColor: survey.triageColor,
     };
 
@@ -97,7 +96,6 @@ export class SymptomSurveyService {
           questionText: d.questionTextSnapshot, // Sử dụng snapshot
           selectedOptionId: d.selectedOptionId,
           optionText: d.optionTextSnapshot, // Sử dụng snapshot
-          // scoreEarned: d.scoreEarned, // Legacy score deprecated
         }),
       );
     }
@@ -412,7 +410,6 @@ export class SymptomSurveyService {
           assessmentId: survey.assessmentId,
           evaluationDatetime: survey.evaluationDatetime,
           podContext: survey.podContext,
-          // totalScore: survey.totalScore,
           triageColor: survey.triageColor,
           // Phân biệt bài khảo sát thường và đánh giá lại lâm sàng.
           // source mặc định 'SURVEY' cho các bản ghi cũ chưa có cột này.
@@ -424,7 +421,6 @@ export class SymptomSurveyService {
               questionText: d.question.questionText,
               selectedOptionId: d.selectedOptionId,
               optionText: d.selectedOption.optionText,
-              // scoreEarned: d.scoreEarned, // Legacy score deprecated
             }),
           ),
         };
@@ -560,7 +556,6 @@ export class SymptomSurveyService {
           podNumber: pod,
           isAssessed: true,
           assessmentId: survey.assessmentId,
-          // totalScore: survey.totalScore,
           triageColor: survey.triageColor,
           recoveryStatusTag,
           completedCount: details.length > 0 ? details.length : totalQuestions,
@@ -571,7 +566,6 @@ export class SymptomSurveyService {
               questionText: d.question.questionText,
               selectedOptionId: d.selectedOptionId,
               optionText: d.selectedOption.optionText,
-              // scoreEarned: d.scoreEarned, // Legacy score deprecated
             }),
           ),
           medicalFeedback: TRIAGE_RECOMMENDATIONS[triageColor] ?? null,
@@ -582,7 +576,6 @@ export class SymptomSurveyService {
           podNumber: pod,
           isAssessed: false,
           assessmentId: null,
-          // totalScore: null,
           triageColor: null,
           recoveryStatusTag: 'Chưa đánh giá',
           completedCount: 0,

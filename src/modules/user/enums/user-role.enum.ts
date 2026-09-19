@@ -4,6 +4,7 @@ export enum UserRoleName {
   ADMIN = 'Admin',
   HEAD_NURSE = 'Head_Nurse',
   NURSE = 'Nurse',
+  DOCTOR = 'Doctor',
   PATIENT = 'Patient',
 }
 
@@ -16,6 +17,9 @@ export const UserRole = {
   },
   NURSE: {
     roleName: UserRoleName.NURSE,
+  },
+  DOCTOR: {
+    roleName: UserRoleName.DOCTOR,
   },
   PATIENT: {
     roleName: UserRoleName.PATIENT,

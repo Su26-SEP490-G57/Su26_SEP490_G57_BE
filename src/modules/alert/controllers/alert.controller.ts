@@ -1,8 +1,4 @@
 import { Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
-import { CurrentUser } from '../../user/decorators/current-user.decorator';
-import { Roles } from '../../user/decorators/roles.decorator';
-import { UserResponseDto } from '../../user/dtos/user-response.dto';
-import { UserRoleName } from '../../user/enums/user-role.enum';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -10,6 +6,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../../user/decorators/current-user.decorator';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
 import { AlertService } from '../services/alert.service';
@@ -30,8 +30,15 @@ export class AlertController {
     return this.alertService.getAlerts(query);
   }
 
-  @Patch(':id/handle')
-  @Roles(UserRoleName.NURSE)
+  @Get('doctor-notifications')
+  @Roles(UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Get notifications of alerts handled by nurses for doctors' })
+  @ApiResponse({ status: 200, type: PaginatedAlertsDto })
+  getDoctorNotifications(@Query() query: QueryAlertDto): Promise<PaginatedAlertsDto> {
+    return this.alertService.getDoctorNotifications(query);
+  }
+
+  @Patch(':id/acknowledge')
   @ApiOperation({
     summary: 'Confirm that the assigned nurse handled a RED alert',
     description:

@@ -25,14 +25,14 @@ export class AlertResponseDto {
   @ApiPropertyOptional({ example: '2026-06-09T10:00:00.000Z' })
   triggeredAt!: Date | null;
 
+  @ApiPropertyOptional({ example: '2026-06-09T10:15:00.000Z' })
+  handledAt!: Date | null;
+
   @ApiPropertyOptional({ example: 'Administered antiemetic' })
   nurseAction!: string | null;
 
   @ApiPropertyOptional({ example: 'Patient responded well.' })
   nursingNote!: string | null;
-
-  @ApiPropertyOptional({ example: '2026-08-13T08:35:00.000Z' })
-  handledAt!: Date | null;
 
   @ApiPropertyOptional({ example: 12 })
   handledByUserId!: number | null;
