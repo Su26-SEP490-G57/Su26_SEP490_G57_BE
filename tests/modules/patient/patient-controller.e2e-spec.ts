@@ -54,6 +54,7 @@ describe('PatientController (integration)', () => {
   let nurseToken: string;
   let headNurseToken: string;
   let patientToken: string;
+  let doctorToken: string;
 
   beforeAll(async () => {
     dataSource = await getTestDataSource();
@@ -86,6 +87,8 @@ describe('PatientController (integration)', () => {
     headNurseToken = ((await login(httpServer, UserRoleName.HEAD_NURSE)).body as LoginResponse)
       .accessToken;
     patientToken = ((await login(httpServer, UserRoleName.PATIENT)).body as LoginResponse)
+      .accessToken;
+    doctorToken = ((await login(httpServer, UserRoleName.DOCTOR)).body as LoginResponse)
       .accessToken;
   });
 
@@ -236,6 +239,30 @@ describe('PatientController (integration)', () => {
         const body = response.body as PaginatedPatients;
         expect(body.total).toBe(9);
         expect(body.data.some((p) => p.caseId === 'CASE-005')).toBe(false);
+      });
+
+      // Doctors are responsible for every case in the ward, including completed
+      // ones, so the controller forces includeCompleted=true for a Doctor caller
+      // regardless of the query string.
+      it('THEN a Doctor caller should respond 200 including the completed patient', async () => {
+        const response = await authed(request(httpServer).get('/patients'), doctorToken);
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(10);
+        expect(body.data.some((p) => p.caseId === 'CASE-005')).toBe(true);
+      });
+
+      it('THEN a Head Nurse caller passing includeCompleted=true should respond 200 including the completed patient', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients').query({ includeCompleted: true }),
+          headNurseToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedPatients;
+        expect(body.total).toBe(10);
+        expect(body.data.some((p) => p.caseId === 'CASE-005')).toBe(true);
       });
     });
 
@@ -507,8 +534,11 @@ describe('PatientController (integration)', () => {
   });
 
   describe('GET /patients/:id/assessments', () => {
-    describe('GIVEN a Nurse caller and a case id with a seeded assessment', () => {
-      it('THEN should respond 200 with that assessment in the history', async () => {
+    describe('GIVEN a Nurse caller and a case id with seeded assessment history', () => {
+      it('THEN should respond 200 with the current POD assessment first, newest evaluationDatetime first', async () => {
+        // seed.ts seeds CASE-001 (currentPod: 2) with one assessment per POD from
+        // 0 to 2 (progression Green, Green, Yellow), so 3 rows are expected here,
+        // ordered by evaluationDatetime DESC — the current POD's is the most recent.
         const response = await authed(
           request(httpServer).get('/patients/CASE-001/assessments'),
           nurseToken,
@@ -516,7 +546,7 @@ describe('PatientController (integration)', () => {
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedAssessmentHistoryDto;
-        expect(body.total).toBe(1);
+        expect(body.total).toBe(3);
         expect(body.data[0]).toEqual(
           expect.objectContaining({ triageColor: 'Yellow', podContext: 2 }),
         );
@@ -903,13 +933,14 @@ describe('PatientController (integration)', () => {
   });
 
   describe('PATCH /patients/:id/diet-level', () => {
-    // CASE-001 is seeded with currentDietLevel: 2 (see seed.ts), so these cases send
-    // dietLevel: 3 to exercise a genuine transition rather than a same-value no-op.
-    describe('GIVEN a valid dietLevel and a Nurse caller', () => {
+    // CASE-001 is seeded with currentDietLevel: 2 (see seed.ts). Increasing the
+    // level is now restricted to doctors, so these cases use doctorToken to
+    // exercise a genuine increasing transition rather than a same-value no-op.
+    describe('GIVEN a valid dietLevel increase and a Doctor caller', () => {
       it('THEN should respond 200 with the diet level updated on the returned patient', async () => {
         const response = await authed(
           request(httpServer).patch('/patients/CASE-001/diet-level'),
-          nurseToken,
+          doctorToken,
         ).send({ dietLevel: 3, reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.' });
 
         expect(response.status).toBe(200);
@@ -921,7 +952,7 @@ describe('PatientController (integration)', () => {
       // Kept separate from the response-shape assertion above: this is verifying
       // persistence, a different system than "did the HTTP response look right."
       it('THEN should persist the updated currentDietLevel', async () => {
-        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), doctorToken).send({
           dietLevel: 3,
           reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
@@ -935,7 +966,7 @@ describe('PatientController (integration)', () => {
       // Kept separate: the audit log write is an independent side effect from
       // the persisted currentDietLevel column itself.
       it('THEN should record a Nurse_Acknowledge audit log entry with the old/new diet level status', async () => {
-        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), doctorToken).send({
           dietLevel: 3,
           reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
@@ -948,15 +979,53 @@ describe('PatientController (integration)', () => {
             oldStatus: 'Mức ăn 2',
             newStatus: 'Mức ăn 3',
             actionType: 'Nurse_Acknowledge',
-            changedById: 3,
+            changedById: 14,
           }),
         );
       });
     });
 
+    // New restriction introduced alongside the doctor actor: only a doctor may
+    // raise the diet level — a nurse may still lower it (see the Head Nurse
+    // case further below, which sends a decrease).
+    describe('GIVEN a dietLevel increase and a Nurse caller', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          nurseToken,
+        ).send({ dietLevel: 3, reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.' });
+
+        expect(response.status).toBe(403);
+      });
+
+      it('THEN should NOT persist any change to currentDietLevel', async () => {
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+          dietLevel: 3,
+          reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
+        });
+
+        const stored = await dataSource
+          .getRepository(Patient)
+          .findOne({ where: { caseId: 'CASE-001' } });
+        expect(stored?.currentDietLevel).toBe(2);
+      });
+    });
+
+    // A Head Nurse is not a doctor either, so the same increase restriction applies.
+    describe('GIVEN a dietLevel increase and a Head Nurse caller', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).patch('/patients/CASE-001/diet-level'),
+          headNurseToken,
+        ).send({ dietLevel: 3, reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.' });
+
+        expect(response.status).toBe(403);
+      });
+    });
+
     describe('GIVEN dietLevel=4 and the patient has not yet reached the soft diet POD', () => {
       it('THEN should persist podSoftDietReached as the current POD', async () => {
-        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), doctorToken).send({
           dietLevel: 4,
           reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });
@@ -976,7 +1045,7 @@ describe('PatientController (integration)', () => {
       });
 
       it('THEN should NOT overwrite the already-recorded podSoftDietReached', async () => {
-        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), nurseToken).send({
+        await authed(request(httpServer).patch('/patients/CASE-001/diet-level'), doctorToken).send({
           dietLevel: 4,
           reason: 'Người bệnh dung nạp tốt mức ăn hiện tại.',
         });

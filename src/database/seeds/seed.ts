@@ -129,15 +129,6 @@ export async function seed(
       isActive: true,
     },
     {
-      id: 14,
-      username: 'doctor01',
-      passwordHash: DOCTOR_HASH,
-      fullName: 'Nguyễn Văn Khoa',
-      roles: [doctorRole],
-      caseId: null,
-      isActive: true,
-    },
-    {
       id: 4,
       username: 'patient01',
       passwordHash: PATIENT_HASH,
@@ -225,6 +216,18 @@ export async function seed(
       fullName: 'Trương Mai Phương',
       roles: [savedRoles[3]],
       caseId: 'CASE-010',
+      isActive: true,
+    },
+    // Placed last: usersRepository.save() ignores the explicit `id` on a
+    // generated PK column and assigns ids sequentially by array position, so a
+    // user must sit at the array index matching its intended id (14th here).
+    {
+      id: 14,
+      username: 'doctor01',
+      passwordHash: DOCTOR_HASH,
+      fullName: 'Nguyễn Văn Khoa',
+      roles: [doctorRole],
+      caseId: null,
       isActive: true,
     },
   ];
@@ -835,6 +838,9 @@ export async function seed(
         evaluationDatetime: evalDate,
         podContext: pod,
         triageColor: triageColor,
+        // DailyDietProgressionSchedulerService only accepts this canonical
+        // uppercase snapshot, not the display-cased triageColor above.
+        triageVerdictSnapshot: triageColor.toUpperCase(),
         source: 'SURVEY',
         questionnaireVersionId: DEFAULT_QUESTIONNAIRE_VERSION_ID,
       });

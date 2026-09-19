@@ -16,6 +16,7 @@ const SEEDED_ACCOUNTS: Record<UserRoleName, Credentials> = {
   [UserRoleName.ADMIN]: { username: 'admin', password: 'Admin@123' },
   [UserRoleName.HEAD_NURSE]: { username: 'head_nurse', password: 'Nurse@123' },
   [UserRoleName.NURSE]: { username: 'nurse01', password: 'Nurse@123' },
+  [UserRoleName.DOCTOR]: { username: 'doctor01', password: 'Doctor@123' },
   [UserRoleName.PATIENT]: { username: 'patient01', password: 'Patient@123' },
 };
 

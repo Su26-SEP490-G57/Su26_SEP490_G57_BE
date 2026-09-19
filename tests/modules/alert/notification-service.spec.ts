@@ -119,6 +119,50 @@ describe('NotificationService', () => {
     });
   });
 
+  describe('sendToDoctors()', () => {
+    describe('GIVEN no doctor has an active device token', () => {
+      it('THEN should return attempted 0 / sent 0 and query the doctor role', async () => {
+        deviceService.findActiveTokensForRoles.mockResolvedValue([]);
+
+        const result = await service.sendToDoctors('Title', 'Body');
+
+        expect(result).toEqual({ attempted: 0, sent: 0 });
+        expect(deviceService.findActiveTokensForRoles).toHaveBeenCalledWith([UserRoleName.DOCTOR]);
+        expect(firebaseService.sendToToken).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('GIVEN every token sends successfully', () => {
+      it('THEN should return attempted and sent equal to the token count', async () => {
+        deviceService.findActiveTokensForRoles.mockResolvedValue(['token-a', 'token-b']);
+        firebaseService.sendToToken.mockResolvedValue('message-id');
+
+        const result = await service.sendToDoctors('Title', 'Body');
+
+        expect(result).toEqual({ attempted: 2, sent: 2 });
+        expect(deviceService.deactivateByToken).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('GIVEN a token fails with an unregistered-token FCM error', () => {
+      it('THEN should deactivate that token and exclude it from the sent count', async () => {
+        deviceService.findActiveTokensForRoles.mockResolvedValue(['stale-token', 'ok-token']);
+        firebaseService.sendToToken.mockImplementation((token: string) => {
+          if (token === 'stale-token') {
+            return Promise.reject(fcmError('messaging/registration-token-not-registered'));
+          }
+          return Promise.resolve('message-id');
+        });
+
+        const result = await service.sendToDoctors('Title', 'Body');
+
+        expect(result).toEqual({ attempted: 2, sent: 1 });
+        expect(deviceService.deactivateByToken).toHaveBeenCalledWith('stale-token');
+        expect(deviceService.deactivateByToken).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
   describe('sendToPatients()', () => {
     describe('GIVEN no patient has an active device token', () => {
       it('THEN should return attempted 0 / sent 0 and query the patient role', async () => {

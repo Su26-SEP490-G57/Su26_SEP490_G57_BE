@@ -225,11 +225,11 @@ describe('AlertController (integration)', () => {
     });
   });
 
-  describe('PATCH /alerts/:id/handle', () => {
-    describe('GIVEN a pending alert', () => {
+  describe('PATCH /alerts/:id/acknowledge', () => {
+    describe('GIVEN a pending RED alert', () => {
       it('THEN should respond 200 with the alert marked HANDLED', async () => {
         const response = await authed(
-          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/acknowledge`),
           nurseToken,
         ).send({});
 
@@ -245,11 +245,11 @@ describe('AlertController (integration)', () => {
       // Verification of idempotency
       it('THEN calling twice should still respond 200 and return HANDLED', async () => {
         await authed(
-          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/acknowledge`),
           nurseToken,
         ).send({});
         const response = await authed(
-          request(httpServer).patch(`/alerts/${pendingRedAlertId}/handle`),
+          request(httpServer).patch(`/alerts/${pendingRedAlertId}/acknowledge`),
           nurseToken,
         ).send({});
 
@@ -263,10 +263,29 @@ describe('AlertController (integration)', () => {
       });
     });
 
+    // The alertType-must-be-RED restriction was lifted alongside the doctor-actor
+    // feature — a pending YELLOW alert must now be handleable too, not just RED.
+    describe('GIVEN a pending YELLOW alert', () => {
+      it('THEN should respond 200 with the alert marked HANDLED', async () => {
+        const response = await authed(
+          request(httpServer).patch(`/alerts/${pendingYellowAlertId}/acknowledge`),
+          nurseToken,
+        ).send({});
+
+        expect(response.status).toBe(200);
+        expect(response.body as AlertResponseDto).toEqual(
+          expect.objectContaining({
+            alertId: pendingYellowAlertId,
+            status: 'Đã xử trí',
+          }),
+        );
+      });
+    });
+
     describe('GIVEN an alert id that does not exist', () => {
       it('THEN should respond 404 Not Found', async () => {
         const response = await authed(
-          request(httpServer).patch('/alerts/999999/handle'),
+          request(httpServer).patch('/alerts/999999/acknowledge'),
           nurseToken,
         ).send({});
 
@@ -277,8 +296,48 @@ describe('AlertController (integration)', () => {
     describe('GIVEN no Authorization header is present', () => {
       it('THEN should respond 401 Unauthorized', async () => {
         const response = await request(httpServer)
-          .patch(`/alerts/${pendingYellowAlertId}/handle`)
+          .patch(`/alerts/${pendingYellowAlertId}/acknowledge`)
           .send({});
+
+        expect(response.status).toBe(401);
+      });
+    });
+  });
+
+  describe('GET /alerts/doctor-notifications', () => {
+    describe('GIVEN a Doctor caller', () => {
+      it('THEN should respond 200 with only HANDLED alerts', async () => {
+        const doctorToken = ((await login(httpServer, UserRoleName.DOCTOR)).body as LoginResponse)
+          .accessToken;
+
+        const response = await authed(
+          request(httpServer).get('/alerts/doctor-notifications'),
+          doctorToken,
+        );
+
+        expect(response.status).toBe(200);
+        const body = response.body as PaginatedAlertsDto;
+        expect(body.total).toBe(1);
+        expect(body.data[0]).toEqual(
+          expect.objectContaining({ alertId: acknowledgedAlertId, status: 'Đã xử trí' }),
+        );
+      });
+    });
+
+    describe('GIVEN a Nurse caller (not Doctor)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).get('/alerts/doctor-notifications'),
+          nurseToken,
+        );
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('GIVEN no Authorization header is present', () => {
+      it('THEN should respond 401 Unauthorized', async () => {
+        const response = await request(httpServer).get('/alerts/doctor-notifications');
 
         expect(response.status).toBe(401);
       });

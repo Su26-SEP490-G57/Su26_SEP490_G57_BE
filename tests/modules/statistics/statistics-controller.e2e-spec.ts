@@ -37,6 +37,7 @@ describe('StatisticsController (integration)', () => {
   let dataSource: DataSource;
   let nurseToken: string;
   let patientToken: string;
+  let doctorToken: string;
 
   beforeAll(async () => {
     dataSource = await getTestDataSource();
@@ -66,6 +67,8 @@ describe('StatisticsController (integration)', () => {
     nurseToken = (loginNurse.body as LoginResponse).accessToken;
     const loginPatient = await login(httpServer, UserRoleName.PATIENT);
     patientToken = (loginPatient.body as LoginResponse).accessToken;
+    const loginDoctor = await login(httpServer, UserRoleName.DOCTOR);
+    doctorToken = (loginDoctor.body as LoginResponse).accessToken;
   });
 
   afterAll(async () => {
@@ -270,7 +273,7 @@ describe('StatisticsController (integration)', () => {
       });
     });
 
-    describe('GIVEN a caller without the Nurse/Head Nurse role', () => {
+    describe('GIVEN a caller without the Nurse/Head Nurse/Doctor role', () => {
       it('THEN should respond 403 Forbidden', async () => {
         const response = await authed(
           request(httpServer).get('/patients/analytics/overview'),
@@ -278,6 +281,19 @@ describe('StatisticsController (integration)', () => {
         );
 
         expect(response.status).toBe(403);
+      });
+    });
+
+    // Doctors were added to this route's allowed roles alongside the rest of
+    // the ward-level analytics routes.
+    describe('GIVEN a Doctor caller', () => {
+      it('THEN should respond 200', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/analytics/overview'),
+          doctorToken,
+        );
+
+        expect(response.status).toBe(200);
       });
     });
 
