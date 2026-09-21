@@ -32,6 +32,9 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   diagnosis!: string | null;
 
+  @Column({ type: 'text', array: true, nullable: true })
+  comorbidities!: string[] | null;
+
   @Column({ name: 'operation_type_id', type: 'int', nullable: true })
   operationTypeId!: number | null;
 
