@@ -44,7 +44,7 @@ export class CreatePodProtocolDto {
   @MaxLength(500)
   volumeInstruction?: string;
 
-  @ApiPropertyOptional({ example: 0, description: 'Diet progression level (0 to 4)' })
+  @ApiPropertyOptional({ example: 0, description: 'Diet progression level (0 to N)' })
   @IsOptional()
   @IsInt()
   @Min(0)

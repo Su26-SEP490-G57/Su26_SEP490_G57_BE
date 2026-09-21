@@ -25,6 +25,7 @@ import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
+import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-response.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
@@ -209,7 +210,7 @@ export class PatientController {
   @ApiOperation({
     summary: 'Update diet level for a patient based on clinical tolerance',
     description:
-      'Nurse/Head Nurse/Doctor. Nurses can safely lower the level; doctors can also increase it. Updates current_diet_level (0 to 4).',
+      'Nurse/Head Nurse/Doctor. Nurses and Head Nurses can safely lower the level; doctors can both increase and decrease it. Updates current_diet_level (0 to max protocol dietLevel, typically 0-4).',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })

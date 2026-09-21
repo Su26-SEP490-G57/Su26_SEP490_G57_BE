@@ -5,9 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
@@ -80,6 +80,8 @@ export class PatientService {
     private readonly patientGateway: PatientGateway,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @InjectRepository(PodProtocol)
+    private readonly podRepo: Repository<PodProtocol>,
   ) {}
 
   calculateDynamicPod(patient: Patient, maxPod?: number | null): number {
@@ -161,6 +163,22 @@ export class PatientService {
     const count = await this.dataSource.getRepository(PodProtocol).countBy({ operationTypeId });
 
     return count > 0 ? count - 1 : null;
+  }
+
+  /**
+   * Get the maximum diet level for a patient's operation type.
+   * Returns the highest dietLevel from pod_protocols for that operation type.
+   */
+  async getMaxDietLevelForPatient(patient: Patient): Promise<number> {
+    if (!patient.operationTypeId) return 0;
+
+    const protocols = await this.podRepo.find({
+      where: { operationTypeId: patient.operationTypeId },
+    });
+
+    if (protocols.length === 0) return 0;
+
+    return Math.max(...protocols.map((p) => p.dietLevel));
   }
 
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {
@@ -264,8 +282,9 @@ export class PatientService {
     const patient = await this.repository.findById(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
 
-    if (newDietLevel < 0 || newDietLevel > 4) {
-      throw new BadRequestException('Diet level must be between 0 and 4');
+    const maxDietLevel = await this.getMaxDietLevelForPatient(patient);
+    if (newDietLevel < 0 || newDietLevel > maxDietLevel) {
+      throw new BadRequestException(`Diet level must be between 0 and ${maxDietLevel}`);
     }
 
     const previousLevel = patient.currentDietLevel ?? 0;
@@ -274,7 +293,7 @@ export class PatientService {
     }
 
     const updatePayload: Partial<Patient> = { currentDietLevel: newDietLevel };
-    if (newDietLevel === 4 && patient.podSoftDietReached === null) {
+    if (newDietLevel === maxDietLevel && patient.podSoftDietReached === null) {
       updatePayload.podSoftDietReached = patient.currentPod;
     }
 

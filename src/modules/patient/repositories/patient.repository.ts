@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { SymptomSurvey } from 'src/modules/symptom-survey/entities/symptom-survey.entity';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
@@ -61,6 +61,8 @@ export interface CreatePatientInput extends PatientCaseInput {
 
 @Injectable()
 export class PatientRepository {
+  private readonly logger = new Logger(PatientRepository.name);
+
   constructor(
     @InjectRepository(Patient)
     private readonly repo: Repository<Patient>,
@@ -174,7 +176,10 @@ export class PatientRepository {
       );
       const assignedRooms = assignedRoomsRows.map((r) => r.room_code);
       if (assignedRooms.length === 0) {
-        // Nurse has no assigned rooms -> return empty result set
+        // Nurse has no assigned rooms -> log warning and return empty result set
+        this.logger.warn(
+          `Nurse with ID ${query.nurseUserId} has no assigned rooms; returning empty patient list for room filter`,
+        );
         return [[], 0];
       }
       qb.andWhere(

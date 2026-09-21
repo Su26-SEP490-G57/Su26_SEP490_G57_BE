@@ -219,15 +219,21 @@ export class AlertService {
       return;
     }
 
-    await this.notificationService.sendToPatientCase(
+    const result = await this.notificationService.sendToPatientCase(
       alert.caseId,
       'Bạn có thể đánh giá lại',
       'Điều dưỡng đã xử trí cảnh báo. Vui lòng mở ứng dụng để cập nhật tình trạng sức khỏe.',
       { caseId: alert.caseId, assessmentType: 'TRIGGERED' },
     );
 
-    alert.unlockNotifiedAt = new Date();
-    await this.repository.save(alert);
+    // Only mark as notified if at least one delivery attempt succeeded.
+    // If FCM fails entirely, the caller (PatientReminderScheduler) will retry
+    // on the next cycle, and unlockNotifiedAt stays null so the patient
+    // receives another push notification later.
+    if (result.sent > 0) {
+      alert.unlockNotifiedAt = new Date();
+      await this.repository.save(alert);
+    }
   }
 
   async updateAlertsOnReassessment(

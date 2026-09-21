@@ -264,23 +264,14 @@ export class DietGuidanceService {
       throw new NotFoundException(`Pod #${podId} not found`);
     }
 
-    // Extract POD number from label (e.g., "POD 0" -> 0, "POD 1" -> 1)
-    // We need to find patients at this POD level
-    const pods = await this.repository.findPodsByOperationType(operationTypeId);
-    const sortedPods = pods.sort((a, b) => {
-      const aNum = parseInt(a.label.match(/\d+/)?.[0] || '0');
-      const bNum = parseInt(b.label.match(/\d+/)?.[0] || '0');
-      return aNum - bNum;
-    });
-
-    const podIndex = sortedPods.findIndex((p) => p.podId === podId);
-    if (podIndex >= 0) {
-      const patientCount = await this.repository.countPatientsByPodLevel(operationTypeId, podIndex);
-      if (patientCount > 0) {
-        throw new ConflictException(
-          `Cannot delete POD protocol. ${patientCount} active patient(s) are currently at this POD level.`,
-        );
-      }
+    const patientCount = await this.repository.countPatientsByDietLevel(
+      operationTypeId,
+      pod.dietLevel,
+    );
+    if (patientCount > 0) {
+      throw new ConflictException(
+        `Cannot delete diet level protocol. ${patientCount} active patient(s) are currently at this diet level.`,
+      );
     }
 
     await this.repository.deletePod(podId);

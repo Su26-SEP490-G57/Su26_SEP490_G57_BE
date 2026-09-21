@@ -47,8 +47,8 @@ const COLORECTAL_OP_ID = 2;
 // ones that land (given the current seed data) at an alphabetical rank with
 // zero vs. some seeded Gastric patients at that rank — confirmed by querying
 // the seeded DB directly, not derived analytically from dietLevel itself.
-const GASTRIC_DIET_LEVEL_WITHOUT_PATIENTS_AT_RANK = 1; // label: "Lỏng lượng nhỏ"
-const GASTRIC_DIET_LEVEL_WITH_PATIENTS_AT_RANK = 0; // label: "Bắt đầu uống"
+const GASTRIC_DIET_LEVEL_WITHOUT_PATIENTS_AT_RANK = 3; // No patients seeded at level 3
+const GASTRIC_DIET_LEVEL_WITH_PATIENTS_AT_RANK = 1; // Patients exist at level 1
 
 function mapPod(pod: PodProtocol): Omit<PodProtocolResponseDto, 'updatedAt' | 'createdAt'> {
   return {
@@ -762,13 +762,13 @@ describe('DietGuidanceController (integration)', () => {
   describe('GET /diet-guidance/patient/:caseId/current', () => {
     describe('GIVEN a caseId with an operation type and currentDietLevel 0', () => {
       it('THEN should respond 200 with the dietLevel-0 POD for that patient operation type', async () => {
-        // seed.ts seeds CASE-002 at currentDietLevel 1, so pin it to 0 explicitly
+        // seed.ts seeds CASE-002 at currentDietLevel 1, so pin it to 1 explicitly
         // rather than relying on that incidental seed value for this assertion.
-        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 0 });
+        await patientRepo.update({ caseId: 'CASE-002' }, { currentDietLevel: 1 });
         const patient = await patientRepo.findOneOrFail({ where: { caseId: 'CASE-002' } });
-        expect(patient.currentDietLevel).toBe(0);
+        expect(patient.currentDietLevel).toBe(1);
         const expectedPod = await podRepo.findOneOrFail({
-          where: { operationTypeId: patient.operationTypeId!, dietLevel: 0 },
+          where: { operationTypeId: patient.operationTypeId!, dietLevel: 1 },
         });
 
         const response = await authed(
@@ -781,7 +781,7 @@ describe('DietGuidanceController (integration)', () => {
           expect.objectContaining({
             podId: expectedPod.podId,
             operationTypeId: patient.operationTypeId,
-            dietLevel: 0,
+            dietLevel: 1,
           }),
         );
       });
