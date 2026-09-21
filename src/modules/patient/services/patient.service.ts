@@ -20,6 +20,20 @@ import {
   PatientCaseInput,
   PatientRepository,
 } from '../repositories/patient.repository';
+import { PodProtocolTrackingLog } from '../entities/pod-protocol-tracking-log.entity';
+import { User } from '../../user/entities/user.entity';
+
+export interface NursePauseLogDto {
+  logId: number;
+  caseId: string;
+  podNumber: number | null;
+  holdReason: string | null;
+  nurseName: string | null;
+  nurseId: number | null;
+  patientName: string | null;
+  roomBed: string | null;
+  changedAt: Date;
+}
 
 /** bcrypt cost factor — keep in sync with UsersService. */
 const SALT_ROUNDS = 10;
@@ -516,5 +530,52 @@ export class PatientService {
       assignedNurseId: dto.assignedNurseId,
       levelId: dto.levelId,
     };
+  }
+
+  /**
+   * Returns paginated Nurse_Pause tracking logs for the doctor notification screen.
+   * Only manual nurse-initiated pauses (actionType = 'Nurse_Pause') are included,
+   * NOT automated system pauses (System_Auto).
+   */
+  async getNursePauseLogs(
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    data: NursePauseLogDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const trackingRepo = this.dataSource.getRepository(PodProtocolTrackingLog);
+
+    const [logs, total] = await trackingRepo
+      .createQueryBuilder('log')
+      .leftJoinAndSelect('log.changedBy', 'nurse')
+      .leftJoinAndSelect('log.patient', 'patient')
+      .leftJoinAndMapOne(
+        'log.patient.account',
+        User,
+        'patientAccount',
+        'patientAccount.case_id = log.case_id',
+      )
+      .where('log.action_type = :action', { action: 'Nurse_Pause' })
+      .orderBy('log.changedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const data: NursePauseLogDto[] = logs.map((log) => ({
+      logId: log.logId,
+      caseId: log.caseId,
+      podNumber: log.podNumber,
+      holdReason: log.holdReason,
+      nurseName: log.changedBy?.fullName ?? null,
+      nurseId: log.changedBy?.id ?? null,
+      patientName: log.patient?.account?.fullName ?? null,
+      roomBed: log.patient?.roomBed ?? null,
+      changedAt: log.changedAt,
+    }));
+
+    return { data, total, page, limit };
   }
 }

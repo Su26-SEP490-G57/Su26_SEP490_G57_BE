@@ -34,6 +34,7 @@ import { UpdateDietLevelDto } from '../dtos/update-diet-level.dto';
 import { UpdatePodLevelDto } from '../dtos/update-pod-level.dto';
 import {
   CurrentPodResponse,
+  NursePauseLogDto,
   PaginatedPatients,
   PatientOperationType,
   PatientService,
@@ -109,6 +110,22 @@ export class PatientController {
   @ApiResponse({ status: 200, type: [OperationTypeDto] })
   getOperationTypes(): Promise<PatientOperationType[]> {
     return this.patientService.getOperationTypes();
+  }
+
+  @Get('nurse-pause-logs')
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.ADMIN)
+  @ApiOperation({
+    summary: 'Get nurse-initiated diet pause logs (for doctor notification screen)',
+    description:
+      'Returns paginated Nurse_Pause tracking log entries — only manual pauses by a nurse, NOT automated system pauses.',
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  getNursePauseLogs(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ): Promise<{ data: NursePauseLogDto[]; total: number; page: number; limit: number }> {
+    return this.patientService.getNursePauseLogs(Number(page), Number(limit));
   }
 
   @Post()
