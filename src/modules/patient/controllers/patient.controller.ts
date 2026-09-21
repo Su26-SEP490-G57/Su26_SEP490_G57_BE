@@ -25,7 +25,6 @@ import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
-import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PaginatedPatientsDto, PatientListItemDto } from '../dtos/patient-response.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
