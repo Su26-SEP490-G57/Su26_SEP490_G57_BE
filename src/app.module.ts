@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { MinAppVersionGuard } from './common/guards/min-app-version.guard';
+import { CareObservationModule } from './modules/care-observation/care-observation.module';
 import { DietGuidanceModule } from './modules/diet-guidance/diet-guidance.module';
 import { HealthEducationModule } from './modules/health-education/health-education.module';
 import { HealthModule } from './modules/health/health.module';
@@ -15,6 +16,8 @@ import { NurseModule } from './modules/nurse/nurse.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
+import { TreatmentOrderModule } from './modules/treatment-order/treatment-order.module';
+import { VitalSignsModule } from './modules/vital-signs/vital-signs.module';
 import { UsersModule } from './modules/user/users.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { FirebaseModule } from './modules/firebase/firebase.module';
@@ -54,6 +57,9 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     DietGuidanceModule,
     HealthEducationModule,
     HealthModule,
+    VitalSignsModule,
+    CareObservationModule,
+    TreatmentOrderModule,
   ],
   providers: [
     // Order matters: version check runs first (no auth dependency, cheapest rejection).
