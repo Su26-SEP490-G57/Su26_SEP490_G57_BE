@@ -44,6 +44,7 @@ export interface PatientCaseInput {
   weight?: number | null;
   bmi?: number | null;
   diagnosis?: string | null;
+  comorbidities?: string[] | null;
   operationTypeId?: number | null;
   method?: string | null;
   hasGiAnastomosis?: boolean | null;
@@ -247,6 +248,14 @@ export class PatientRepository {
     return (await this.repo.count({ where: { caseId: caseId }, withDeleted: true })) > 0;
   }
 
+  /** Next "CASE-NNN" id from the DB sequence, for patients created without an explicit caseId. */
+  async generateNextCaseId(): Promise<string> {
+    const [row] = await this.dataSource.query<{ nextval: string }[]>(
+      `SELECT nextval('case_id_seq')`,
+    );
+    return `CASE-${row.nextval.padStart(3, '0')}`;
+  }
+
   /** room_bed values currently held by active (non-deleted) patients. */
   async findOccupiedRoomBeds(): Promise<string[]> {
     const rows = await this.repo
@@ -308,6 +317,7 @@ export class PatientRepository {
         weight: input.weight ?? null,
         bmi: input.bmi ?? null,
         diagnosis: input.diagnosis ?? null,
+        comorbidities: input.comorbidities ?? null,
         operationTypeId: input.operationTypeId ?? null,
         method: input.method ?? null,
         hasGiAnastomosis: input.hasGiAnastomosis ?? null,
@@ -364,6 +374,7 @@ export class PatientRepository {
     if (f.weight !== undefined) patient.weight = f.weight;
     if (f.bmi !== undefined) patient.bmi = f.bmi;
     if (f.diagnosis !== undefined) patient.diagnosis = f.diagnosis;
+    if (f.comorbidities !== undefined) patient.comorbidities = f.comorbidities;
     if (f.operationTypeId !== undefined) patient.operationTypeId = f.operationTypeId;
     if (f.method !== undefined) patient.method = f.method;
     if (f.hasGiAnastomosis !== undefined) patient.hasGiAnastomosis = f.hasGiAnastomosis;

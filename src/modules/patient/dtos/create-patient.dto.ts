@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsInt,
@@ -23,15 +24,18 @@ import {
  * the patient/admin can change later via PATCH /users/:id.
  */
 export class CreatePatientDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'CASE-002',
-    description: 'Patient case id (primary key)',
+    description:
+      'Patient case id (primary key). Omit to auto-generate the next "CASE-NNN" id; ' +
+      'the HIS import flow passes its own hospital code here explicitly.',
     maxLength: 255,
   })
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  caseId!: string;
+  @IsOptional()
+  caseId?: string;
 
   @ApiProperty({
     example: 'Nguyễn Văn B',
@@ -130,6 +134,16 @@ export class CreatePatientDto {
   @IsString()
   @IsOptional()
   diagnosis?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['K80.2 - Sỏi túi mật không có viêm túi mật'],
+    description: 'Comorbidities, each stored as "code - name" the same way it is shown in the UI',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  comorbidities?: string[];
 
   @ApiPropertyOptional({
     example: 2,

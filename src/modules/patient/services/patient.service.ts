@@ -8,6 +8,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
+import { Levels } from '../constants/levels.constant';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
@@ -394,11 +395,14 @@ export class PatientService {
    * Patient-role login account (users.case_id = patient_cases.case_id).
    */
   async createPatient(dto: CreatePatientDto): Promise<PatientWithAccount> {
-    if (await this.repository.caseIdExists(dto.caseId)) {
-      throw new ConflictException(`Patient case "${dto.caseId}" already exists`);
+    // Manual "Thêm mới" omits caseId -> auto-generate the next "CASE-NNN".
+    // The HIS import flow always passes its own hospital code explicitly.
+    const caseId = dto.caseId ?? (await this.repository.generateNextCaseId());
+    if (dto.caseId && (await this.repository.caseIdExists(caseId))) {
+      throw new ConflictException(`Patient case "${caseId}" already exists`);
     }
 
-    const username = dto.username ?? dto.caseId;
+    const username = dto.username ?? caseId;
     if (await this.repository.findUserByUsername(username)) {
       throw new ConflictException(`Username "${username}" is already taken`);
     }
@@ -414,8 +418,15 @@ export class PatientService {
     }
 
     const created = await this.repository.createWithAccount({
-      caseId: dto.caseId,
-      ...this.toCaseFields({ ...dto, bmi: dto.bmi ?? bmi }),
+      caseId,
+      // Default to Green (stable) until a real assessment reclassifies the
+      // patient — otherwise the board has nowhere to show an unassessed
+      // patient at all (its risk-level columns key off level).
+      ...this.toCaseFields({
+        ...dto,
+        bmi: dto.bmi ?? bmi,
+        levelId: dto.levelId ?? Levels.GREEN.levelId,
+      }),
       currentPod: dto.currentPod ?? 0,
       account: {
         username,
@@ -509,6 +520,7 @@ export class PatientService {
       weight: dto.weight,
       bmi: dto.bmi,
       diagnosis: dto.diagnosis,
+      comorbidities: dto.comorbidities,
       operationTypeId: dto.operationTypeId,
       method: dto.method,
       hasGiAnastomosis: dto.hasGiAnastomosis,
