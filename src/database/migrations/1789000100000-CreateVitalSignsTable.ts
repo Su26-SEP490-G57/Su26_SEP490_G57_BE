@@ -20,7 +20,7 @@ export class CreateVitalSignsTable1789000100000 implements MigrationInterface {
         "pulse_bpm" integer NOT NULL,
         "blood_pressure_systolic" integer NOT NULL,
         "blood_pressure_diastolic" integer NOT NULL,
-        "temperature_celsius" numeric(4,1) NOT NULL,
+        "temperature_celsius" numeric(4,2) NOT NULL,
         "respiratory_rate" integer NOT NULL,
         "spo2_percent" integer NOT NULL,
         "note" TEXT,
