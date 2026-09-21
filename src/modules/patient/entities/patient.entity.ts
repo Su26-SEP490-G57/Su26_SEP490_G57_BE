@@ -1,4 +1,10 @@
 import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import {
+  CARE_LEVEL_ENUM_NAME,
+  CARE_LEVELS,
+} from '../../treatment-order/constants/care-level.constant';
+import type { CareLevel } from '../../treatment-order/constants/care-level.constant';
+import { TreatmentOrder } from '../../treatment-order/entities/treatment-order.entity';
 import { User } from '../../user/entities/user.entity';
 import { Level } from './level.entity';
 import { OperationType } from './operation-type.entity';
@@ -110,6 +116,28 @@ export class Patient {
   @ManyToOne(() => Level, { onDelete: 'SET NULL', nullable: true, eager: false })
   @JoinColumn({ name: 'level_id' })
   level!: Level | null;
+
+  /**
+   * Care Level currently ordered by a doctor (`care_level_enum`).
+   *
+   * Entirely separate from `levelId`/`level` above, which is the Red/Yellow/Green
+   * ERAS triage level. Mirrored from the latest treatment order.
+   */
+  @Column({
+    name: 'active_care_level',
+    type: 'enum',
+    enum: CARE_LEVELS,
+    enumName: CARE_LEVEL_ENUM_NAME,
+    nullable: true,
+  })
+  activeCareLevel!: CareLevel | null;
+
+  @Column({ name: 'active_treatment_order_id', type: 'int', nullable: true })
+  activeTreatmentOrderId!: number | null;
+
+  @ManyToOne(() => TreatmentOrder, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @JoinColumn({ name: 'active_treatment_order_id' })
+  activeTreatmentOrder!: TreatmentOrder | null;
 
   /** Indicates whether the patient has completed the ERAS protocol (reached max POD with GREEN level) */
   @Column({ name: 'eras_completed', type: 'boolean', default: false })

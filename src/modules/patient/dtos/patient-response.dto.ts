@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CARE_LEVELS } from '../../treatment-order/constants/care-level.constant';
+import type { CareLevel } from '../../treatment-order/constants/care-level.constant';
 import { LevelNames, Levels } from '../constants/levels.constant';
 
 class PatientAccountDto {
@@ -89,6 +91,20 @@ export class PatientListItemDto {
       'Whether the patient has completed the ERAS protocol (reached max POD with GREEN level)',
   })
   erasCompleted!: boolean;
+
+  @ApiPropertyOptional({
+    enum: CARE_LEVELS,
+    example: 'LEVEL_2',
+    description:
+      "Care Level from the patient's active doctor treatment order. Unrelated to `level` (Red/Yellow/Green ERAS triage).",
+  })
+  activeCareLevel!: CareLevel | null;
+
+  @ApiPropertyOptional({
+    example: 12,
+    description: 'Id of the treatment order that set the current care level',
+  })
+  activeTreatmentOrderId!: number | null;
 }
 
 export class PaginatedPatientsDto {
