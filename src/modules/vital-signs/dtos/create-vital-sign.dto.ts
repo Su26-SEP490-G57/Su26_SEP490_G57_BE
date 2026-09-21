@@ -18,8 +18,10 @@ import {
  * `recordedByUserId` and `recordedByName` are always derived server-side from
  * the authenticated user and the server clock.
  *
- * The numeric bounds are engineering sanity limits, applied identically on the
- * FE — not clinical thresholds (to be revisited with a clinician).
+ * Pulse/SpO2/temperature keep engineering sanity limits (applied identically
+ * on the FE — not clinical thresholds, to be revisited with a clinician).
+ * Blood pressure and respiratory rate have NO min/max by request — only
+ * "must be a whole number" is still enforced.
  */
 export class CreateVitalSignDto {
   @ApiProperty({ example: 'CASE-001' })
@@ -34,32 +36,26 @@ export class CreateVitalSignDto {
   @Max(220)
   pulseBpm!: number;
 
-  @ApiProperty({ example: 120, minimum: 60, maximum: 250, description: 'Systolic BP (mmHg)' })
+  @ApiProperty({ example: 120, description: 'Systolic BP (mmHg)' })
   @Type(() => Number)
   @IsInt()
-  @Min(60)
-  @Max(250)
   bloodPressureSystolic!: number;
 
-  @ApiProperty({ example: 80, minimum: 30, maximum: 150, description: 'Diastolic BP (mmHg)' })
+  @ApiProperty({ example: 80, description: 'Diastolic BP (mmHg)' })
   @Type(() => Number)
   @IsInt()
-  @Min(30)
-  @Max(150)
   bloodPressureDiastolic!: number;
 
-  @ApiProperty({ example: 36.8, minimum: 30, maximum: 43, description: 'Temperature (°C)' })
+  @ApiProperty({ example: 36.85, minimum: 30, maximum: 43, description: 'Temperature (°C)' })
   @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 1 })
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(30)
   @Max(43)
   temperatureCelsius!: number;
 
-  @ApiProperty({ example: 18, minimum: 4, maximum: 60, description: 'Respiratory rate (/min)' })
+  @ApiProperty({ example: 18, description: 'Respiratory rate (/min)' })
   @Type(() => Number)
   @IsInt()
-  @Min(4)
-  @Max(60)
   respiratoryRate!: number;
 
   @ApiProperty({ example: 98, minimum: 0, maximum: 100, description: 'SpO2 (%)' })

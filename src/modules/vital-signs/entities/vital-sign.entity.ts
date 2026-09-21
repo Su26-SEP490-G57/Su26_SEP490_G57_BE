@@ -45,7 +45,7 @@ export class VitalSign {
     name: 'temperature_celsius',
     type: 'numeric',
     precision: 4,
-    scale: 1,
+    scale: 2,
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value === null ? null : Number(value)),
