@@ -1,14 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpdateDietLevelDto {
   @ApiProperty({
-    example: 1,
-    description: 'New diet level (range 0 to 4)',
+    example: 0,
+    description: 'New diet level (0 to max protocol dietLevel)',
   })
   @IsInt()
   @Min(0)
-  @Max(4)
   dietLevel!: number;
 
   @ApiProperty({

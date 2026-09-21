@@ -209,7 +209,7 @@ export class PatientController {
   @ApiOperation({
     summary: 'Update diet level for a patient based on clinical tolerance',
     description:
-      'Nurse/Head Nurse/Doctor. Nurses can safely lower the level; doctors can also increase it. Updates current_diet_level (0 to 4).',
+      'Nurse/Head Nurse/Doctor. Nurses and Head Nurses can safely lower the level; doctors can both increase and decrease it. Updates current_diet_level (0 to max protocol dietLevel, typically 0-4).',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })

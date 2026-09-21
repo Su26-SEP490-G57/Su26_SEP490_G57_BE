@@ -117,7 +117,7 @@ export class DailyDietProgressionSchedulerService {
         maxDietLevel,
       });
 
-      await this.persistDecision(patient, decision);
+      await this.persistDecision(patient, decision, maxDietLevel);
       details.push(decision);
     }
 
@@ -154,8 +154,9 @@ export class DailyDietProgressionSchedulerService {
   private async getMaxDietLevel(operationTypeId: number | null): Promise<number> {
     if (operationTypeId === null) return 4;
 
-    const protocolCount = await this.podRepo.count({ where: { operationTypeId } });
-    return protocolCount > 0 ? protocolCount - 1 : 4;
+    const protocols = await this.podRepo.find({ where: { operationTypeId } });
+    if (protocols.length === 0) return 4;
+    return Math.max(...protocols.map((p) => p.dietLevel));
   }
 
   private resolveDecision(input: {
@@ -238,11 +239,12 @@ export class DailyDietProgressionSchedulerService {
   private async persistDecision(
     patient: Patient,
     decision: DailyDietProgressionDetail,
+    maxDietLevel: number,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       if (decision.action === 'ADVANCED') {
         patient.currentDietLevel = decision.newDietLevel;
-        if (decision.newDietLevel === 4 && patient.podSoftDietReached === null) {
+        if (decision.newDietLevel === maxDietLevel && patient.podSoftDietReached === null) {
           patient.podSoftDietReached = patient.currentPod;
         }
         await manager.save(patient);

@@ -81,13 +81,13 @@ export class DietGuidanceRepository {
   }
 
   /**
-   * Count patients currently at a specific POD level
+   * Count patients currently at a specific diet level
    */
-  countPatientsByPodLevel(operationTypeId: number, podLevel: number): Promise<number> {
+  countPatientsByDietLevel(operationTypeId: number, dietLevel: number): Promise<number> {
     return this.opTypeRepo.manager
       .createQueryBuilder(Patient, 'pc')
       .where('pc.operationTypeId = :operationTypeId', { operationTypeId })
-      .andWhere('pc.currentPod = :podLevel', { podLevel })
+      .andWhere('pc.currentDietLevel = :dietLevel', { dietLevel })
       .andWhere('pc.erasCompleted = false')
       .getCount();
   }
