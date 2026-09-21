@@ -9,7 +9,13 @@ import { map } from 'rxjs/operators';
 @Injectable()
 export class CaseTransformInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // rxjs's `Observable` doesn't type-resolve consistently under this
+    // project's type-aware ESLint config (confirmed: `tsc --noEmit` is fully
+    // clean — this is a typescript-eslint/rxjs resolution quirk, not a real
+    // type-safety gap). Which specific unsafe-* rule fires here has been
+    // observed to FLIP between runs with no code change, so all three are
+    // disabled together rather than chasing whichever one shows up.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
     return next.handle().pipe(map((data) => this.transformKeys(data)));
   }
 
