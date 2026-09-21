@@ -289,7 +289,9 @@ export class PatientService {
 
     const previousLevel = patient.currentDietLevel ?? 0;
     if (newDietLevel > previousLevel && !canIncrease) {
-      throw new ForbiddenException('Only doctors can increase the diet level');
+      throw new ForbiddenException(
+        'Chỉ bác sĩ mới có thể tăng mức độ ăn uống. Điều dưỡng chỉ được phép hạ mức độ hoặc giữ nguyên.',
+      );
     }
 
     const updatePayload: Partial<Patient> = { currentDietLevel: newDietLevel };

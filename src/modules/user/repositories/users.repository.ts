@@ -59,15 +59,15 @@ export class UsersRepository {
   }
 
   findByUsername(username: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { username } });
+    return this.userRepo.findOne({ where: { username }, relations: ['roles'] });
   }
 
   findByPhoneNumber(phoneNumber: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { phoneNumber } });
+    return this.userRepo.findOne({ where: { phoneNumber }, relations: ['roles'] });
   }
 
   findById(id: number): Promise<User | null> {
-    return this.userRepo.findOne({ where: { id } });
+    return this.userRepo.findOne({ where: { id }, relations: ['roles'] });
   }
 
   async findAll(query: QueryUserDto) {
