@@ -247,6 +247,17 @@ export class PatientRepository {
     return (await this.repo.count({ where: { caseId: caseId }, withDeleted: true })) > 0;
   }
 
+  /** room_bed values currently held by active (non-deleted) patients. */
+  async findOccupiedRoomBeds(): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('patient')
+      .select('patient.roomBed', 'roomBed')
+      .where('patient.deletedAt IS NULL')
+      .andWhere('patient.roomBed IS NOT NULL')
+      .getRawMany<{ roomBed: string }>();
+    return rows.map((r) => r.roomBed);
+  }
+
   findUserByUsername(username: string): Promise<User | null> {
     // withDeleted: the username unique constraint is still held by soft-deleted accounts.
     return this.dataSource.getRepository(User).findOne({ where: { username }, withDeleted: true });
