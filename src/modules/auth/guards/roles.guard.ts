@@ -1,10 +1,18 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AuthenticatedRequest } from 'src/shared/types/authenticated-request';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -15,6 +23,13 @@ export class RolesGuard implements CanActivate {
     const user = req.user;
     if (!user) throw new UnauthorizedException('No user available');
 
-    return requiredRoles.some((r) => user.roles.includes(r));
+    this.logger.debug(`Required roles: ${JSON.stringify(requiredRoles)}`);
+    this.logger.debug(`User roles: ${JSON.stringify(user.roles)}`);
+    this.logger.debug(`User object: ${JSON.stringify(user)}`);
+
+    const hasRole = requiredRoles.some((r) => user.roles.includes(r));
+    this.logger.debug(`Has required role: ${hasRole}`);
+
+    return hasRole;
   }
 }

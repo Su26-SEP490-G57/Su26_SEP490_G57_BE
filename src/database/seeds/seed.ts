@@ -255,7 +255,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[0],
       dietLevel: 0,
-      label: 'Bắt đầu uống',
+      label: 'Mức 0',
       mealsPerDayMin: null,
       mealsPerDayMax: null,
       mealInstruction:
@@ -292,7 +292,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[0],
       dietLevel: 1,
-      label: 'Lỏng lượng nhỏ',
+      label: 'Mức 1',
       mealsPerDayMin: 6,
       mealsPerDayMax: 8,
       mealInstruction:
@@ -329,7 +329,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[0],
       dietLevel: 2,
-      label: 'Lỏng đầy đủ dinh dưỡng',
+      label: 'Mức 2',
       mealsPerDayMin: 6,
       mealsPerDayMax: 6,
       mealInstruction:
@@ -367,7 +367,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[0],
       dietLevel: 3,
-      label: 'Bán lỏng hoặc bán đặc mềm',
+      label: 'Mức 3',
       mealsPerDayMin: 5,
       mealsPerDayMax: 6,
       mealInstruction:
@@ -404,7 +404,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[0],
       dietLevel: 4,
-      label: 'Chế độ ăn mềm',
+      label: 'Mức 4',
       mealsPerDayMin: 5,
       mealsPerDayMax: 6,
       mealInstruction:
@@ -440,7 +440,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[1],
       dietLevel: 0,
-      label: 'Bắt đầu uống',
+      label: 'Mức 0',
       mealsPerDayMin: null,
       mealsPerDayMax: null,
       mealInstruction:
@@ -469,7 +469,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[1],
       dietLevel: 1,
-      label: 'Chế độ ăn lỏng',
+      label: 'Mức 1',
       mealsPerDayMin: 5,
       mealsPerDayMax: 6,
       mealInstruction:
@@ -499,7 +499,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[1],
       dietLevel: 2,
-      label: 'Lỏng đầy đủ hoặc bán lỏng',
+      label: 'Mức 2',
       mealsPerDayMin: 5,
       mealsPerDayMax: 6,
       mealInstruction:
@@ -533,7 +533,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[1],
       dietLevel: 3,
-      label: 'Bán đặc mềm',
+      label: 'Mức 3',
       mealsPerDayMin: 4,
       mealsPerDayMax: 5,
       mealInstruction:
@@ -568,7 +568,7 @@ export async function seed(
     {
       operationType: savedOperationTypes[1],
       dietLevel: 4,
-      label: 'Chế độ ăn mềm',
+      label: 'Mức 4',
       mealsPerDayMin: 4,
       mealsPerDayMax: 5,
       mealInstruction:
