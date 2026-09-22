@@ -100,14 +100,11 @@ export class NurseRepository {
   }
 
   async assignRoomsToNurse(nurseUserId: number, roomCodes: string[]): Promise<string[]> {
-    const cleanRoomCodes = Array.from(new Set(roomCodes.map((r) => r.trim()).filter(Boolean)));
+    const cleanRoomCodes = Array.from(
+      new Set(roomCodes.map((roomCode) => roomCode.trim().toUpperCase()).filter(Boolean)),
+    );
 
     await this.userRepo.manager.transaction(async (transactionalEntityManager) => {
-      await transactionalEntityManager.query(
-        `DELETE FROM room_nurse_assignments WHERE nurse_user_id = $1`,
-        [nurseUserId],
-      );
-
       for (const roomCode of cleanRoomCodes) {
         await transactionalEntityManager.query(
           `INSERT INTO room_nurse_assignments (room_code, nurse_user_id, assigned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`,
@@ -116,7 +113,7 @@ export class NurseRepository {
       }
     });
 
-    return cleanRoomCodes;
+    return this.findAssignedRoomsByNurse(nurseUserId);
   }
 
   async removeRoomAssignment(nurseUserId: number, roomCode: string): Promise<void> {

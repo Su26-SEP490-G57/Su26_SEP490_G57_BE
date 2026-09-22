@@ -13,12 +13,14 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { NotificationService } from './services/notification.service';
 import { PatientReminderSchedulerService } from './services/patient-reminder.scheduler';
 import { PatientRepository } from '../patient/repositories/patient.repository';
+import { NurseModule } from '../nurse/nurse.module';
 import { RoomNurseAssignmentRepository } from './repositories/room-nurse-assignment.repository';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Alert, SymptomSurvey, Patient, RoomNurseAssignment]),
     FirebaseModule,
+    NurseModule,
   ],
   controllers: [AlertController, RoomNurseAssignmentController],
   providers: [
