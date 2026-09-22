@@ -24,7 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // resolution quirk, not a real type-safety gap. Naming `Observable`
     // explicitly here (e.g. in a return-type annotation) only reproduces
     // the same failure in a new spot, so a blanket disable is the stable fix.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     return super.canActivate(context);
   }
 }

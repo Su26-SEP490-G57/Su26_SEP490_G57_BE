@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
@@ -7,6 +7,8 @@ import { readFileSync } from 'fs';
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
+  private readonly logger = new Logger(FirebaseService.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   private get isDisabled(): boolean {
@@ -23,7 +25,7 @@ export class FirebaseService implements OnModuleInit {
       return 'firebase-disabled';
     }
 
-    console.log('Sending FCM to:', token);
+    this.logger.log('Sending FCM notification', { token: token.substring(0, 20) + '...' });
 
     const message: admin.messaging.Message = {
       token,
@@ -45,7 +47,7 @@ export class FirebaseService implements OnModuleInit {
     }
 
     const messageId = await this.messaging.send(message);
-    console.log('Firebase messageId:', messageId);
+    this.logger.log('FCM sent successfully', { messageId });
     return messageId;
   }
 
@@ -84,7 +86,7 @@ export class FirebaseService implements OnModuleInit {
       credential: cert(serviceAccount),
     });
 
-    console.log('✅ Firebase Admin initialized');
+    this.logger.log('Firebase Admin initialized successfully');
   }
 
   get messaging() {

@@ -64,6 +64,9 @@ export class Patient {
   @Column({ name: 'current_diet_level', type: 'int', default: 0 })
   currentDietLevel!: number;
 
+  @Column({ name: 'last_diet_level_increased_at', type: 'timestamptz', nullable: true })
+  lastDietLevelIncreasedAt!: Date | null;
+
   @Column({ name: 'time_to_redrink', type: 'int', nullable: true })
   timeToRedrink!: number | null;
 

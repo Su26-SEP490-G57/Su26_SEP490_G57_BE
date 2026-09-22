@@ -28,8 +28,8 @@ export class HealthController {
       // 2. Check if memory heap usage is below 150MB
       () => this.memory.checkHeap('memory_heap', 150 * 1024 * 1024),
 
-      // 3. Check if disk usage on the root path '/' is below 90%
-      () => this.disk.checkStorage('disk_storage', { thresholdPercent: 0.9, path: '/' }),
+      // 3. Check if disk usage on the root path is below 90%
+      () => this.disk.checkStorage('disk_storage', { thresholdPercent: 0.9, path: 'D:\\' }),
     ]);
   }
 }

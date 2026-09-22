@@ -12,6 +12,8 @@ export default {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
+  // Transform @nestjs/bull and its dependencies (ESM packages)
+  transformIgnorePatterns: ['node_modules/(?!(@nestjs/bull|@nestjs/bull-shared|bull)/)'],
   collectCoverageFrom: [
     'src/modules/**/*.(t|j)s',
     '!src/modules/**/*.module.ts',

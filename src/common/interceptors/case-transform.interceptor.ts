@@ -15,7 +15,7 @@ export class CaseTransformInterceptor implements NestInterceptor {
     // type-safety gap). Which specific unsafe-* rule fires here has been
     // observed to FLIP between runs with no code change, so all three are
     // disabled together rather than chasing whichever one shows up.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return next.handle().pipe(map((data) => this.transformKeys(data)));
   }
 

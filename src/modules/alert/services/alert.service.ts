@@ -9,6 +9,7 @@ import { AlertGateway } from '../gateways/alert.gateway';
 import { AlertRepository } from '../repositories/alert.repository';
 import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
 import { NotificationService } from './notification.service';
+import { YellowReminderService } from '../../reminder/services/yellow-reminder.service';
 
 const RED_ASSESSMENT_LOCK_MINUTES = 60;
 
@@ -22,6 +23,7 @@ export class AlertService {
     private readonly notificationService: NotificationService,
     private readonly patientRepository: PatientRepository,
     private readonly roomNurseRepository: RoomNurseAssignmentRepository,
+    private readonly yellowReminderService: YellowReminderService,
   ) {}
 
   private toResponse(alert: Alert): AlertResponseDto {
@@ -50,50 +52,103 @@ export class AlertService {
   }
 
   async createAlert(dto: CreateAlertDto): Promise<AlertResponseDto> {
-    const saved = await this.repository.save({
-      caseId: dto.caseId,
-      assessmentId: dto.assessmentId,
-      alertType: dto.alertType,
-      status: 'PENDING_REVIEW',
-      isAutoProgression: true,
-      triggeredAt: new Date(),
-    });
+    // Critical path: Alert persistence is non-negotiable for audit trail
+    let saved: Alert;
+    try {
+      saved = await this.repository.save({
+        caseId: dto.caseId,
+        assessmentId: dto.assessmentId,
+        alertType: dto.alertType,
+        status: 'PENDING_REVIEW',
+        isAutoProgression: true,
+        triggeredAt: new Date(),
+      });
+      this.logger.log('Alert created', {
+        alertId: saved.alertId,
+        caseId: saved.caseId,
+        type: saved.alertType,
+      });
+    } catch (error) {
+      this.logger.error(
+        'CRITICAL: Failed to save alert',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
 
     const response = this.toResponse(saved);
 
-    // Emit real-time alert to dashboard
-    this.alertGateway.emitNewAlert(response);
+    // Best-effort: WebSocket emit for real-time dashboard
+    try {
+      this.alertGateway.emitNewAlert(response);
+    } catch (error) {
+      this.logger.error(
+        `WebSocket emit failed for alert #${saved.alertId} - Dashboard can still query from DB`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
 
-    const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
-    const patientName = patient?.account?.fullName ?? saved.caseId;
-    const room = patient?.roomBed ?? '';
-    const roomCode = room.split('/')[0].trim().toUpperCase();
-
-    // Nurse notifications are intentionally RED-only and limited to nurses assigned
-    // to the normalized patient room. Yellow alerts remain available for dashboard monitoring.
+    // Best-effort: FCM notifications for RED alerts
     if (saved.alertType === 'RED') {
-      const pushTitle = '🔴 Cảnh báo khẩn';
-      const pushBody = `${patientName} • ${room} • Mức đỏ`;
-      const assignedNurseIds = await this.roomNurseRepository.getAssignedNurses(roomCode);
+      try {
+        const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
+        const patientName = patient?.account?.fullName ?? saved.caseId;
+        const room = patient?.roomBed ?? '';
+        const roomCode = room.split('/')[0].trim().toUpperCase();
 
-      if (assignedNurseIds.length > 0) {
-        await this.notificationService.sendToNursesSpecific(assignedNurseIds, pushTitle, pushBody, {
-          caseId: saved.caseId,
-          assessmentId: String(saved.assessmentId),
-          patientName,
-          roomBed: room,
-          alertType: saved.alertType,
-        });
-      } else {
-        // Fallback: broadcast to all nurses if room has no assignment
-        // Fail-safe behavior for critical RED alerts - better to over-notify than miss
-        await this.notificationService.sendToNurses(pushTitle, pushBody, {
-          caseId: saved.caseId,
-          assessmentId: String(saved.assessmentId),
-          patientName,
-          roomBed: room,
-          alertType: saved.alertType,
-        });
+        const pushTitle = '🔴 Cảnh báo khẩn';
+        const pushBody = `${patientName} • ${room} • Mức đỏ`;
+        const assignedNurseIds = await this.roomNurseRepository.getAssignedNurses(roomCode);
+
+        if (assignedNurseIds.length > 0) {
+          await this.notificationService.sendToNursesSpecific(
+            assignedNurseIds,
+            pushTitle,
+            pushBody,
+            {
+              caseId: saved.caseId,
+              assessmentId: String(saved.assessmentId),
+              patientName,
+              roomBed: room,
+              alertType: saved.alertType,
+            },
+          );
+          this.logger.log('RED alert FCM sent', {
+            alertId: saved.alertId,
+            nurseCount: assignedNurseIds.length,
+          });
+        } else {
+          // Fallback: broadcast to all nurses if room has no assignment
+          await this.notificationService.sendToNurses(pushTitle, pushBody, {
+            caseId: saved.caseId,
+            assessmentId: String(saved.assessmentId),
+            patientName,
+            roomBed: room,
+            alertType: saved.alertType,
+          });
+          this.logger.warn('RED alert broadcast (no room assignment)', {
+            alertId: saved.alertId,
+            roomCode,
+          });
+        }
+      } catch (error) {
+        this.logger.error(
+          `FCM notification failed for alert #${saved.alertId} - Alert still visible on dashboard`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    // Best-effort: Schedule YELLOW reminder
+    if (saved.alertType === 'YELLOW') {
+      try {
+        await this.yellowReminderService.scheduleReminder(saved.caseId, saved.alertId);
+        this.logger.log('YELLOW reminder scheduled', { alertId: saved.alertId });
+      } catch (error) {
+        this.logger.error(
+          `Failed to schedule YELLOW reminder for alert #${saved.alertId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
     }
 
@@ -150,6 +205,11 @@ export class AlertService {
 
     const saved = await this.repository.save(alert);
     const response = this.toResponse(saved);
+
+    // Cancel YELLOW reminder if alert is handled before 2 hours
+    if (saved.alertType === 'YELLOW') {
+      await this.yellowReminderService.cancelReminder(saved.alertId);
+    }
 
     this.alertGateway.emitAlertHandled(response);
 

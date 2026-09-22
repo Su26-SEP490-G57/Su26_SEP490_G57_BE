@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Level } from '../../patient/entities/level.entity';
@@ -16,6 +16,7 @@ const TRIAGE_TO_LEVEL_NAME: Record<string, string> = {
 
 @Injectable()
 export class SymptomSurveyRepository {
+  private readonly logger = new Logger(SymptomSurveyRepository.name);
   [x: string]: any;
   constructor(
     @InjectRepository(SymptomSurvey)
@@ -85,42 +86,31 @@ export class SymptomSurveyRepository {
   }
 
   async syncPatientLevel(caseId: string, triageColor: string): Promise<void> {
-    console.log(`[syncPatientLevel] START - caseId: ${caseId}, triageColor: ${triageColor}`);
+    this.logger.log('Starting patient level sync', { caseId, triageColor });
 
     const levelName = TRIAGE_TO_LEVEL_NAME[triageColor];
-    console.log(`[syncPatientLevel] levelName from mapping: ${levelName}`);
 
     if (!levelName) {
-      console.log(`[syncPatientLevel] ERROR - No levelName found for triageColor: ${triageColor}`);
+      this.logger.error('No levelName mapping found', { caseId, triageColor });
       return;
     }
 
     const level = await this.levelRepo.findOne({
       where: { levelName: levelName as 'Red' | 'Yellow' | 'Green' },
     });
-    console.log(`[syncPatientLevel] Found level:`, JSON.stringify(level));
 
     if (!level) {
-      console.log(
-        `[syncPatientLevel] ERROR - Level not found in database for levelName: ${levelName}`,
-      );
+      this.logger.error('Level not found in database', { caseId, levelName });
       return;
     }
 
-    console.log(
-      `[syncPatientLevel] Attempting update - caseId: ${caseId}, levelId: ${level.levelId}`,
-    );
+    this.logger.log('Updating patient level', { caseId, levelId: level.levelId, levelName });
     const result = await this.patientRepo.update({ caseId: caseId }, { levelId: level.levelId });
-    console.log(
-      `[syncPatientLevel] Update result - affected: ${result.affected}, raw: ${JSON.stringify(result.raw)}`,
-    );
 
     if (result.affected === 0) {
-      console.log(
-        `[syncPatientLevel] WARNING - No rows updated. Patient with caseId ${caseId} may not exist`,
-      );
+      this.logger.warn('No rows updated - patient may not exist', { caseId });
     } else {
-      console.log(`[syncPatientLevel] SUCCESS - Updated ${result.affected} row(s)`);
+      this.logger.log('Patient level synced successfully', { caseId, affected: result.affected });
     }
   }
 

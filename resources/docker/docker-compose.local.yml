@@ -19,8 +19,25 @@ services:
     networks:
       - poms-local
 
+  redis-local:
+    image: redis:7-alpine
+    container_name: redis-local
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - poms-local
+
 volumes:
   postgres_local_data:
+  redis_local_data:
 
 networks:
   poms-local:

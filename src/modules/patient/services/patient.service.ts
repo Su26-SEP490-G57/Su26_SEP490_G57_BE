@@ -15,6 +15,7 @@ import { QueryPatientDto } from '../dtos/query-patient.dto';
 import { UpdatePatientDto } from '../dtos/update-patient.dto';
 import { Patient } from '../entities/patient.entity';
 import { PodProtocol } from '../../diet-guidance/entities/pod-protocol.entity';
+import { AutoCompleteService } from '../../diet-guidance/services/auto-complete.service';
 import { PatientGateway } from '../gateways/patient.gateway';
 import {
   PatientAccountInput,
@@ -83,6 +84,7 @@ export class PatientService {
     private readonly dataSource: DataSource,
     @InjectRepository(PodProtocol)
     private readonly podRepo: Repository<PodProtocol>,
+    private readonly autoCompleteService: AutoCompleteService,
   ) {}
 
   calculateDynamicPod(patient: Patient, maxPod?: number | null): number {
@@ -293,6 +295,11 @@ export class PatientService {
       throw new ForbiddenException(
         'Chỉ bác sĩ mới có thể tăng mức độ ăn uống. Điều dưỡng chỉ được phép hạ mức độ hoặc giữ nguyên.',
       );
+    }
+
+    // Cancel auto-complete if diet level decreased from max
+    if (newDietLevel < previousLevel && previousLevel === maxDietLevel) {
+      await this.autoCompleteService.cancelCompletion(caseId);
     }
 
     const updatePayload: Partial<Patient> = { currentDietLevel: newDietLevel };

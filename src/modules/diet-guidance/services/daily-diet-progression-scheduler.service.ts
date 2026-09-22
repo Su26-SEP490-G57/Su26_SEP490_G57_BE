@@ -7,6 +7,7 @@ import { Patient } from '../../patient/entities/patient.entity';
 import { PodProtocolTrackingLog } from '../../patient/entities/pod-protocol-tracking-log.entity';
 import { SymptomSurvey } from '../../symptom-survey/entities/symptom-survey.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
+import { AutoCompleteService } from './auto-complete.service';
 
 export type DailyDietProgressionAction = 'ADVANCED' | 'MAINTAINED';
 
@@ -40,6 +41,7 @@ export class DailyDietProgressionSchedulerService {
     @InjectRepository(PodProtocol)
     private readonly podRepo: Repository<PodProtocol>,
     private readonly dataSource: DataSource,
+    private readonly autoCompleteService: AutoCompleteService,
   ) {}
 
   private get alertRepo() {
@@ -119,6 +121,14 @@ export class DailyDietProgressionSchedulerService {
 
       await this.persistDecision(patient, decision, maxDietLevel);
       details.push(decision);
+
+      // Schedule auto-complete when reaching maxDietLevel
+      if (decision.action === 'ADVANCED' && decision.newDietLevel === maxDietLevel) {
+        await this.autoCompleteService.scheduleCompletion(
+          patient.caseId,
+          patient.lastDietLevelIncreasedAt ?? new Date(),
+        );
+      }
     }
 
     return {

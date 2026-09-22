@@ -19,31 +19,21 @@ export class PodSchedulerService {
    * Runs every 15 minutes.
    * Recalculates current_pod = floor((NOW - pod_start_date) / 24h) for all
    * non-locked patients whose ERAS has been started (pod_start_date IS NOT NULL).
-   * POD is capped at the maximum POD defined in pod_protocols for each operation type.
+   * POD increases infinitely (no cap).
    *
-   * New logic:
-   * - When patient reaches max POD with GREEN level → set eras_completed = true
-   * - When patient reaches max POD with YELLOW/RED level → auto-lock POD (is_locked = true)
+   * New logic (DietLevel-based):
+   * - When patient reaches maxDietLevel with GREEN level → set eras_completed = true
+   * - When patient reaches maxDietLevel with YELLOW/RED level → auto-lock (is_locked = true)
    */
   @Cron('0 */15 * * * *')
   async syncPod(): Promise<void> {
-    // The `pod_protocols` count is a correlated subquery referencing the row being
-    // updated by its table name — UPDATE statements built via QueryBuilder have no
-    // alias for the target table, so `patient_cases` itself is the only handle available.
-    const maxPodExpression = `COALESCE(
-      (SELECT COUNT(*) - 1 FROM pod_protocols pp WHERE pp.operation_type_id = patient_cases.operation_type_id),
-      999
-    )`;
-
     // Step 1: Update POD for all unlocked, non-completed patients
+    // POD = calendar days elapsed (sang ngày mới là POD++, không cần trọn 24h)
     const updateResult = await this.patientRepo
       .createQueryBuilder()
       .update(Patient)
       .set({
-        currentPod: () => `LEAST(
-          FLOOR(EXTRACT(EPOCH FROM (NOW() - pod_start_date)) / 86400)::int,
-          ${maxPodExpression}
-        )`,
+        currentPod: () => `(DATE(NOW()) - DATE(pod_start_date))::int`,
       })
       .where('is_locked = false')
       .andWhere('deleted_at IS NULL')
@@ -55,7 +45,13 @@ export class PodSchedulerService {
       this.logger.log(`[Step 1] POD updated for ${updateResult.affected} patient(s)`);
     }
 
-    // Step 2: Mark GREEN patients as completed when reaching max POD
+    // Step 2: Mark GREEN patients as completed when reaching maxDietLevel
+    const maxDietLevelSubquery = `(
+      SELECT COALESCE(MAX(diet_level), 4)
+      FROM pod_protocols pp
+      WHERE pp.operation_type_id = patient_cases.operation_type_id
+    )`;
+
     const completedResult = await this.patientRepo
       .createQueryBuilder()
       .update(Patient)
@@ -64,7 +60,7 @@ export class PodSchedulerService {
         green: 'Green',
       })
       .andWhere('eras_completed = false')
-      .andWhere(`current_pod >= ${maxPodExpression}`)
+      .andWhere(`current_diet_level >= ${maxDietLevelSubquery}`)
       .andWhere('pod_start_date IS NOT NULL')
       .andWhere('is_locked = false')
       .andWhere('deleted_at IS NULL')
@@ -76,7 +72,7 @@ export class PodSchedulerService {
       );
     }
 
-    // Step 3: Auto-lock YELLOW/RED patients at max POD
+    // Step 3: Auto-lock YELLOW/RED patients at maxDietLevel
     const lockedResult = await this.patientRepo
       .createQueryBuilder()
       .update(Patient)
@@ -84,13 +80,13 @@ export class PodSchedulerService {
         isLocked: true,
         lockedAt: () => 'NOW()',
         reasonHoldPod:
-          'Tự động tạm dừng: Đã đạt mốc ngày POD tối đa với mức độ sức khỏe cần theo dõi kỹ (Vàng/Đỏ).',
+          'Tự động tạm dừng: Đã đạt mốc MỨC ĂN tối đa với mức độ sức khỏe cần theo dõi kỹ (Vàng/Đỏ).',
       })
       .where('level_id IN (SELECT level_id FROM levels WHERE level_name IN (:...colors))', {
         colors: ['Yellow', 'Red'],
       })
       .andWhere('is_locked = false')
-      .andWhere(`current_pod >= ${maxPodExpression}`)
+      .andWhere(`current_diet_level >= ${maxDietLevelSubquery}`)
       .andWhere('pod_start_date IS NOT NULL')
       .andWhere('eras_completed = false')
       .andWhere('deleted_at IS NULL')
@@ -98,7 +94,7 @@ export class PodSchedulerService {
 
     if ((lockedResult.affected ?? 0) > 0) {
       this.logger.log(
-        `[Step 3] ${lockedResult.affected} YELLOW/RED patient(s) auto-locked at max POD`,
+        `[Step 3] ${lockedResult.affected} YELLOW/RED patient(s) auto-locked at maxDietLevel`,
       );
     }
   }

@@ -15,12 +15,14 @@ import { PatientReminderSchedulerService } from './services/patient-reminder.sch
 import { PatientRepository } from '../patient/repositories/patient.repository';
 import { NurseModule } from '../nurse/nurse.module';
 import { RoomNurseAssignmentRepository } from './repositories/room-nurse-assignment.repository';
+import { YellowReminderModule } from '../reminder/yellow-reminder.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Alert, SymptomSurvey, Patient, RoomNurseAssignment]),
     FirebaseModule,
     NurseModule,
+    YellowReminderModule,
   ],
   controllers: [AlertController, RoomNurseAssignmentController],
   providers: [
