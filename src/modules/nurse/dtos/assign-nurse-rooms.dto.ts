@@ -4,7 +4,7 @@ import { IsArray, IsString } from 'class-validator';
 export class AssignNurseRoomsDto {
   @ApiProperty({
     example: ['P502', 'P503'],
-    description: 'List of room codes assigned to the nurse',
+    description: 'Room codes to add to the nurse assignment; existing rooms are retained',
   })
   @IsArray()
   @IsString({ each: true })
