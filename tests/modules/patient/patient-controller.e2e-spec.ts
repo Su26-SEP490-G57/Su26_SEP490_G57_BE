@@ -389,7 +389,7 @@ describe('PatientController (integration)', () => {
         const body = response.body as PatientWithAccount;
         expect(body.caseId).toBe('CASE-011');
         expect(body.currentPod).toBe(0);
-        expect(body.level).toBeNull();
+        expect(body.level?.name).toBe('Green');
         expect(body.operationType).toBeNull();
         expect(body.account?.username).toBe('CASE-011');
         expect(body.account?.fullName).toBe('Người Bệnh Mới');
