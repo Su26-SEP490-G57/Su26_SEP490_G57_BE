@@ -2,13 +2,17 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
+import { NurseGateway } from '../../nurse/gateways/nurse.gateway';
 import { RoomNurseAssignmentRepository } from '../repositories/room-nurse-assignment.repository';
 
 @ApiTags('Nurses')
 @ApiBearerAuth()
 @Controller('room-nurse-assignments')
 export class RoomNurseAssignmentController {
-  constructor(private readonly repository: RoomNurseAssignmentRepository) {}
+  constructor(
+    private readonly repository: RoomNurseAssignmentRepository,
+    private readonly nurseGateway: NurseGateway,
+  ) {}
 
   @Get(':roomCode')
   @Roles(UserRoleName.HEAD_NURSE, UserRoleName.ADMIN)
@@ -37,6 +41,7 @@ export class RoomNurseAssignmentController {
   ): Promise<{ message: string }> {
     const normalizedCodes = roomCodes.map((c) => c.trim().toUpperCase());
     await this.repository.bulkAssign(normalizedCodes, nurseIds);
+    this.nurseGateway.emitRoomAssignmentsChanged();
     return { message: 'Bulk assignments updated successfully' };
   }
 }

@@ -6,6 +6,7 @@ import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
 import { QueryNurseDto } from '../dtos/query-nurse.dto';
 import { UpdateNurseDto } from '../dtos/update-nurse.dto';
+import { NurseGateway } from '../gateways/nurse.gateway';
 import { NurseRepository, NurseStats } from '../repositories/nurse.repository';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class NurseService {
   constructor(
     private readonly repository: NurseRepository,
     private readonly usersService: UsersService,
+    private readonly nurseGateway: NurseGateway,
   ) {}
 
   private toResponse(user: User, assignedRooms: string[] = []): NurseResponseDto {
@@ -120,11 +122,13 @@ export class NurseService {
     roomCodes: string[],
   ): Promise<{ nurseUserId: number; assignedRooms: string[] }> {
     const assignedRooms = await this.repository.assignRoomsToNurse(nurseUserId, roomCodes);
+    this.nurseGateway.emitRoomAssignmentsChanged();
     return { nurseUserId, assignedRooms };
   }
 
   async removeRoomAssignment(nurseUserId: number, roomCode: string): Promise<void> {
     await this.repository.removeRoomAssignment(nurseUserId, roomCode);
+    this.nurseGateway.emitRoomAssignmentsChanged();
   }
 
   async getAllHospitalRooms(): Promise<{ roomCode: string; patientCount: number }[]> {

@@ -68,7 +68,7 @@ export class NurseController {
   }
 
   @Post(':id/assign-rooms')
-  @ApiOperation({ summary: 'Assign rooms to a nurse' })
+  @ApiOperation({ summary: 'Add rooms to a nurse without removing existing assignments' })
   @ApiResponse({ status: 200, type: NurseRoomAssignmentResponseDto })
   assignRooms(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignNurseRoomsDto) {
     return this.nurseService.assignRooms(id, dto.roomCodes);
