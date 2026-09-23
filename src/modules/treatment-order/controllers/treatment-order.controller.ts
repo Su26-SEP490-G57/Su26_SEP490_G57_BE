@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import {
+  ApiBadGatewayResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiNotFoundResponse,
@@ -16,6 +17,7 @@ import {
   TreatmentOrderResponseDto,
   UpdateTreatmentOrderDto,
 } from '../dtos/treatment-order.dto';
+import { TreatmentSheetDto, TreatmentSheetPrefillDto } from '../dtos/treatment-sheet.dto';
 import { TreatmentOrderService } from '../services/treatment-order.service';
 
 @ApiTags('Treatment Orders')
@@ -27,12 +29,13 @@ export class TreatmentOrderController {
   @Post()
   @Roles(UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Create a treatment order (Doctor only)',
+    summary: 'Write a "Phiếu theo dõi điều trị" with a care level (Doctor only)',
     description:
-      "Sets the patient's active care level and auto-assigns the matching Care Observation Sheet to the nursing workflow.",
+      "Sets the patient's active care level, auto-assigns the matching Care Observation Sheet to the nursing workflow, and stores the sheet in the HIS. If the HIS rejects the sheet nothing is saved.",
   })
   @ApiResponse({ status: 201, type: TreatmentOrderResponseDto })
   @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable — order not saved' })
   create(
     @Body() dto: CreateTreatmentOrderDto,
     @CurrentUser() user: UserResponseDto,
@@ -64,5 +67,31 @@ export class TreatmentOrderController {
   @ApiNotFoundResponse({ description: 'Patient case not found' })
   getByCaseId(@Param('caseId') caseId: string): Promise<TreatmentOrderResponseDto[]> {
     return this.service.getByCaseId(caseId);
+  }
+
+  @Get('patient/:caseId/sheet-prefill')
+  @Roles(UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: 'Auto-filled fields for a new "Phiếu theo dõi điều trị"',
+    description:
+      'Patient header fields, next sheet number (from HIS) and "Diễn biến bệnh" seeded from the latest vital signs.',
+  })
+  @ApiResponse({ status: 200, type: TreatmentSheetPrefillDto })
+  @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable' })
+  getSheetPrefill(@Param('caseId') caseId: string): Promise<TreatmentSheetPrefillDto> {
+    return this.service.getSheetPrefill(caseId);
+  }
+
+  @Get('patient/:caseId/sheets')
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({
+    summary: '"Phiếu theo dõi điều trị" of a patient case from the HIS (newest first)',
+  })
+  @ApiResponse({ status: 200, type: [TreatmentSheetDto] })
+  @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable' })
+  getSheets(@Param('caseId') caseId: string): Promise<TreatmentSheetDto[]> {
+    return this.service.getSheets(caseId);
   }
 }

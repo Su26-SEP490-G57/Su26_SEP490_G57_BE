@@ -2,20 +2,28 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CareObservationService } from '../../care-observation/services/care-observation.service';
+import { PatientSheetHeaderService } from '../../his/patient-sheet-header.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
+import { HisTreatmentSheetClient } from '../clients/his-treatment-sheet.client';
 import {
   CreateTreatmentOrderDto,
   TreatmentOrderResponseDto,
   UpdateTreatmentOrderDto,
 } from '../dtos/treatment-order.dto';
+import { TreatmentSheetDto, TreatmentSheetPrefillDto } from '../dtos/treatment-sheet.dto';
 import { TreatmentOrder } from '../entities/treatment-order.entity';
 import { TreatmentOrderRepository } from '../repositories/treatment-order.repository';
+
+const DISPLAY_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 @Injectable()
 export class TreatmentOrderService {
   constructor(
     private readonly repository: TreatmentOrderRepository,
     private readonly careObservationService: CareObservationService,
+    private readonly hisClient: HisTreatmentSheetClient,
+    private readonly sheetHeader: PatientSheetHeaderService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -28,6 +36,10 @@ export class TreatmentOrderService {
    * would leave the nursing workflow pointing at the wrong sheet. This is a
    * deliberate deviation from the codebase's current non-transactional
    * multi-write style, limited to this flow.
+   *
+   * The "Phiếu theo dõi điều trị" is written to the HIS as the last step
+   * inside the transaction: if the HIS rejects it, the local order is rolled
+   * back so an order never exists without its sheet.
    */
   async createOrder(
     dto: CreateTreatmentOrderDto,
@@ -38,13 +50,16 @@ export class TreatmentOrderService {
       throw new NotFoundException(`Patient case ${dto.caseId} not found`);
     }
 
-    const order = await this.dataSource.transaction(async (manager) => {
+    const header = await this.sheetHeader.build(patient);
+    const instructions = dto.instructions.trim();
+
+    const { order, sheet } = await this.dataSource.transaction(async (manager) => {
       // 1. The order itself — ordering doctor and timestamp are server-derived.
       const saved = await this.repository.save(
         {
           caseId: dto.caseId,
           careLevel: dto.careLevel,
-          instructions: dto.instructions ?? null,
+          instructions,
           orderedByUserId: actor.id,
           orderedByName: actor.fullName,
         },
@@ -67,10 +82,99 @@ export class TreatmentOrderService {
         manager,
       );
 
-      return saved;
+      // 4. Store the sheet in the HIS (system of record for the sheet).
+      const hisSheet = await this.hisClient.create({
+        patientCode: dto.caseId,
+        patientName: header.patientName,
+        facility: header.facility,
+        department: header.department,
+        diagnosis: dto.sheet.diagnosis?.trim() || header.diagnosis || undefined,
+        comorbidities: this.joinComorbidities(dto.sheet.comorbidities ?? header.comorbidities),
+        age: header.age ?? undefined,
+        gender: header.gender ?? undefined,
+        room: header.room ?? undefined,
+        bed: header.bed ?? undefined,
+        recordedAt: dto.sheet.recordedAt.toISOString(),
+        progressNotes: dto.sheet.progressNotes.trim(),
+        orders: instructions,
+        careLevel: dto.careLevel,
+        doctorName: actor.fullName,
+        externalOrderId: saved.treatmentOrderId,
+      });
+
+      return { order: saved, sheet: hisSheet };
     });
 
-    return this.toResponse(order, order.treatmentOrderId);
+    return { ...this.toResponse(order, order.treatmentOrderId), sheet };
+  }
+
+  /** Everything the "Phiếu theo dõi điều trị" form auto-fills. */
+  async getSheetPrefill(caseId: string): Promise<TreatmentSheetPrefillDto> {
+    const patient = await this.repository.findPatient(caseId);
+    if (!patient) {
+      throw new NotFoundException(`Patient case ${caseId} not found`);
+    }
+
+    const [header, latestVitalSign, diagnosisOptions, sheetNumber] = await Promise.all([
+      this.sheetHeader.build(patient),
+      this.sheetHeader.findLatestVitalSign(caseId),
+      this.repository.findDiagnosisOptions(),
+      this.hisClient.nextSheetNumber(caseId),
+    ]);
+
+    const options = header.diagnosis
+      ? [header.diagnosis, ...diagnosisOptions.filter((d) => d !== header.diagnosis)]
+      : diagnosisOptions;
+
+    return {
+      sheetNumber,
+      caseId,
+      ...header,
+      diagnosisOptions: options,
+      progressNotes: latestVitalSign ? this.formatVitalSign(latestVitalSign) : '',
+      latestVitalSignAt: latestVitalSign?.recordedAt ?? null,
+      activeCareLevel: patient.activeCareLevel ?? null,
+    };
+  }
+
+  async getSheets(caseId: string): Promise<TreatmentSheetDto[]> {
+    const patient = await this.repository.findPatient(caseId);
+    if (!patient) {
+      throw new NotFoundException(`Patient case ${caseId} not found`);
+    }
+    return this.hisClient.listByPatient(caseId);
+  }
+
+  /** HIS stores "Bệnh kèm theo" as text. */
+  private joinComorbidities(items: string[]): string | undefined {
+    const joined = items
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join(', ');
+    return joined || undefined;
+  }
+
+  /** Seed text for "Diễn biến bệnh" from a vital-signs record. */
+  private formatVitalSign(v: VitalSign): string {
+    const at = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: DISPLAY_TIME_ZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(v.recordedAt);
+
+    const lines = [
+      `Chỉ số sinh tồn (ghi nhận ${at} - ${v.recordedByName}):`,
+      `- Mạch: ${v.pulseBpm} lần/phút`,
+      `- Huyết áp: ${v.bloodPressureSystolic}/${v.bloodPressureDiastolic} mmHg`,
+      `- Nhiệt độ: ${Number(v.temperatureCelsius)} °C`,
+      `- Nhịp thở: ${v.respiratoryRate} lần/phút`,
+      `- SpO2: ${v.spo2Percent}%`,
+    ];
+    if (v.note?.trim()) lines.push(`- Ghi chú: ${v.note.trim()}`);
+    return `${lines.join('\n')}\n`;
   }
 
   /**

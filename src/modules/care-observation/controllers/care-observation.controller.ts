@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import {
+  ApiBadGatewayResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
@@ -16,13 +18,23 @@ import {
   CareObservationTaskResponseDto,
   CreateCareObservationEntryDto,
 } from '../dtos/care-observation.dto';
+import {
+  CareSheetDto,
+  CareSheetListDto,
+  CareSheetPrefillDto,
+  CreateCareSheetDto,
+} from '../dtos/care-sheet.dto';
 import { CareObservationService } from '../services/care-observation.service';
+import { CareSheetService } from '../services/care-sheet.service';
 
 @ApiTags('Care Observation')
 @ApiBearerAuth()
 @Controller('care-observation')
 export class CareObservationController {
-  constructor(private readonly service: CareObservationService) {}
+  constructor(
+    private readonly service: CareObservationService,
+    private readonly careSheetService: CareSheetService,
+  ) {}
 
   @Get('tasks/mine')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE)
@@ -75,5 +87,53 @@ export class CareObservationController {
     @CurrentUser() user: UserResponseDto,
   ): Promise<CareObservationEntryResponseDto> {
     return this.service.addEntry(taskId, dto, user);
+  }
+
+  @Get('patient/:caseId/sheet-prefill')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: 'Auto-filled fields + form layout for a new "Phiếu theo dõi và chăm sóc"',
+    description:
+      'Sheet type (Cấp 1 / Cấp 2-3) follows the doctor-ordered care level; `sheetType` is null when none is ordered yet.',
+  })
+  @ApiResponse({ status: 200, type: CareSheetPrefillDto })
+  @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable' })
+  getCareSheetPrefill(
+    @Param('caseId') caseId: string,
+    @CurrentUser() user: UserResponseDto,
+  ): Promise<CareSheetPrefillDto> {
+    return this.careSheetService.getPrefill(caseId, user);
+  }
+
+  @Post('patient/:caseId/sheets')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: 'Write a "Phiếu theo dõi và chăm sóc" (stored in HIS)',
+    description:
+      'Header fields, sheet type, care level and nurse are derived server-side. Saved sheets cannot be edited.',
+  })
+  @ApiResponse({ status: 201, type: CareSheetDto })
+  @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiConflictResponse({ description: 'No care level ordered for this patient yet' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable — sheet not saved' })
+  createCareSheet(
+    @Param('caseId') caseId: string,
+    @Body() dto: CreateCareSheetDto,
+    @CurrentUser() user: UserResponseDto,
+  ): Promise<CareSheetDto> {
+    return this.careSheetService.create(caseId, dto, user);
+  }
+
+  @Get('patient/:caseId/sheets')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: '"Phiếu theo dõi và chăm sóc" of a patient from the HIS (newest first) + form layout',
+  })
+  @ApiResponse({ status: 200, type: CareSheetListDto })
+  @ApiNotFoundResponse({ description: 'Patient case not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable' })
+  getCareSheets(@Param('caseId') caseId: string): Promise<CareSheetListDto> {
+    return this.careSheetService.list(caseId);
   }
 }
