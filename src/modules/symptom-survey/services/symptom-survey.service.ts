@@ -528,19 +528,22 @@ export class SymptomSurveyService {
     const totalQuestions = await this.repository.countQuestions();
     const historyItems: PodHistoryItemDto[] = [];
 
-    // Only generate timeline from POD 0 up to currentPod (max POD 5)
+    // Generate timeline from POD 0 up to currentPod
+    // Include PODs even if their theoretical date is in the future, as long as an assessment exists
     for (let pod = 0; pod <= currentPodNum; pod++) {
       const evalDate = new Date(startDate);
       evalDate.setDate(evalDate.getDate() + pod);
       const evalDayNormalized = new Date(evalDate);
       evalDayNormalized.setHours(0, 0, 0, 0);
 
-      // Do NOT include future dates beyond today
-      if (evalDayNormalized > today) {
+      const survey = surveyMap.get(pod);
+
+      // If no assessment exists for this POD and the date is in the future, skip it
+      // But if an assessment exists (even for a "future" POD), always show it
+      if (!survey && evalDayNormalized > today) {
         break;
       }
 
-      const survey = surveyMap.get(pod);
       if (survey) {
         const details = await this.repository.findDetailsById(survey.assessmentId);
         const triageColor = survey.triageColor ?? 'GREEN';

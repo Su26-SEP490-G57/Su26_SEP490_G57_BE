@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { AuditLog } from '../../audit-log/decorators/audit-log.decorator';
 import { PaginatedAssessmentHistoryDto } from '../../symptom-survey/dtos/symptom-survey-response.dto';
 import { SymptomSurveyService } from '../../symptom-survey/services/symptom-survey.service';
 import { CreateReassessmentDto } from '../../symptom-survey/dtos/create-reassessment.dto';
@@ -78,8 +79,9 @@ export class PatientController {
   ) {}
 
   @Get()
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Get the priority patient list',
+    summary: 'Get the priority patient list (Nurse/Head Nurse/Doctor)',
     description:
       'Paginated patient list. Supports search by case_id/full name, filter by level, operation type, nurseUserId, ' +
       'and sort by POD. Default ordering: level (Red→Yellow→Green) then oldest case to the newest.',
@@ -132,9 +134,21 @@ export class PatientController {
   }
 
   @Post('import')
-  @Roles(UserRoleName.HEAD_NURSE)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'CREATE',
+    entityType: 'patient_cases',
+    getEntityId: () => `BULK_IMPORT_${new Date().getTime()}`,
+    getChanges: (_req, res) => ({
+      after: {
+        importedCount: res?.imported?.length ?? 0,
+        skippedCount: res?.skipped?.length ?? 0,
+        failedCount: res?.failed?.length ?? 0,
+      },
+    }),
+  })
   @ApiOperation({
-    summary: 'Import selected HIS records as patients and start ERAS (Head Nurse only)',
+    summary: 'Import selected HIS records as patients and start ERAS (Nurse/Head Nurse/Doctor)',
     description:
       'For each selected surgical record: creates the patient_cases row + linked login account ' +
       '(username = case id, password = 123456) and immediately starts the ERAS protocol. ' +
@@ -147,8 +161,22 @@ export class PatientController {
   }
 
   @Post()
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'CREATE',
+    entityType: 'patient_cases',
+    getEntityId: (_req, res) => res?.caseId ?? 'unknown',
+    getChanges: (req) => ({
+      after: {
+        caseId: (req.body as { caseId?: unknown }).caseId,
+        fullName: (req.body as { fullName?: unknown }).fullName,
+        operationTypeId: (req.body as { operationTypeId?: unknown }).operationTypeId,
+        roomCode: (req.body as { roomCode?: unknown }).roomCode,
+      },
+    }),
+  })
   @ApiOperation({
-    summary: 'Create a patient (case + linked login account)',
+    summary: 'Create a patient (case + linked login account) - Head Nurse/Doctor only',
     description:
       'Creates the patient_cases row and the linked Patient-role users account atomically. ' +
       'If username/password are omitted, the username defaults to the case id and the password to a system default.',
@@ -185,6 +213,19 @@ export class PatientController {
 
   @Post(':id/reassessments')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'CREATE',
+    entityType: 'patient_assessments',
+    getEntityId: (req, res) => res?.assessmentId?.toString() ?? `${req.params.id}_reassessment`,
+    getChanges: (req) => ({
+      after: {
+        caseId: req.params.id,
+        levelId: (req.body as { levelId?: unknown }).levelId,
+        note: (req.body as { note?: unknown }).note,
+        source: 'REASSESSMENT',
+      },
+    }),
+  })
   @ApiOperation({
     summary: 'Submit a clinical reassessment for a patient (Nurse/Head Nurse/Doctor)',
     description:
@@ -213,6 +254,17 @@ export class PatientController {
 
   @Post(':id/start-eras')
   @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'UPDATE',
+    entityType: 'patient_cases',
+    getEntityId: (req) => req.params.id,
+    getChanges: () => ({
+      after: {
+        erasStarted: true,
+        surgeryDate: new Date().toISOString(),
+      },
+    }),
+  })
   @ApiOperation({ summary: 'Start ERAS protocol for a patient (Head Nurse/Doctor only)' })
   @ApiResponse({ status: 201 })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -223,6 +275,17 @@ export class PatientController {
 
   @Patch(':id/pod-lock')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'UPDATE',
+    entityType: 'patient_cases',
+    getEntityId: (req) => req.params.id,
+    getChanges: (req) => ({
+      after: {
+        isLocked: (req.body as { isLocked?: unknown }).isLocked,
+        holdReason: (req.body as { holdReason?: unknown }).holdReason,
+      },
+    }),
+  })
   @ApiOperation({
     summary: 'Lock or unlock POD progression for a patient',
     description:
@@ -241,6 +304,18 @@ export class PatientController {
 
   @Patch(':id/diet-level')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'UPDATE',
+    entityType: 'patient_cases',
+    getEntityId: (req) => req.params.id,
+    getChanges: (req, res) => ({
+      before: { dietLevel: (res as { previousDietLevel?: unknown })?.previousDietLevel },
+      after: {
+        dietLevel: (req.body as { dietLevel?: unknown }).dietLevel,
+        reason: (req.body as { reason?: unknown }).reason,
+      },
+    }),
+  })
   @ApiOperation({
     summary: 'Update diet level for a patient based on clinical tolerance',
     description:
@@ -248,22 +323,44 @@ export class PatientController {
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
-  updateDietLevel(
+  async updateDietLevel(
     @Param('id') id: string,
     @Body() dto: UpdateDietLevelDto,
     @CurrentUser() user: { id: number; roles?: string[] },
   ): Promise<PatientWithAccount> {
-    return this.patientService.updateDietLevel(
+    // Lấy giá trị cũ trước khi update để ghi vào audit log
+    const patientBefore = await this.patientService.getPatientByCaseId(id);
+    const previousDietLevel = patientBefore.currentDietLevel;
+
+    const result = await this.patientService.updateDietLevel(
       id,
       dto.dietLevel,
       user.id,
-      undefined,
+      dto.reason,
       user.roles?.includes(UserRoleName.DOCTOR) ?? false,
     );
+
+    // Attach previousDietLevel vào response để AuditLog interceptor dùng
+    (result as PatientWithAccount & { previousDietLevel?: number | null }).previousDietLevel =
+      previousDietLevel;
+
+    return result;
   }
 
   @Patch(':id/pod-level')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @AuditLog({
+    action: 'UPDATE',
+    entityType: 'patient_cases',
+    getEntityId: (req) => req.params.id,
+    getChanges: (req, res) => ({
+      before: { podLevel: (res as { previousPod?: unknown })?.previousPod },
+      after: {
+        podLevel: (req.body as { podLevel?: unknown }).podLevel,
+        reason: (req.body as { reason?: unknown }).reason,
+      },
+    }),
+  })
   @ApiOperation({
     summary: 'Manually adjust POD level for a patient (rollback only)',
     description:
@@ -285,11 +382,12 @@ export class PatientController {
   }
 
   @Patch(':id')
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Update a patient (case + linked login account)',
+    summary: 'Update a patient (case + linked login account) - Head Nurse/Doctor only',
     description:
       'The :id is the users.user_id of the patient account. Updates the patient_cases row and the ' +
-      'linked account. Only provided fields are changed.',
+      'linked account. Only provided fields are changed. Allows assigning/reassigning nurse to patient.',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -303,8 +401,9 @@ export class PatientController {
   }
 
   @Delete(':id')
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Soft-delete a patient by account user id (account + linked case)',
+    summary: 'Soft-delete a patient by account user id - Head Nurse/Doctor only',
     description:
       'The :id is the users.user_id of the patient account. Marks the account and its ' +
       'linked patient_cases row as deleted (deleted_at). Clinical history is preserved ' +

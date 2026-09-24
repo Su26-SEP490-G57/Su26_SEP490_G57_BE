@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertModule } from './modules/alert/alert.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { AuditLogInterceptor } from './modules/audit-log/interceptors/audit-log.interceptor';
+import { GlobalAuditInterceptor } from './modules/audit-log/interceptors/global-audit.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
@@ -49,6 +52,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     HealthModule,
     UsersModule,
     AuthModule,
+    AuditLogModule,
     NurseModule,
     PatientModule,
     StatisticsModule,
@@ -62,11 +66,17 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     TreatmentOrderModule,
   ],
   providers: [
-    // Order matters: version check runs first (no auth dependency, cheapest rejection).
-    // JwtAuthGuard must run before RolesGuard so `req.user` is populated.
+    // Order matters:
+    // 1. MinAppVersionGuard: version check first (no auth dependency, cheapest rejection)
+    // 2. JwtAuthGuard: must run before RolesGuard so `req.user` is populated
+    // 3. RolesGuard: checks user roles after authentication
+    // 4. GlobalAuditInterceptor: baseline audit for ALL mutations (POST/PATCH/PUT/DELETE)
+    // 5. AuditLogInterceptor: custom audit for endpoints with @AuditLog decorator (overrides global)
     { provide: APP_GUARD, useClass: MinAppVersionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_INTERCEPTOR, useClass: GlobalAuditInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
   ],
 })
 export class AppModule {}

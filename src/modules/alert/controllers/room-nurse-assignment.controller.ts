@@ -15,7 +15,7 @@ export class RoomNurseAssignmentController {
   ) {}
 
   @Get(':roomCode')
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.ADMIN)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.ADMIN)
   @ApiOperation({ summary: 'Get assigned nurses for a room' })
   @ApiResponse({ status: 200, type: [Number] })
   async getAssignedNurses(@Param('roomCode') roomCode: string): Promise<number[]> {
