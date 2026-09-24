@@ -60,7 +60,6 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     AlertModule,
     DietGuidanceModule,
     HealthEducationModule,
-    HealthModule,
     VitalSignsModule,
     CareObservationModule,
     TreatmentOrderModule,

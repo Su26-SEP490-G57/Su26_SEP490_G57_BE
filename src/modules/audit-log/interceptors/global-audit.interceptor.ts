@@ -11,6 +11,8 @@ import { Observable, tap } from 'rxjs';
 import { AuditLogService } from '../services/audit-log.service';
 import { AuditAction } from '../entities/audit-log.entity';
 
+import { AUDIT_LOG_KEY } from '../decorators/audit-log.decorator';
+
 /**
  * Global interceptor tự động ghi audit log cho MỌI endpoint mutation (POST/PATCH/PUT/DELETE).
  *
@@ -53,9 +55,10 @@ export class GlobalAuditInterceptor implements NestInterceptor {
       headers: Record<string, string>;
     }>();
 
-    // Skip if endpoint has @SkipAudit decorator
+    // Skip if endpoint has @SkipAudit decorator or @AuditLog decorator (manual override)
     const skipAudit = this.reflector.get<boolean>(SKIP_AUDIT_KEY, context.getHandler());
-    if (skipAudit) {
+    const hasManualAudit = this.reflector.get<unknown>(AUDIT_LOG_KEY, context.getHandler());
+    if (skipAudit || hasManualAudit) {
       return next.handle();
     }
 

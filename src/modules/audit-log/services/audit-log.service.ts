@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AuditAction, AuditLog } from '../entities/audit-log.entity';
 import { AuditLogRepository, AuditLogQueryOptions } from '../repositories/audit-log.repository';
-import type { AuditLogGateway } from '../gateways/audit-log.gateway';
+import { AuditLogGateway } from '../gateways/audit-log.gateway';
 
 export interface CreateAuditLogDto {
   userId: number;
@@ -18,17 +18,12 @@ export interface CreateAuditLogDto {
 
 @Injectable()
 export class AuditLogService {
-  private gateway?: AuditLogGateway;
+  private readonly logger = new Logger(AuditLogService.name);
 
-  constructor(private readonly auditLogRepository: AuditLogRepository) {}
-
-  /**
-   * Inject gateway từ module (circular dependency workaround)
-   * Called by AuditLogModule.onModuleInit
-   */
-  setGateway(gateway: AuditLogGateway) {
-    this.gateway = gateway;
-  }
+  constructor(
+    private readonly auditLogRepository: AuditLogRepository,
+    private readonly gateway: AuditLogGateway,
+  ) {}
 
   /**
    * Ghi log một hành động của user
@@ -47,10 +42,8 @@ export class AuditLogService {
 
     const savedLog = await this.auditLogRepository.save(auditLog);
 
-    // Broadcast realtime — non-blocking, failure does not affect persistence
-    if (this.gateway) {
-      this.gateway.emitNewLog(savedLog);
-    }
+    // Broadcast realtime - đơn giản, không try/catch
+    this.gateway.emitNewLog(savedLog);
 
     return savedLog;
   }
