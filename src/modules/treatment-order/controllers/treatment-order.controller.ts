@@ -1,6 +1,16 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  StreamableFile,
+} from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
+  ApiProduces,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiNotFoundResponse,
@@ -93,5 +103,23 @@ export class TreatmentOrderController {
   @ApiBadGatewayResponse({ description: 'HIS unreachable' })
   getSheets(@Param('caseId') caseId: string): Promise<TreatmentSheetDto[]> {
     return this.service.getSheets(caseId);
+  }
+
+  @Get('patient/:caseId/sheets/:sheetId/pdf')
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({ summary: 'Download one "Phiếu theo dõi điều trị" as PDF' })
+  @ApiProduces('application/pdf')
+  @ApiResponse({ status: 200, description: 'PDF file' })
+  @ApiNotFoundResponse({ description: 'Patient case or sheet not found' })
+  @ApiBadGatewayResponse({ description: 'HIS unreachable' })
+  async getSheetPdf(
+    @Param('caseId') caseId: string,
+    @Param('sheetId', ParseIntPipe) sheetId: number,
+  ): Promise<StreamableFile> {
+    const { file, fileName } = await this.service.getSheetPdf(caseId, sheetId);
+    return new StreamableFile(file, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${fileName}"`,
+    });
   }
 }
