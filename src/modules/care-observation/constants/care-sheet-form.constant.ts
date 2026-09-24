@@ -88,7 +88,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
       { key: 'moi', label: 'Môi' },
       { key: 'dauChi', label: 'Đầu chi' },
       { key: 'da', label: 'Da' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {
@@ -99,7 +99,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
       { key: 'binhThuong', label: 'Bình thường' },
       { key: 'thoOxy', label: 'Thở oxy' },
       { key: 'thoMay', label: 'Thở máy' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {
@@ -109,7 +109,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
     fields: [
       { key: 'mach', label: 'Mạch' },
       { key: 'huyetAp', label: 'Huyết áp' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {
@@ -121,7 +121,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
       { key: 'sonde', label: 'Sonde' },
       { key: 'luongAn', label: 'Lượng ăn (ml)/bữa' },
       { key: 'tinhMach', label: 'Tĩnh mạch' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {
@@ -134,7 +134,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
       { key: 'dichDaDay', label: 'Dịch dạ dày' },
       { key: 'soLuong', label: 'Số lượng' },
       { key: 'mauSac', label: 'Màu sắc' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {
@@ -147,7 +147,7 @@ export const CARE_SHEET_SECTIONS: CareSheetSection[] = [
       { key: 'soLuong', label: 'Số lượng' },
       { key: 'mauSac', label: 'Màu sắc' },
       { key: 'boPhanSinhDuc', label: 'Bộ phận sinh dục' },
-      { key: 'khac', label: 'Khác' },
+      { key: 'khac', label: 'Khác', multiline: true },
     ],
   },
   {

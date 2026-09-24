@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PatientSheetHeaderService } from '../../his/patient-sheet-header.service';
+import { SheetPdfService } from '../../his/sheet-pdf.service';
 import { Patient } from '../../patient/entities/patient.entity';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { HisCareSheetClient } from '../clients/his-care-sheet.client';
@@ -40,6 +41,7 @@ export class CareSheetService {
     private readonly repository: CareObservationRepository,
     private readonly hisClient: HisCareSheetClient,
     private readonly sheetHeader: PatientSheetHeaderService,
+    private readonly sheetPdf: SheetPdfService,
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
   ) {}
@@ -133,6 +135,25 @@ export class CareSheetService {
   async list(caseId: string): Promise<CareSheetListDto> {
     await this.findPatient(caseId);
     return { sheets: await this.hisClient.listByPatient(caseId), form: this.form() };
+  }
+
+  /** One care sheet of the patient rendered as a printable PDF. */
+  async getSheetPdf(caseId: string, sheetId: number): Promise<{ file: Buffer; fileName: string }> {
+    const { sheets, form } = await this.list(caseId);
+    const sheet = sheets.find((s) => s.sheetId === sheetId);
+    if (!sheet) {
+      throw new NotFoundException(`Care sheet ${sheetId} not found for case ${caseId}`);
+    }
+    return {
+      file: await this.sheetPdf.renderCareSheet({
+        ...sheet,
+        title: form.titles[sheet.sheetType] ?? 'Phiếu theo dõi và chăm sóc',
+        formCode: form.formCode,
+        legend: form.legend,
+        sections: form.sections,
+      }),
+      fileName: `phieu-cham-soc-${caseId}-to-${sheet.sheetNumber}.pdf`,
+    };
   }
 
   private form(): CareSheetFormDto {

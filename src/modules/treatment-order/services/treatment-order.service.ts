@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CareObservationService } from '../../care-observation/services/care-observation.service';
 import { PatientSheetHeaderService } from '../../his/patient-sheet-header.service';
+import { SheetPdfService } from '../../his/sheet-pdf.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
 import { HisTreatmentSheetClient } from '../clients/his-treatment-sheet.client';
@@ -24,6 +25,7 @@ export class TreatmentOrderService {
     private readonly careObservationService: CareObservationService,
     private readonly hisClient: HisTreatmentSheetClient,
     private readonly sheetHeader: PatientSheetHeaderService,
+    private readonly sheetPdf: SheetPdfService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -143,6 +145,18 @@ export class TreatmentOrderService {
       throw new NotFoundException(`Patient case ${caseId} not found`);
     }
     return this.hisClient.listByPatient(caseId);
+  }
+
+  /** One sheet of the patient rendered as a printable PDF. */
+  async getSheetPdf(caseId: string, sheetId: number): Promise<{ file: Buffer; fileName: string }> {
+    const sheet = (await this.getSheets(caseId)).find((s) => s.sheetId === sheetId);
+    if (!sheet) {
+      throw new NotFoundException(`Treatment sheet ${sheetId} not found for case ${caseId}`);
+    }
+    return {
+      file: await this.sheetPdf.renderTreatmentSheet(sheet),
+      fileName: `phieu-dieu-tri-${caseId}-to-${sheet.sheetNumber}.pdf`,
+    };
   }
 
   /** HIS stores "Bệnh kèm theo" as text. */
