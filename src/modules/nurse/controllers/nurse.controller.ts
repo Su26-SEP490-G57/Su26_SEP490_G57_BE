@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
+import { AuditLog } from '../../audit-log/decorators/audit-log.decorator';
 import { AssignNurseRoomsDto } from '../dtos/assign-nurse-rooms.dto';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
@@ -68,6 +69,21 @@ export class NurseController {
   }
 
   @Post(':id/assign-rooms')
+  @AuditLog({
+    action: 'CREATE',
+    entityType: 'room-nurse-assignments',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    getEntityId: (req: any) => String((req.params as { id: string }).id),
+
+    getChanges: (req: any) => ({
+      after: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        nurseId: (req.params as { id: string }).id,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        assignedRooms: (req.body as { roomCodes?: string[] }).roomCodes,
+      },
+    }),
+  })
   @ApiOperation({ summary: 'Add rooms to a nurse without removing existing assignments' })
   @ApiResponse({ status: 200, type: NurseRoomAssignmentResponseDto })
   assignRooms(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignNurseRoomsDto) {
@@ -75,7 +91,23 @@ export class NurseController {
   }
 
   @Delete(':id/rooms/:roomCode')
+  @AuditLog({
+    action: 'DELETE',
+    entityType: 'room-nurse-assignments',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    getEntityId: (req: any) => String((req.params as { id: string }).id),
+
+    getChanges: (req: any) => ({
+      before: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        nurseId: (req.params as { id: string }).id,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        removedRoom: (req.params as { roomCode: string }).roomCode,
+      },
+    }),
+  })
   @ApiOperation({ summary: 'Remove a specific room assignment from a nurse' })
+  @ApiResponse({ status: 200 })
   removeRoomAssignment(@Param('id', ParseIntPipe) id: number, @Param('roomCode') roomCode: string) {
     return this.nurseService.removeRoomAssignment(id, roomCode);
   }
