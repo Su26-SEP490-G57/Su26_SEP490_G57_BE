@@ -30,6 +30,17 @@ export class TreatmentOrderRepository {
     return this.patients(manager).findOne({ where: { caseId } });
   }
 
+  /** Distinct diagnoses recorded across patient cases — the "Chẩn đoán" choices. */
+  async findDiagnosisOptions(): Promise<string[]> {
+    const rows = await this.patientRepo
+      .createQueryBuilder('p')
+      .select('DISTINCT TRIM(p.diagnosis)', 'diagnosis')
+      .where("p.diagnosis IS NOT NULL AND TRIM(p.diagnosis) <> ''")
+      .orderBy('diagnosis', 'ASC')
+      .getRawMany<{ diagnosis: string }>();
+    return rows.map((row) => row.diagnosis);
+  }
+
   findById(treatmentOrderId: number, manager?: EntityManager): Promise<TreatmentOrder | null> {
     return this.orders(manager).findOne({ where: { treatmentOrderId } });
   }

@@ -1,13 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsDefined,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { CARE_LEVELS } from '../constants/care-level.constant';
 import type { CareLevel } from '../constants/care-level.constant';
+import { TreatmentSheetDto, TreatmentSheetInputDto } from './treatment-sheet.dto';
 
 /**
- * Body of `POST /treatment-orders`.
+ * Body of `POST /treatment-orders` — the "Phiếu theo dõi điều trị" form.
  *
- * Care Level is the only required clinical field. No timestamp and no ordering
- * doctor identity: both are server-derived.
+ * Care Level, "Chỉ định" (`instructions`) and the sheet's clinical fields are
+ * required. No order timestamp and no ordering doctor identity: both are
+ * server-derived. The sheet itself is stored in the HIS.
  */
 export class CreateTreatmentOrderDto {
   @ApiProperty({ example: 'CASE-001' })
@@ -19,11 +30,17 @@ export class CreateTreatmentOrderDto {
   @IsIn(CARE_LEVELS)
   careLevel!: CareLevel;
 
-  @ApiPropertyOptional({ example: 'Theo dõi sát dấu hiệu sinh tồn mỗi 4 giờ' })
-  @IsOptional()
+  @ApiProperty({ example: 'Theo dõi sát dấu hiệu sinh tồn mỗi 4 giờ', description: '"Chỉ định"' })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(2000)
-  instructions?: string;
+  instructions!: string;
+
+  @ApiProperty({ type: TreatmentSheetInputDto })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => TreatmentSheetInputDto)
+  sheet!: TreatmentSheetInputDto;
 }
 
 /** Body of `PATCH /treatment-orders/:id` — only the currently active order. */
@@ -70,4 +87,10 @@ export class TreatmentOrderResponseDto {
     description: "Whether this order is the patient's currently active one",
   })
   isActive!: boolean;
+
+  @ApiPropertyOptional({
+    type: TreatmentSheetDto,
+    description: 'The HIS sheet written with this order (create response only)',
+  })
+  sheet?: TreatmentSheetDto;
 }

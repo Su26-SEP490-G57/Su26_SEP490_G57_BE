@@ -16,6 +16,7 @@ import { User } from 'src/modules/user/entities/user.entity';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
 import { DataSource, DeepPartial } from 'typeorm';
 import AppDataSource from '../../data-source';
+import { CareObservationSheetTemplate } from 'src/modules/care-observation/entities/care-observation-sheet-template.entity';
 
 const SALT_ROUNDS = 10;
 
@@ -41,6 +42,7 @@ export async function seed(
     dataSource.getMetadata(SurveyQuestion).tableName,
     dataSource.getMetadata(QuestionOption).tableName,
     dataSource.getMetadata(Level).tableName,
+    dataSource.getMetadata(CareObservationSheetTemplate).tableName,
   ];
 
   const rolesRepository = dataSource.getRepository(Role);
@@ -50,6 +52,10 @@ export async function seed(
   const symptomSurveysRepository = dataSource.getRepository(SymptomSurvey);
   const podProtocolsRepository = dataSource.getRepository(PodProtocol);
 
+  await queryRunner.query(
+    "INSERT INTO \"care_observation_sheet_templates\" (\"code\", \"name\", \"checklist_items\") VALUES ('LEVEL_1_SHEET', 'Phiếu theo dõi chăm sóc cấp 1', '[]'::jsonb), ('LEVEL_2_3_SHEET', 'Phiếu theo dõi chăm sóc cấp 2-3', '[]'::jsonb) ON CONFLICT (\"code\") DO NOTHING;",
+  );
+  log('✅ Care observation sheet templates ensured');
   await queryRunner.query('SET CONSTRAINTS ALL DEFERRED;');
 
   for (const entity of entities) {
