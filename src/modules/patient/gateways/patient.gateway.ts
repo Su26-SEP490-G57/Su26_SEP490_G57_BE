@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PodLockResponseDto } from '../dtos/pod-lock.dto';
+import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -34,5 +35,10 @@ export class PatientGateway implements OnGatewayConnection, OnGatewayDisconnect 
   emitPodUnlocked(data: PodLockResponseDto): void {
     this.server.emit('pod.unlocked', data);
     this.logger.log(`POD unlocked emitted: caseId=${data.caseId}`);
+  }
+
+  emitVitalSignsCreated(data: VitalSign): void {
+    this.server.emit('vital_signs.created', data);
+    this.logger.log(`Vital signs created emitted: caseId=${data.caseId}`);
   }
 }

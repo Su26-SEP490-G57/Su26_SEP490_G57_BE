@@ -1,14 +1,24 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { CreateVitalSignDto } from '../dtos/create-vital-sign.dto';
 import { QueryVitalSignDto } from '../dtos/query-vital-sign.dto';
 import { PaginatedVitalSignsDto, VitalSignResponseDto } from '../dtos/vital-sign-response.dto';
 import { VitalSign } from '../entities/vital-sign.entity';
 import { VitalSignRepository } from '../repositories/vital-sign.repository';
+import { PatientGateway } from '../../patient/gateways/patient.gateway';
+import { NotificationService } from '../../alert/services/notification.service';
+import { PatientRepository } from '../../patient/repositories/patient.repository';
 
 @Injectable()
 export class VitalSignsService {
-  constructor(private readonly repository: VitalSignRepository) {}
+  private readonly logger = new Logger(VitalSignsService.name);
+
+  constructor(
+    private readonly repository: VitalSignRepository,
+    private readonly patientGateway: PatientGateway,
+    private readonly notificationService: NotificationService,
+    private readonly patientRepository: PatientRepository,
+  ) {}
 
   async create(dto: CreateVitalSignDto, actor: UserResponseDto): Promise<VitalSignResponseDto> {
     if (!(await this.repository.patientExists(dto.caseId))) {
@@ -35,7 +45,33 @@ export class VitalSignsService {
       recordedByName: actor.fullName,
     });
 
-    return this.toResponse(saved);
+    const response = this.toResponse(saved);
+
+    // Broadcast real-time socket event on /patients namespace
+    try {
+      this.patientGateway.emitVitalSignsCreated(saved);
+    } catch (error) {
+      this.logger.error('Failed to emit vital_signs.created socket event', error);
+    }
+
+    // Best-effort: FCM push notification to doctors
+    try {
+      const patient = await this.patientRepository.findByIdWithRelations(saved.caseId);
+      const patientName = patient?.account?.fullName ?? saved.caseId;
+      await this.notificationService.sendToDoctors(
+        'Cập nhật chỉ số sinh tồn',
+        `Điều dưỡng ${actor.fullName} vừa cập nhật chỉ số sinh tồn mới cho ${patientName}.`,
+        {
+          route: '/doctor/alerts',
+          caseId: saved.caseId,
+          vitalSignId: String(saved.vitalSignId),
+        },
+      );
+    } catch (error) {
+      this.logger.error('Failed to send FCM push notification to doctors', error);
+    }
+
+    return response;
   }
 
   async getByCaseId(caseId: string, query: QueryVitalSignDto): Promise<PaginatedVitalSignsDto> {

@@ -30,6 +30,6 @@ import { PodSchedulerService } from './services/pod-scheduler.service';
     ExternalRecordsService,
     PatientImportService,
   ],
-  exports: [PatientService, PatientRepository],
+  exports: [PatientService, PatientRepository, PatientGateway],
 })
 export class PatientModule {}

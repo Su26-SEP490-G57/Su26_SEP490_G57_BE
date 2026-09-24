@@ -473,6 +473,7 @@ export class SymptomSurveyService {
         saved.caseId,
         dto.triageColor,
         saved.assessmentId,
+        caller.id,
       );
 
       this.statisticsGateway.emitAssessmentSubmitted({
@@ -509,6 +510,8 @@ export class SymptomSurveyService {
 
     const calculatedPod = patient.currentPod ?? 0;
     const currentPodNum = Math.min(Math.max(calculatedPod, 0), 7);
+    let maxPodNum = currentPodNum;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -522,15 +525,17 @@ export class SymptomSurveyService {
     for (const survey of allSurveys) {
       if (survey.podContext !== null && survey.podContext !== undefined) {
         surveyMap.set(survey.podContext, survey);
+        if (survey.podContext > maxPodNum) {
+          maxPodNum = Math.min(survey.podContext, 7);
+        }
       }
     }
 
     const totalQuestions = await this.repository.countQuestions();
     const historyItems: PodHistoryItemDto[] = [];
 
-    // Generate timeline from POD 0 up to currentPod
-    // Include PODs even if their theoretical date is in the future, as long as an assessment exists
-    for (let pod = 0; pod <= currentPodNum; pod++) {
+    // Generate timeline from POD 0 up to maxPodNum
+    for (let pod = 0; pod <= maxPodNum; pod++) {
       const evalDate = new Date(startDate);
       evalDate.setDate(evalDate.getDate() + pod);
       const evalDayNormalized = new Date(evalDate);
@@ -539,8 +544,7 @@ export class SymptomSurveyService {
       const survey = surveyMap.get(pod);
 
       // If no assessment exists for this POD and the date is in the future, skip it
-      // But if an assessment exists (even for a "future" POD), always show it
-      if (!survey && evalDayNormalized > today) {
+      if (!survey && evalDayNormalized > today && pod > currentPodNum) {
         break;
       }
 
@@ -585,6 +589,41 @@ export class SymptomSurveyService {
           totalCount: totalQuestions > 0 ? totalQuestions : 5,
           details: [],
           medicalFeedback: null,
+        });
+      }
+    }
+
+    // Include any additional surveys from allSurveys (e.g. multiple intraday surveys)
+    const processedIds = new Set(historyItems.map((h) => h.assessmentId).filter(Boolean));
+    for (const survey of allSurveys) {
+      if (!processedIds.has(survey.assessmentId)) {
+        const details = await this.repository.findDetailsById(survey.assessmentId);
+        const triageColor = survey.triageColor ?? 'GREEN';
+        const recoveryStatusTag =
+          triageColor === 'GREEN'
+            ? 'Hồi phục tốt'
+            : triageColor === 'YELLOW'
+              ? 'Cần theo dõi'
+              : 'Cần can thiệp';
+
+        historyItems.push({
+          date: survey.evaluationDatetime,
+          podNumber: survey.podContext ?? currentPodNum,
+          isAssessed: true,
+          assessmentId: survey.assessmentId,
+          triageColor: survey.triageColor,
+          recoveryStatusTag,
+          completedCount: details.length > 0 ? details.length : totalQuestions,
+          totalCount: totalQuestions > 0 ? totalQuestions : 5,
+          details: details.map(
+            (d): AnswerDetailDto => ({
+              questionId: d.questionId,
+              questionText: d.question.questionText,
+              selectedOptionId: d.selectedOptionId,
+              optionText: d.selectedOption.optionText,
+            }),
+          ),
+          medicalFeedback: TRIAGE_RECOMMENDATIONS[triageColor] ?? null,
         });
       }
     }

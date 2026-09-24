@@ -6,8 +6,11 @@ import { VitalSign } from './entities/vital-sign.entity';
 import { VitalSignRepository } from './repositories/vital-sign.repository';
 import { VitalSignsService } from './services/vital-signs.service';
 
+import { PatientModule } from '../patient/patient.module';
+import { AlertModule } from '../alert/alert.module';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([VitalSign, Patient])],
+  imports: [TypeOrmModule.forFeature([VitalSign, Patient]), PatientModule, AlertModule],
   controllers: [VitalSignsController],
   providers: [VitalSignsService, VitalSignRepository],
   exports: [VitalSignsService],
