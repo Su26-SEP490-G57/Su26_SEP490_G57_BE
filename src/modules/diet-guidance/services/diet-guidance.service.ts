@@ -24,14 +24,52 @@ import {
 import { CustomDietGuidance } from '../entities/custom-diet-guidance.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
 import { DietGuidanceRepository } from '../repositories/diet-guidance.repository';
+import { NotificationService } from '../../alert/services/notification.service';
+import { PatientNotificationService } from '../../notification/services/patient-notification.service';
 
 @Injectable()
 export class DietGuidanceService {
   private readonly logger = new Logger(DietGuidanceService.name);
 
-  constructor(private readonly repository: DietGuidanceRepository) {}
+  constructor(
+    private readonly repository: DietGuidanceRepository,
+    private readonly notificationService: NotificationService,
+    private readonly patientNotificationService: PatientNotificationService,
+  ) {}
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  /** Báo cho bệnh nhân khi bác sĩ chuyển chế độ ăn Chung ⇄ Riêng: vừa bắn FCM (banner/hệ
+   * thống ngay lúc đó), vừa lưu lại một bản ghi để hiển thị trong màn "Thông báo hệ thống"
+   * khi bệnh nhân mở lại app sau đó. Cả hai đều best-effort — lỗi gửi/lưu không được làm
+   * fail request cập nhật chế độ ăn của bác sĩ. */
+  private async notifyDietModeChanged(caseId: string, isActive: boolean): Promise<void> {
+    const title = isActive ? 'Chế độ ăn đã được cá nhân hóa' : 'Cập nhật hướng dẫn chế độ ăn';
+    const body = isActive
+      ? 'Bác sĩ đã chỉ định chế độ ăn riêng cho bạn. Xem hướng dẫn hôm nay ngay.'
+      : 'Bạn đã được chuyển về hướng dẫn ăn chung theo phác đồ. Xem hướng dẫn hôm nay ngay.';
+
+    await this.patientNotificationService.notify({
+      caseId,
+      title,
+      body,
+      category: 'medical',
+      route: 'diet_guidance',
+    });
+
+    try {
+      const result = await this.notificationService.sendToPatientCase(caseId, title, body, {
+        caseId,
+        route: 'diet_guidance',
+      });
+      this.logger.log(`Diet mode change notification sent for case "${caseId}"`, result);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send diet mode change notification for case "${caseId}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
 
   private toOpTypeResponse(op: OperationType, podCount = 0): OperationTypeResponseDto {
     return {
@@ -342,6 +380,8 @@ export class DietGuidanceService {
 
     let custom = await this.repository.findCustomDietByCaseId(caseId);
     const isNew = !custom;
+    // Chưa từng có custom diet nào ⇒ bệnh nhân đang ở chế độ "chung".
+    const wasActive = isNew ? false : custom!.isActive;
 
     if (!custom) {
       custom = new CustomDietGuidance();
@@ -373,6 +413,10 @@ export class DietGuidanceService {
       `Custom diet guidance successfully ${isNew ? 'created' : 'updated'} for case "${caseId}" (customDietId: ${saved.customDietId}, isActive: ${saved.isActive})`,
     );
 
+    if (saved.isActive !== wasActive) {
+      await this.notifyDietModeChanged(caseId, saved.isActive);
+    }
+
     // Re-fetch to load doctor relation
     const reloaded = await this.repository.findCustomDietByCaseId(caseId);
     return this.toCustomDietResponse(reloaded ?? saved);
@@ -392,6 +436,7 @@ export class DietGuidanceService {
       throw new NotFoundException(`Custom diet guidance not found for case "${caseId}"`);
     }
 
+    const wasActive = custom.isActive;
     custom.isActive = isActive;
     custom.doctorId = doctorId;
     const saved = await this.repository.saveCustomDiet(custom);
@@ -399,6 +444,10 @@ export class DietGuidanceService {
     this.logger.log(
       `Custom diet guidance status toggled for case "${caseId}": isActive=${saved.isActive}`,
     );
+
+    if (saved.isActive !== wasActive) {
+      await this.notifyDietModeChanged(caseId, saved.isActive);
+    }
 
     const reloaded = await this.repository.findCustomDietByCaseId(caseId);
     return this.toCustomDietResponse(reloaded ?? saved);

@@ -21,6 +21,7 @@ import { StatisticsModule } from './modules/statistics/statistics.module';
 import { SymptomSurveyModule } from './modules/symptom-survey/symptom-survey.module';
 import { TreatmentOrderModule } from './modules/treatment-order/treatment-order.module';
 import { DiseaseModule } from './modules/disease/disease.module';
+import { PatientNotificationModule } from './modules/notification/patient-notification.module';
 import { VitalSignsModule } from './modules/vital-signs/vital-signs.module';
 import { UsersModule } from './modules/user/users.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
@@ -65,6 +66,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     CareObservationModule,
     TreatmentOrderModule,
     DiseaseModule,
+    PatientNotificationModule,
   ],
   providers: [
     // Order matters:

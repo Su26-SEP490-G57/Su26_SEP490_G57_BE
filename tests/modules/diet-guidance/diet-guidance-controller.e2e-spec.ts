@@ -10,6 +10,7 @@ import { TimezoneInterceptor } from '../../../src/common/interceptors/timezone.i
 import { LoginResponse } from '../../../src/modules/auth/services/auth.service';
 import { OperationTypeResponseDto } from '../../../src/modules/diet-guidance/dtos/operation-type.dto';
 import { PodProtocolResponseDto } from '../../../src/modules/diet-guidance/dtos/pod-protocol.dto';
+import { PatientCurrentDietGuidanceResponseDto } from '../../../src/modules/diet-guidance/dtos/custom-diet-guidance.dto';
 import { PodProtocol } from '../../../src/modules/diet-guidance/entities/pod-protocol.entity';
 import { DailyDietProgressionResult } from '../../../src/modules/diet-guidance/services/daily-diet-progression-scheduler.service';
 import { OperationType } from '../../../src/modules/patient/entities/operation-type.entity';
@@ -777,10 +778,14 @@ describe('DietGuidanceController (integration)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.body as PodProtocolResponseDto).toEqual(
+        // getCurrentDietGuidanceForPatient resolves the standard POD protocol
+        // (no active custom diet for this patient), which no longer echoes
+        // podId's operationTypeId — it returns isCustomized + the POD's own
+        // fields directly (see PatientCurrentDietGuidanceResponseDto).
+        expect(response.body as PatientCurrentDietGuidanceResponseDto).toEqual(
           expect.objectContaining({
+            isCustomized: false,
             podId: expectedPod.podId,
-            operationTypeId: patient.operationTypeId,
             dietLevel: 1,
           }),
         );

@@ -15,6 +15,8 @@ import { AutoCompleteService } from './services/auto-complete.service';
 import { AutoCompleteProcessor } from './processors/auto-complete.processor';
 import { Alert } from '../alert/entities/alert.entity';
 import { AlertRepository } from '../alert/repositories/alert.repository';
+import { AlertModule } from '../alert/alert.module';
+import { PatientNotificationModule } from '../notification/patient-notification.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { AlertRepository } from '../alert/repositories/alert.repository';
       Alert,
     ]),
     BullModule.registerQueue({ name: 'auto-complete' }),
+    AlertModule,
+    PatientNotificationModule,
   ],
   controllers: [DietGuidanceController],
   providers: [
