@@ -294,6 +294,20 @@ export class SymptomSurveyService {
       );
     }
 
+    const patientInfo = await this.repository.findPatientByCaseId(dto.caseId);
+    const currentTriage =
+      patientInfo?.levelId === 3 ? 'RED' : patientInfo?.levelId === 2 ? 'YELLOW' : 'GREEN';
+    if ((currentTriage === 'YELLOW' || currentTriage === 'RED') && !openScheduledTask) {
+      const currentHour = now.getHours();
+      const inFixedSlot =
+        (currentHour >= 6 && currentHour < 8) || (currentHour >= 16 && currentHour < 18);
+      if (!inFixedSlot) {
+        throw new ForbiddenException(
+          'Bệnh nhân thuộc nhóm theo dõi (Vàng/Đỏ) chỉ được thực hiện bài đánh giá trong khung giờ cố định (06:00-08:00 & 16:00-18:00).',
+        );
+      }
+    }
+
     const vomitCount = await this.repository.countVomitingInPod(dto.caseId, currentPod ?? 0);
     const currentVomitValue = options
       .filter((o) => o.question.clinicalDimension === 'VOMITING')

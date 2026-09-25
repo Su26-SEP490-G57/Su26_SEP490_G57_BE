@@ -27,7 +27,8 @@ export class RolesGuard implements CanActivate {
     this.logger.debug(`User roles: ${JSON.stringify(user.roles)}`);
     this.logger.debug(`User object: ${JSON.stringify(user)}`);
 
-    const hasRole = requiredRoles.some((r) => user.roles.includes(r));
+    const userRoles = (user.roles ?? []).map((r) => String(r).toLowerCase());
+    const hasRole = requiredRoles.some((r) => userRoles.includes(String(r).toLowerCase()));
     this.logger.debug(`Has required role: ${hasRole}`);
 
     return hasRole;

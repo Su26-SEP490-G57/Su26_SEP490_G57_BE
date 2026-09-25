@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { Levels } from '../constants/levels.constant';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
@@ -20,6 +20,8 @@ import { PatientGateway } from '../gateways/patient.gateway';
 import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
 import { PodProtocolTrackingLog } from '../entities/pod-protocol-tracking-log.entity';
 import { User } from '../../user/entities/user.entity';
+import { Alert } from '../../alert/entities/alert.entity';
+import { AssessmentTask } from '../../symptom-survey/entities/assessment-task.entity';
 import {
   PatientAccountInput,
   PatientCaseInput,
@@ -37,6 +39,11 @@ export interface CurrentPodResponse {
   currentPod: number | null;
   isLocked: boolean;
   holdReason: string | null;
+  triageColor?: string | null;
+  isAssessmentLocked?: boolean;
+  erasCompleted?: boolean;
+  canSubmitAssessment?: boolean;
+  assessmentDisabledReason?: string | null;
 }
 
 export interface PatientActivityLogItem {
@@ -212,7 +219,7 @@ export class PatientService {
   }
 
   async getCurrentPod(caseId: string): Promise<CurrentPodResponse> {
-    const patient = await this.repository.findById(caseId);
+    const patient = await this.repository.findByIdWithRelations(caseId);
     if (!patient) throw new NotFoundException(`Patient ${caseId} not found`);
 
     const maxPod = patient.operationTypeId
@@ -220,11 +227,84 @@ export class PatientService {
       : null;
     const dynamicPod = this.calculateDynamicPod(patient, maxPod);
 
+    const now = new Date();
+    const erasCompleted = patient.erasCompleted ?? false;
+
+    // Check RED alert assessment lock
+    const alertRepo = this.dataSource.getRepository(Alert);
+    const latestRedAlert = await alertRepo.findOne({
+      where: { caseId, alertType: 'RED' },
+      order: { triggeredAt: 'DESC', alertId: 'DESC' },
+    });
+
+    let isAssessmentLocked = false;
+    let lockReasonText: string | null = null;
+    if (latestRedAlert) {
+      if (latestRedAlert.status !== 'HANDLED' || !latestRedAlert.triggeredAt) {
+        isAssessmentLocked = true;
+        lockReasonText = 'Đang chờ điều dưỡng xử trí cảnh báo';
+      } else {
+        const unlockAt = new Date(latestRedAlert.triggeredAt.getTime() + 60 * 60 * 1000);
+        if (now < unlockAt) {
+          isAssessmentLocked = true;
+          const diffMs = unlockAt.getTime() - now.getTime();
+          const remainingMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)));
+          lockReasonText = `Đã xử trí • Vui lòng chờ ${remainingMinutes} phút`;
+        }
+      }
+    }
+
+    const triageColor =
+      patient.levelId === 3 || patient.level?.levelName?.toUpperCase() === 'RED'
+        ? 'RED'
+        : patient.levelId === 2 || patient.level?.levelName?.toUpperCase() === 'YELLOW'
+          ? 'YELLOW'
+          : 'GREEN';
+
+    let canSubmitAssessment = true;
+    let assessmentDisabledReason: string | null = null;
+
+    if (erasCompleted) {
+      canSubmitAssessment = false;
+      assessmentDisabledReason = 'Đã hoàn thành tiến trình ERAS';
+    } else if (isAssessmentLocked) {
+      canSubmitAssessment = false;
+      assessmentDisabledReason = lockReasonText ?? 'Đang chờ điều dưỡng xử trí cảnh báo';
+    } else if (triageColor === 'YELLOW' || triageColor === 'RED') {
+      const taskRepo = this.dataSource.getRepository(AssessmentTask);
+      const openTask = await taskRepo.findOne({
+        where: {
+          caseId,
+          podContext: dynamicPod,
+          status: 'PENDING',
+          opensAt: LessThanOrEqual(now),
+          closesAt: MoreThanOrEqual(now),
+        },
+      });
+
+      if (!openTask) {
+        // Check fixed time slots: 06:00-08:00 (Morning) or 16:00-18:00 (Afternoon)
+        const currentHour = now.getHours();
+        const inFixedSlot =
+          (currentHour >= 6 && currentHour < 8) || (currentHour >= 16 && currentHour < 18);
+        if (!inFixedSlot) {
+          canSubmitAssessment = false;
+          assessmentDisabledReason =
+            'Vui lòng thực hiện trong khung giờ cố định (06:00-08:00 & 16:00-18:00)';
+        }
+      }
+    }
+
     return {
       caseId: patient.caseId,
       currentPod: dynamicPod,
       isLocked: patient.isLocked,
       holdReason: patient.reasonHoldPod,
+      triageColor,
+      isAssessmentLocked,
+      erasCompleted,
+      canSubmitAssessment,
+      assessmentDisabledReason,
     };
   }
 

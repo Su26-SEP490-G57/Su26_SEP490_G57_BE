@@ -63,6 +63,21 @@ class CurrentPodResponseDto implements CurrentPodResponse {
 
   @ApiProperty({ example: 'Bệnh nhân nôn nhiều', nullable: true })
   holdReason!: string | null;
+
+  @ApiProperty({ example: 'GREEN', nullable: true })
+  triageColor?: string | null;
+
+  @ApiProperty({ example: false, nullable: true })
+  isAssessmentLocked?: boolean;
+
+  @ApiProperty({ example: false, nullable: true })
+  erasCompleted?: boolean;
+
+  @ApiProperty({ example: true, nullable: true })
+  canSubmitAssessment?: boolean;
+
+  @ApiProperty({ example: null, nullable: true })
+  assessmentDisabledReason?: string | null;
 }
 
 class OperationTypeDto implements PatientOperationType {
@@ -114,9 +129,9 @@ export class PatientController {
     if (
       user?.id &&
       !query.nurseUserId &&
-      user.roles?.includes('Nurse') &&
-      !user.roles?.includes('Head_Nurse') &&
-      !user.roles?.includes('Admin')
+      user.roles?.some((r) => String(r).toLowerCase() === 'nurse') &&
+      !user.roles?.some((r) => String(r).toLowerCase() === 'head_nurse') &&
+      !user.roles?.some((r) => String(r).toLowerCase() === 'admin')
     ) {
       query.nurseUserId = user.id;
     }
