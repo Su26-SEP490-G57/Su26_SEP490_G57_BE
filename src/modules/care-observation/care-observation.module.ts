@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HisModule } from '../his/his.module';
 import { Patient } from '../patient/entities/patient.entity';
+import { PatientNotificationModule } from '../notification/patient-notification.module';
 import { HisCareSheetClient } from './clients/his-care-sheet.client';
 import { CareObservationController } from './controllers/care-observation.controller';
 import { CareObservationEntry } from './entities/care-observation-entry.entity';
@@ -20,6 +21,7 @@ import { CareSheetService } from './services/care-sheet.service';
       Patient,
     ]),
     HisModule,
+    PatientNotificationModule,
   ],
   controllers: [CareObservationController],
   providers: [

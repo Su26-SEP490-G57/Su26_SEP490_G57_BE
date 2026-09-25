@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CareObservationModule } from '../care-observation/care-observation.module';
 import { Patient } from '../patient/entities/patient.entity';
 import { HisModule } from '../his/his.module';
+import { PatientNotificationModule } from '../notification/patient-notification.module';
 import { HisTreatmentSheetClient } from './clients/his-treatment-sheet.client';
 import { TreatmentOrderController } from './controllers/treatment-order.controller';
 import { TreatmentOrder } from './entities/treatment-order.entity';
@@ -13,7 +14,12 @@ import { TreatmentOrderService } from './services/treatment-order.service';
   // One-way dependency: creating an order triggers sheet assignment, never the
   // other way round (no event bus in this codebase — the caller invokes the
   // side-effect service directly).
-  imports: [TypeOrmModule.forFeature([TreatmentOrder, Patient]), CareObservationModule, HisModule],
+  imports: [
+    TypeOrmModule.forFeature([TreatmentOrder, Patient]),
+    CareObservationModule,
+    HisModule,
+    PatientNotificationModule,
+  ],
   controllers: [TreatmentOrderController],
   providers: [TreatmentOrderService, TreatmentOrderRepository, HisTreatmentSheetClient],
   exports: [TreatmentOrderService],

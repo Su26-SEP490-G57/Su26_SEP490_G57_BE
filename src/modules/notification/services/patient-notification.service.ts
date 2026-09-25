@@ -16,14 +16,19 @@ export class PatientNotificationService {
     private readonly statisticsGateway: StatisticsGateway,
   ) {}
 
-  /** Ghi 1 bản ghi thông báo cho bệnh nhân — gọi từ các service khác (diet-guidance, alert, …)
-   * bên cạnh việc bắn FCM, để nó xuất hiện lại trong màn "Thông báo hệ thống". Đồng thời bắn
-   * luôn qua socket /statistics để app cập nhật ngay khi đang mở, không cần đợi push (FCM cần
-   * APNs/thiết bị thật, không chạy trên simulator — socket thì chạy được ngay cả trên local).
-   * Cả ghi DB lẫn bắn socket đều best-effort: lỗi không được làm fail nghiệp vụ gọi nó. */
+  /** Ghi/refresh 1 thông báo cho bệnh nhân — gọi từ các service khác (diet-guidance,
+   * treatment-order, care-observation, …) bên cạnh việc bắn FCM, để nó xuất hiện lại
+   * trong màn "Thông báo hệ thống". Upsert theo (caseId, route): thông báo kiểu
+   * "trạng thái hiện tại" (hướng dẫn ăn, phiếu điều trị/chăm sóc mới nhất) chỉ giữ
+   * ĐÚNG 1 dòng mới nhất mỗi loại, không tích tụ mỗi lần bác sĩ/điều dưỡng cập nhật —
+   * xem ghi chú ở `PatientNotificationRepository.upsertByRoute`. Đồng thời bắn luôn
+   * qua socket /statistics để app cập nhật ngay khi đang mở, không cần đợi push (FCM
+   * cần APNs/thiết bị thật, không chạy trên simulator — socket thì chạy được ngay cả
+   * trên local). Cả ghi DB lẫn bắn socket đều best-effort: lỗi không được làm fail
+   * nghiệp vụ gọi nó. */
   async notify(input: CreatePatientNotificationInput): Promise<void> {
     try {
-      const saved = await this.repository.create(input);
+      const saved = await this.repository.upsertByRoute(input);
       this.statisticsGateway.emitNotificationCreated({
         caseId: saved.caseId,
         notificationId: saved.notificationId,

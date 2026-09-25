@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { CareObservationService } from '../../care-observation/services/care-observation.service';
 import { PatientSheetHeaderService } from '../../his/patient-sheet-header.service';
 import { SheetPdfService } from '../../his/sheet-pdf.service';
+import { PatientNotificationService } from '../../notification/services/patient-notification.service';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
 import { HisTreatmentSheetClient } from '../clients/his-treatment-sheet.client';
@@ -26,6 +27,7 @@ export class TreatmentOrderService {
     private readonly hisClient: HisTreatmentSheetClient,
     private readonly sheetHeader: PatientSheetHeaderService,
     private readonly sheetPdf: SheetPdfService,
+    private readonly patientNotificationService: PatientNotificationService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -105,6 +107,16 @@ export class TreatmentOrderService {
       });
 
       return { order: saved, sheet: hisSheet };
+    });
+
+    // Best-effort, after commit — never let a notification hiccup roll back an
+    // already-saved order.
+    await this.patientNotificationService.notify({
+      caseId: dto.caseId,
+      title: 'Có phiếu điều trị mới',
+      body: 'Bác sĩ vừa cập nhật phiếu theo dõi điều trị của bạn. Xem chi tiết ngay.',
+      category: 'system',
+      route: 'treatment_sheet',
     });
 
     return { ...this.toResponse(order, order.treatmentOrderId), sheet };

@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PatientSheetHeaderService } from '../../his/patient-sheet-header.service';
 import { SheetPdfService } from '../../his/sheet-pdf.service';
+import { PatientNotificationService } from '../../notification/services/patient-notification.service';
 import { Patient } from '../../patient/entities/patient.entity';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { HisCareSheetClient } from '../clients/his-care-sheet.client';
@@ -42,6 +43,7 @@ export class CareSheetService {
     private readonly hisClient: HisCareSheetClient,
     private readonly sheetHeader: PatientSheetHeaderService,
     private readonly sheetPdf: SheetPdfService,
+    private readonly patientNotificationService: PatientNotificationService,
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
   ) {}
@@ -111,7 +113,7 @@ export class CareSheetService {
     const content = this.cleanContent(dto.content);
     const header = await this.sheetHeader.build(patient);
 
-    return this.hisClient.create({
+    const sheet = await this.hisClient.create({
       sheetType,
       careLevel: patient.activeCareLevel ?? undefined,
       patientCode: caseId,
@@ -130,6 +132,18 @@ export class CareSheetService {
       content,
       nurseName: actor.fullName,
     });
+
+    // Best-effort, after the HIS write succeeds — never let a notification
+    // hiccup fail an already-saved sheet.
+    await this.patientNotificationService.notify({
+      caseId,
+      title: 'Có phiếu chăm sóc mới',
+      body: 'Điều dưỡng vừa cập nhật phiếu theo dõi và chăm sóc của bạn. Xem chi tiết ngay.',
+      category: 'system',
+      route: 'care_sheet',
+    });
+
+    return sheet;
   }
 
   async list(caseId: string): Promise<CareSheetListDto> {
