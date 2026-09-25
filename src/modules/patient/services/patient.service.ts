@@ -31,8 +31,10 @@ import {
 /** bcrypt cost factor — keep in sync with UsersService. */
 const SALT_ROUNDS = 10;
 
-/** Default password for an auto-provisioned patient account (changeable via PATCH /users/:id). */
-const DEFAULT_PATIENT_PASSWORD = 'Patient@123';
+/** Default password for an auto-provisioned patient account (changeable via PATCH /users/:id).
+ * Exported so every path that auto-provisions a patient account (manual "Thêm mới", HIS import)
+ * shares the exact same default instead of drifting apart with their own literals. */
+export const DEFAULT_PATIENT_PASSWORD = 'Patient@123';
 
 export interface CurrentPodResponse {
   caseId: string;
@@ -516,7 +518,7 @@ export class PatientService {
       throw new ConflictException(`Patient case "${caseId}" already exists`);
     }
 
-    const username = dto.username ?? caseId;
+    const username = dto.username ?? this.generateUsernameFromCaseId(caseId);
     if (await this.repository.findUserByUsername(username)) {
       throw new ConflictException(`Username "${username}" is already taken`);
     }
@@ -554,6 +556,27 @@ export class PatientService {
     });
 
     return this.toResponse(created);
+  }
+
+  /**
+   * Derive a login username from the clinical case id — shared by manual
+   * "Thêm mới" ("CASE-NNN") and HIS import (the hospital's own code) so both
+   * flows produce the same short, human-typable username instead of the raw
+   * case code: "patient" + the case id's numeric part, zero-padded to at
+   * least 2 digits.
+   *
+   *   CASE-001    -> patient01
+   *   CASE-010    -> patient10
+   *   HIS-103151  -> patient103151
+   */
+  private generateUsernameFromCaseId(caseId: string): string {
+    const digitGroups = caseId.split(/\D+/).filter(Boolean);
+    const numericPart = digitGroups[digitGroups.length - 1];
+    if (!numericPart) return `patient${caseId}`;
+
+    const asNumber = parseInt(numericPart, 10);
+    const normalized = Number.isNaN(asNumber) ? numericPart : String(asNumber).padStart(2, '0');
+    return `patient${normalized}`;
   }
 
   /** Update a patient case and its linked login account, addressed by the account's user id. */

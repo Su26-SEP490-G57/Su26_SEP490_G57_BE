@@ -9,16 +9,14 @@ import { PatientRepository } from '../repositories/patient.repository';
 import { ExternalRecordsService } from './external-records.service';
 import { PatientService } from './patient.service';
 
-/** Default login password for patients imported from the HIS. */
-const IMPORT_DEFAULT_PASSWORD = '123456';
-
 /**
  * Imports surgical patient records selected from the external HIS: for each
- * record it creates the patient_cases row + linked login account (username =
- * case id, password = 123456), randomly assigns an empty room/bed, and
- * immediately starts the ERAS protocol. Records are processed independently —
- * one failure/skip does not abort the rest — and a per-record summary is
- * returned.
+ * record it creates the patient_cases row + linked login account through the
+ * exact same auto-provisioning as manual "Thêm mới" (username = case id,
+ * password = DEFAULT_PATIENT_PASSWORD), randomly assigns an empty room/bed,
+ * and immediately starts the ERAS protocol. Records are processed
+ * independently — one failure/skip does not abort the rest — and a
+ * per-record summary is returned.
  */
 @Injectable()
 export class PatientImportService {
@@ -127,12 +125,13 @@ export class PatientImportService {
     return available;
   }
 
-  /** Map a HIS record onto the create-patient shape (fixed 123456 password). */
+  /** Map a HIS record onto the create-patient shape. */
   private toCreateDto(record: ImportSurgicalRecordDto, roomBed: string | null): CreatePatientDto {
     const dto = new CreatePatientDto();
     dto.caseId = record.hospitalPatientCode;
-    // username omitted → defaults to caseId in PatientService.createPatient.
-    dto.password = IMPORT_DEFAULT_PASSWORD;
+    // username and password both omitted → same auto-provisioning as manual
+    // "Thêm mới": username defaults to caseId, password to
+    // DEFAULT_PATIENT_PASSWORD, in PatientService.createPatient.
     dto.fullName = record.patientName;
 
     const gender = this.mapSex(record.sex);
