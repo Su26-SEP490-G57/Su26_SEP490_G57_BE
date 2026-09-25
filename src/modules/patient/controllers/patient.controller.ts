@@ -7,6 +7,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseIntPipe,
@@ -138,6 +139,15 @@ export class PatientController {
     return this.externalRecordsService.getSurgicalRecords();
   }
 
+  @Get('nurse-pause-logs')
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({
+    summary: 'Get nurse update logs (vital signs, diet pauses) for doctor notifications',
+  })
+  getNursePauseLogs(@Query('page') page = 1, @Query('limit') limit = 100) {
+    return this.patientService.getNursePauseLogs(+page, +limit);
+  }
+
   @Post('import')
   @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @AuditLog({
@@ -202,7 +212,7 @@ export class PatientController {
   }
 
   @Get(':id/assessments')
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR, UserRoleName.PATIENT)
   @ApiOperation({ summary: 'Get assessment history for a patient' })
   @ApiResponse({ status: 200, type: PaginatedAssessmentHistoryDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -212,7 +222,11 @@ export class PatientController {
     @Param('id') id: string,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
+    @CurrentUser() caller: UserResponseDto,
   ): Promise<PaginatedAssessmentHistoryDto> {
+    if (caller.roles.includes(UserRoleName.PATIENT) && caller.caseId !== id) {
+      throw new ForbiddenException('You can only view your own assessment history');
+    }
     return this.symptomSurveyService.getAssessmentHistory(id, +page, +limit);
   }
 

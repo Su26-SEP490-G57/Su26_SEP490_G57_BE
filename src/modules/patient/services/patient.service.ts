@@ -17,6 +17,9 @@ import { Patient } from '../entities/patient.entity';
 import { PodProtocol } from '../../diet-guidance/entities/pod-protocol.entity';
 import { AutoCompleteService } from '../../diet-guidance/services/auto-complete.service';
 import { PatientGateway } from '../gateways/patient.gateway';
+import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
+import { PodProtocolTrackingLog } from '../entities/pod-protocol-tracking-log.entity';
+import { User } from '../../user/entities/user.entity';
 import {
   PatientAccountInput,
   PatientCaseInput,
@@ -34,6 +37,30 @@ export interface CurrentPodResponse {
   currentPod: number | null;
   isLocked: boolean;
   holdReason: string | null;
+}
+
+export interface PatientActivityLogItem {
+  logId: string;
+  caseId: string;
+  patientName: string;
+  roomBed: string;
+  nurseName: string;
+  actorName: string;
+  recordedAt: string;
+  createdAt: string;
+  type: 'VITAL_SIGNS' | 'NURSE_PAUSE';
+  actionType: string;
+  vitalSignId?: number;
+  pulseBpm?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  temperatureCelsius?: number;
+  respiratoryRate?: number;
+  spo2Percent?: number;
+  note?: string | null;
+  holdReason?: string | null;
+  reason?: string | null;
+  changedAt?: string;
 }
 
 export interface PatientAccount {
@@ -536,6 +563,128 @@ export class PatientService {
       currentPod: dto.currentPod,
       assignedNurseId: dto.assignedNurseId,
       levelId: dto.levelId,
+    };
+  }
+
+  async getNursePauseLogs(
+    page = 1,
+    limit = 100,
+  ): Promise<{
+    data: PatientActivityLogItem[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const vitalSignsRepo = this.dataSource.getRepository(VitalSign);
+    const trackingLogRepo = this.dataSource.getRepository(PodProtocolTrackingLog);
+    const userRepo = this.dataSource.getRepository(User);
+
+    const [vitals, vitalTotal] = await vitalSignsRepo.findAndCount({
+      order: { recordedAt: 'DESC', vitalSignId: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const [trackingLogs, trackingTotal] = await trackingLogRepo.findAndCount({
+      order: { changedAt: 'DESC', logId: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const caseIds = Array.from(
+      new Set([...vitals.map((v) => v.caseId), ...trackingLogs.map((t) => t.caseId)]),
+    );
+
+    const userIds = Array.from(
+      new Set([
+        ...vitals.map((v) => v.recordedByUserId).filter((id): id is number => id != null),
+        ...trackingLogs.map((t) => t.changedById).filter((id): id is number => id != null),
+      ]),
+    );
+
+    const patientMap = new Map<string, { name: string; room: string }>();
+    if (caseIds.length > 0) {
+      for (const cId of caseIds) {
+        const p = await this.repository.findByIdWithRelations(cId);
+        if (p) {
+          patientMap.set(cId, {
+            name: p.account?.fullName ?? cId,
+            room: p.roomBed ?? '',
+          });
+        }
+      }
+    }
+
+    const userMap = new Map<number, string>();
+    if (userIds.length > 0) {
+      for (const uId of userIds) {
+        const u = await userRepo.findOne({ where: { id: uId } });
+        if (u) {
+          userMap.set(uId, u.fullName);
+        }
+      }
+    }
+
+    const items: PatientActivityLogItem[] = [];
+
+    for (const v of vitals) {
+      const pInfo = patientMap.get(v.caseId);
+      items.push({
+        logId: `vital-${v.vitalSignId}`,
+        vitalSignId: v.vitalSignId,
+        caseId: v.caseId,
+        patientName: pInfo?.name ?? v.caseId,
+        roomBed: pInfo?.room ?? '',
+        pulseBpm: v.pulseBpm,
+        bloodPressureSystolic: v.bloodPressureSystolic,
+        bloodPressureDiastolic: v.bloodPressureDiastolic,
+        temperatureCelsius: Number(v.temperatureCelsius),
+        respiratoryRate: v.respiratoryRate,
+        spo2Percent: v.spo2Percent,
+        note: v.note ?? null,
+        nurseName:
+          v.recordedByName ||
+          (v.recordedByUserId ? userMap.get(v.recordedByUserId) : 'Điều dưỡng') ||
+          'Điều dưỡng',
+        actorName:
+          v.recordedByName ||
+          (v.recordedByUserId ? userMap.get(v.recordedByUserId) : 'Điều dưỡng') ||
+          'Điều dưỡng',
+        recordedAt: v.recordedAt.toISOString(),
+        createdAt: v.recordedAt.toISOString(),
+        type: 'VITAL_SIGNS',
+        actionType: 'VITAL_SIGNS',
+      });
+    }
+
+    for (const t of trackingLogs) {
+      const pInfo = patientMap.get(t.caseId);
+      items.push({
+        logId: `pause-${t.logId}`,
+        caseId: t.caseId,
+        patientName: pInfo?.name ?? t.caseId,
+        roomBed: pInfo?.room ?? '',
+        holdReason: t.holdReason ?? null,
+        reason: t.holdReason ?? null,
+        nurseName: t.changedById ? (userMap.get(t.changedById) ?? 'Điều dưỡng') : 'Điều dưỡng',
+        actorName: t.changedById ? (userMap.get(t.changedById) ?? 'Điều dưỡng') : 'Điều dưỡng',
+        recordedAt: t.changedAt.toISOString(),
+        createdAt: t.changedAt.toISOString(),
+        changedAt: t.changedAt.toISOString(),
+        type: 'NURSE_PAUSE',
+        actionType: t.actionType ?? 'MANUAL_HOLD',
+      });
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const paginated = items.slice(0, limit);
+
+    return {
+      data: paginated,
+      total: vitalTotal + trackingTotal,
+      page,
+      limit,
     };
   }
 }
