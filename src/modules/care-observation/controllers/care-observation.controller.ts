@@ -9,6 +9,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { assertOwnCaseForPatient } from 'src/shared/utils/assert-own-case';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
@@ -127,19 +128,23 @@ export class CareObservationController {
   }
 
   @Get('patient/:caseId/sheets')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR, UserRoleName.PATIENT)
   @ApiOperation({
     summary: '"Phiếu theo dõi và chăm sóc" of a patient from the HIS (newest first) + form layout',
   })
   @ApiResponse({ status: 200, type: CareSheetListDto })
   @ApiNotFoundResponse({ description: 'Patient case not found' })
   @ApiBadGatewayResponse({ description: 'HIS unreachable' })
-  getCareSheets(@Param('caseId') caseId: string): Promise<CareSheetListDto> {
+  getCareSheets(
+    @Param('caseId') caseId: string,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<CareSheetListDto> {
+    assertOwnCaseForPatient(caller, caseId);
     return this.careSheetService.list(caseId);
   }
 
   @Get('patient/:caseId/sheets/:sheetId/pdf')
-  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR, UserRoleName.PATIENT)
   @ApiOperation({ summary: 'Download one "Phiếu theo dõi và chăm sóc" as PDF' })
   @ApiProduces('application/pdf')
   @ApiResponse({ status: 200, description: 'PDF file' })
@@ -148,7 +153,9 @@ export class CareObservationController {
   async getCareSheetPdf(
     @Param('caseId') caseId: string,
     @Param('sheetId', ParseIntPipe) sheetId: number,
+    @CurrentUser() caller: UserResponseDto,
   ): Promise<StreamableFile> {
+    assertOwnCaseForPatient(caller, caseId);
     const { file, fileName } = await this.careSheetService.getSheetPdf(caseId, sheetId);
     return new StreamableFile(file, {
       type: 'application/pdf',

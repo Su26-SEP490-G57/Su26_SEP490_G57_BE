@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { assertOwnCaseForPatient } from 'src/shared/utils/assert-own-case';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
 import { Roles } from '../../user/decorators/roles.decorator';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
@@ -94,19 +95,23 @@ export class TreatmentOrderController {
   }
 
   @Get('patient/:caseId/sheets')
-  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.PATIENT)
   @ApiOperation({
     summary: '"Phiếu theo dõi điều trị" of a patient case from the HIS (newest first)',
   })
   @ApiResponse({ status: 200, type: [TreatmentSheetDto] })
   @ApiNotFoundResponse({ description: 'Patient case not found' })
   @ApiBadGatewayResponse({ description: 'HIS unreachable' })
-  getSheets(@Param('caseId') caseId: string): Promise<TreatmentSheetDto[]> {
+  getSheets(
+    @Param('caseId') caseId: string,
+    @CurrentUser() caller: UserResponseDto,
+  ): Promise<TreatmentSheetDto[]> {
+    assertOwnCaseForPatient(caller, caseId);
     return this.service.getSheets(caseId);
   }
 
   @Get('patient/:caseId/sheets/:sheetId/pdf')
-  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.PATIENT)
   @ApiOperation({ summary: 'Download one "Phiếu theo dõi điều trị" as PDF' })
   @ApiProduces('application/pdf')
   @ApiResponse({ status: 200, description: 'PDF file' })
@@ -115,7 +120,9 @@ export class TreatmentOrderController {
   async getSheetPdf(
     @Param('caseId') caseId: string,
     @Param('sheetId', ParseIntPipe) sheetId: number,
+    @CurrentUser() caller: UserResponseDto,
   ): Promise<StreamableFile> {
+    assertOwnCaseForPatient(caller, caseId);
     const { file, fileName } = await this.service.getSheetPdf(caseId, sheetId);
     return new StreamableFile(file, {
       type: 'application/pdf',
