@@ -7,6 +7,7 @@ import { PodProtocolTrackingLog } from '../patient/entities/pod-protocol-trackin
 import { SymptomSurvey } from '../symptom-survey/entities/symptom-survey.entity';
 import { DietGuidanceController } from './controllers/diet-guidance.controller';
 import { PodProtocol } from './entities/pod-protocol.entity';
+import { CustomDietGuidance } from './entities/custom-diet-guidance.entity';
 import { DietGuidanceRepository } from './repositories/diet-guidance.repository';
 import { DailyDietProgressionSchedulerService } from './services/daily-diet-progression-scheduler.service';
 import { DietGuidanceService } from './services/diet-guidance.service';
@@ -19,6 +20,7 @@ import { AlertRepository } from '../alert/repositories/alert.repository';
   imports: [
     TypeOrmModule.forFeature([
       PodProtocol,
+      CustomDietGuidance,
       OperationType,
       Patient,
       SymptomSurvey,

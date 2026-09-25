@@ -4,6 +4,7 @@ import { DeepPartial, Repository } from 'typeorm';
 import { OperationType } from '../../patient/entities/operation-type.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { PodProtocol } from '../entities/pod-protocol.entity';
+import { CustomDietGuidance } from '../entities/custom-diet-guidance.entity';
 
 @Injectable()
 export class DietGuidanceRepository {
@@ -14,6 +15,8 @@ export class DietGuidanceRepository {
     private readonly podRepo: Repository<PodProtocol>,
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
+    @InjectRepository(CustomDietGuidance)
+    private readonly customDietRepo: Repository<CustomDietGuidance>,
   ) {}
 
   findPatientByCaseId(caseId: string): Promise<Patient | null> {
@@ -111,5 +114,31 @@ export class DietGuidanceRepository {
 
   async deletePod(podId: number): Promise<void> {
     await this.podRepo.delete({ podId: podId });
+  }
+
+  // ── Custom Diet Guidance ───────────────────────────────────────────────────
+
+  findActiveCustomDietByCaseId(caseId: string): Promise<CustomDietGuidance | null> {
+    return this.customDietRepo.findOne({
+      where: { caseId, isActive: true },
+      relations: ['doctor'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  findCustomDietByCaseId(caseId: string): Promise<CustomDietGuidance | null> {
+    return this.customDietRepo.findOne({
+      where: { caseId },
+      relations: ['doctor'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  saveCustomDiet(data: DeepPartial<CustomDietGuidance>): Promise<CustomDietGuidance> {
+    return this.customDietRepo.save(data);
+  }
+
+  async deleteCustomDietByCaseId(caseId: string): Promise<void> {
+    await this.customDietRepo.delete({ caseId });
   }
 }

@@ -29,6 +29,11 @@ import {
   PodProtocolResponseDto,
   UpdatePodProtocolDto,
 } from '../dtos/pod-protocol.dto';
+import {
+  CustomDietGuidanceResponseDto,
+  PatientCurrentDietGuidanceResponseDto,
+  UpsertCustomDietGuidanceDto,
+} from '../dtos/custom-diet-guidance.dto';
 import { DailyDietProgressionSchedulerService } from '../services/daily-diet-progression-scheduler.service';
 import { DietGuidanceService } from '../services/diet-guidance.service';
 
@@ -41,17 +46,64 @@ export class DietGuidanceController {
     private readonly schedulerService: DailyDietProgressionSchedulerService,
   ) {}
 
-  // ── Patient Diet Guidance ───────────────────────────────────────────────────
+  // ── Patient Diet Guidance (Viewed by Patient & Staff) ───────────────────────
 
   @Get('patient/:caseId/current')
   @ApiOperation({
-    summary: 'Get current diet guidance for a patient based on their currentDietLevel',
+    summary:
+      'Get current diet guidance for a patient (Personalized if prescribed by Doctor, or Standard POD protocol)',
   })
-  @ApiResponse({ status: 200, type: PodProtocolResponseDto })
+  @ApiResponse({ status: 200, type: PatientCurrentDietGuidanceResponseDto })
   async getCurrentPatientDietGuidance(
     @Param('caseId') caseId: string,
-  ): Promise<PodProtocolResponseDto | null> {
+  ): Promise<PatientCurrentDietGuidanceResponseDto | null> {
     return this.service.getCurrentDietGuidanceForPatient(caseId);
+  }
+
+  // ── Personalized Diet Guidance (Prescribed by Doctor) ───────────────────────
+
+  @Get('patient/:caseId/custom')
+  @Roles(UserRoleName.DOCTOR, UserRoleName.HEAD_NURSE, UserRoleName.NURSE)
+  @ApiOperation({
+    summary: 'Get doctor personalized diet guidance configuration for a patient case',
+  })
+  @ApiResponse({ status: 200, type: CustomDietGuidanceResponseDto })
+  async getCustomDietGuidance(
+    @Param('caseId') caseId: string,
+  ): Promise<CustomDietGuidanceResponseDto | null> {
+    return this.service.getCustomDietGuidance(caseId);
+  }
+
+  @Post('patient/:caseId/custom')
+  @Roles(UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: 'Prescribe or modify personalized diet guidance for a patient case (Doctor only)',
+    description:
+      'Creates or updates customized diet guidance for a specific patient. Automatically sets this custom diet active.',
+  })
+  @ApiResponse({ status: 200, type: CustomDietGuidanceResponseDto })
+  async upsertCustomDietGuidance(
+    @Param('caseId') caseId: string,
+    @Body() dto: UpsertCustomDietGuidanceDto,
+    @CurrentUser() user: { id: number },
+  ): Promise<CustomDietGuidanceResponseDto> {
+    return this.service.upsertCustomDietGuidance(caseId, dto, user.id);
+  }
+
+  @Patch('patient/:caseId/custom/toggle-status')
+  @Roles(UserRoleName.DOCTOR)
+  @ApiOperation({
+    summary: 'Toggle active status of personalized diet guidance (Doctor only)',
+    description:
+      'Turn active/inactive the personalized diet. If inactive, patient will fall back to standard POD protocol.',
+  })
+  @ApiResponse({ status: 200, type: CustomDietGuidanceResponseDto })
+  async toggleCustomDietStatus(
+    @Param('caseId') caseId: string,
+    @Body('isActive') isActive: boolean,
+    @CurrentUser() user: { id: number },
+  ): Promise<CustomDietGuidanceResponseDto> {
+    return this.service.toggleCustomDietStatus(caseId, isActive, user.id);
   }
 
   @Post('cron/process-daily-diet-progression')
