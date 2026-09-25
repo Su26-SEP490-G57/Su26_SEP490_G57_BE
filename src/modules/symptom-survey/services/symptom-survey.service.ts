@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AlertService } from '../../alert/services/alert.service';
+import { triageColorFromLevelId } from '../../patient/constants/levels.constant';
 import { StatisticsGateway } from '../../statistics/gateways/statistics.gateway';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
 import { UserRoleName } from '../../user/enums/user-role.enum';
@@ -295,8 +296,7 @@ export class SymptomSurveyService {
     }
 
     const patientInfo = await this.repository.findPatientByCaseId(dto.caseId);
-    const currentTriage =
-      patientInfo?.levelId === 3 ? 'RED' : patientInfo?.levelId === 2 ? 'YELLOW' : 'GREEN';
+    const currentTriage = triageColorFromLevelId(patientInfo?.levelId);
     if ((currentTriage === 'YELLOW' || currentTriage === 'RED') && !openScheduledTask) {
       const currentHour = now.getHours();
       const inFixedSlot =

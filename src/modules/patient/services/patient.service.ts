@@ -8,7 +8,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { DataSource, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
-import { Levels } from '../constants/levels.constant';
+import { Levels, triageColorFromLevelId } from '../constants/levels.constant';
 import { CreatePatientDto } from '../dtos/create-patient.dto';
 import { PodLockDto, PodLockResponseDto } from '../dtos/pod-lock.dto';
 import { QueryPatientDto } from '../dtos/query-patient.dto';
@@ -256,12 +256,7 @@ export class PatientService {
       }
     }
 
-    const triageColor =
-      patient.levelId === 3 || patient.level?.levelName?.toUpperCase() === 'RED'
-        ? 'RED'
-        : patient.levelId === 2 || patient.level?.levelName?.toUpperCase() === 'YELLOW'
-          ? 'YELLOW'
-          : 'GREEN';
+    const triageColor = triageColorFromLevelId(patient.levelId);
 
     let canSubmitAssessment = true;
     let assessmentDisabledReason: string | null = null;
