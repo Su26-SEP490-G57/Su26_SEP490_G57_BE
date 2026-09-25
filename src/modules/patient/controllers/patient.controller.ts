@@ -129,9 +129,9 @@ export class PatientController {
     if (
       user?.id &&
       !query.nurseUserId &&
-      user.roles?.includes('Nurse') &&
-      !user.roles?.includes('Head_Nurse') &&
-      !user.roles?.includes('Admin')
+      user.roles?.some((r) => String(r).toLowerCase() === 'nurse') &&
+      !user.roles?.some((r) => String(r).toLowerCase() === 'head_nurse') &&
+      !user.roles?.some((r) => String(r).toLowerCase() === 'admin')
     ) {
       query.nurseUserId = user.id;
     }
