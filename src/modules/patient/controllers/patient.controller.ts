@@ -73,6 +73,14 @@ class OperationTypeDto implements PatientOperationType {
   name!: string;
 }
 
+/** Account/assignment fields only a Head Nurse or Doctor may change via PATCH /patients/:id. */
+const NURSE_RESTRICTED_UPDATE_FIELDS = [
+  'username',
+  'password',
+  'isActive',
+  'assignedNurseId',
+] as const satisfies readonly (keyof UpdatePatientDto)[];
+
 @ApiTags('Patients')
 @ApiBearerAuth()
 @Controller('patients')
@@ -401,12 +409,14 @@ export class PatientController {
   }
 
   @Patch(':id')
-  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @Roles(UserRoleName.HEAD_NURSE, UserRoleName.NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
-    summary: 'Update a patient (case + linked login account) - Head Nurse/Doctor only',
+    summary: 'Update a patient (case + linked login account) - Nurse/Head Nurse/Doctor',
     description:
       'The :id is the users.user_id of the patient account. Updates the patient_cases row and the ' +
-      'linked account. Only provided fields are changed. Allows assigning/reassigning nurse to patient.',
+      'linked account. Only provided fields are changed. Allows assigning/reassigning nurse to patient. ' +
+      'A plain Nurse may only edit patient information — not login credentials, account status or the ' +
+      'assigned nurse.',
   })
   @ApiResponse({ status: 200, type: PatientListItemDto })
   @ApiNotFoundResponse({ description: 'Patient not found' })
@@ -415,7 +425,16 @@ export class PatientController {
   updatePatient(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePatientDto,
+    @CurrentUser() user: { id: number; roles?: string[] },
   ): Promise<PatientWithAccount> {
+    const isPlainNurse =
+      !user.roles?.includes(UserRoleName.HEAD_NURSE) && !user.roles?.includes(UserRoleName.DOCTOR);
+    if (isPlainNurse) {
+      const restricted = NURSE_RESTRICTED_UPDATE_FIELDS.filter((field) => dto[field] !== undefined);
+      if (restricted.length > 0) {
+        throw new ForbiddenException(`Nurses cannot update: ${restricted.join(', ')}`);
+      }
+    }
     return this.patientService.updatePatient(id, dto);
   }
 

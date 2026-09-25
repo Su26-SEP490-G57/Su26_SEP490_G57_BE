@@ -200,7 +200,7 @@ describe('NurseController (integration)', () => {
           expect.objectContaining({
             id: 3,
             username: 'nurse01',
-            fullName: 'Điều dưỡng 01',
+            fullName: 'Trần Thị Thu Hà',
             roles: ['Nurse'],
             isActive: true,
           }),

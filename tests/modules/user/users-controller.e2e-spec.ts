@@ -258,7 +258,7 @@ describe('UsersController (integration)', () => {
           expect.objectContaining({
             id: 3,
             username: 'nurse01',
-            fullName: 'Điều dưỡng 01',
+            fullName: 'Trần Thị Thu Hà',
             caseId: null,
             roles: ['Nurse'],
             isActive: true,

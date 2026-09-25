@@ -29,7 +29,7 @@ import {
 const nurseCaller: UserResponseDto = {
   id: 3,
   username: 'nurse01',
-  fullName: 'Điều dưỡng 01',
+  fullName: 'Trần Thị Thu Hà',
   phoneNumber: null,
   caseId: null,
   roles: [UserRoleName.NURSE],
