@@ -104,8 +104,30 @@ export class SymptomSurveyRepository {
       return;
     }
 
-    this.logger.log('Updating patient level', { caseId, levelId: level.levelId, levelName });
-    const result = await this.patientRepo.update({ caseId: caseId }, { levelId: level.levelId });
+    // Diet progression is locked for as long as the LATEST assessment/reassessment
+    // says the patient is Yellow/Red — regardless of whether any Alert tied to it
+    // has since been HANDLED. Only a new assessment/reassessment that lands back
+    // on Green lifts it (see the "Auto-locked:" prefix convention the mobile app
+    // already special-cases in LockedPodBanner for a friendlier message).
+    const isNonGreen = levelName !== 'Green';
+    const levelNameVi = levelName === 'Red' ? 'Đỏ' : 'Vàng';
+    const lockFields = isNonGreen
+      ? {
+          isLocked: true,
+          reasonHoldPod: `Auto-locked: Đang ở mức ${levelNameVi} — mức ăn sẽ tự mở lại khi có đánh giá mới (hoặc đánh giá lại) cho kết quả Xanh`,
+        }
+      : { isLocked: false, reasonHoldPod: null };
+
+    this.logger.log('Updating patient level', {
+      caseId,
+      levelId: level.levelId,
+      levelName,
+      ...lockFields,
+    });
+    const result = await this.patientRepo.update(
+      { caseId: caseId },
+      { levelId: level.levelId, ...lockFields },
+    );
 
     if (result.affected === 0) {
       this.logger.warn('No rows updated - patient may not exist', { caseId });
