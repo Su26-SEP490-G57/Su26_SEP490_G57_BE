@@ -372,11 +372,21 @@ describe('NurseController (integration)', () => {
     describe('GIVEN a new role', () => {
       it('THEN should respond 200 with the role replaced', async () => {
         const response = await authed(request(httpServer).patch('/nurses/3'), adminToken).send({
-          role: UserRoleName.HEAD_NURSE,
+          role: UserRoleName.DOCTOR,
         });
 
         expect(response.status).toBe(200);
-        expect((response.body as NurseResponseDto).roles).toEqual(['Head_Nurse']);
+        expect((response.body as NurseResponseDto).roles).toEqual(['Doctor']);
+      });
+    });
+
+    describe('GIVEN the Head_Nurse role', () => {
+      it('THEN should respond 400 — head nurses cannot be assigned here', async () => {
+        const response = await authed(request(httpServer).patch('/nurses/3'), adminToken).send({
+          role: UserRoleName.HEAD_NURSE,
+        });
+
+        expect(response.status).toBe(400);
       });
     });
 

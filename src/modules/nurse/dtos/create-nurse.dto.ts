@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
-  IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
+import { ASSIGNABLE_STAFF_ROLES } from '../constants/staff-roles.constant';
 
 export class CreateNurseDto {
   @ApiProperty({ example: 'nurse02' })
@@ -60,7 +61,11 @@ export class CreateNurseDto {
   @MaxLength(255)
   detailedAddress?: string;
 
-  @ApiProperty({ enum: [UserRoleName.NURSE, UserRoleName.HEAD_NURSE], example: UserRoleName.NURSE })
-  @IsEnum([UserRoleName.NURSE, UserRoleName.HEAD_NURSE])
-  role!: UserRoleName.NURSE | UserRoleName.HEAD_NURSE;
+  @ApiProperty({
+    enum: ASSIGNABLE_STAFF_ROLES,
+    example: UserRoleName.NURSE,
+    description: 'Nurse or Doctor — Head Nurse accounts cannot be created here',
+  })
+  @IsIn(ASSIGNABLE_STAFF_ROLES)
+  role!: UserRoleName.NURSE | UserRoleName.DOCTOR;
 }

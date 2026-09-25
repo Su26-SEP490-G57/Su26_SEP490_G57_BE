@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsDateString,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRoleName } from '../../user/enums/user-role.enum';
+import { ASSIGNABLE_STAFF_ROLES } from '../constants/staff-roles.constant';
 
 export class UpdateNurseDto {
   @ApiPropertyOptional({ example: 'Điều dưỡng 02 Updated' })
@@ -54,10 +55,13 @@ export class UpdateNurseDto {
   @MaxLength(255)
   detailedAddress?: string;
 
-  @ApiPropertyOptional({ enum: [UserRoleName.NURSE, UserRoleName.HEAD_NURSE] })
+  @ApiPropertyOptional({
+    enum: ASSIGNABLE_STAFF_ROLES,
+    description: 'Nurse or Doctor — cannot promote to Head Nurse here',
+  })
   @IsOptional()
-  @IsEnum([UserRoleName.NURSE, UserRoleName.HEAD_NURSE])
-  role?: UserRoleName.NURSE | UserRoleName.HEAD_NURSE;
+  @IsIn(ASSIGNABLE_STAFF_ROLES)
+  role?: UserRoleName.NURSE | UserRoleName.DOCTOR;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

@@ -18,6 +18,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../user/decorators/current-user.decorator';
+import { Roles } from '../../user/decorators/roles.decorator';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AuditLog } from '../../audit-log/decorators/audit-log.decorator';
 import { AssignNurseRoomsDto } from '../dtos/assign-nurse-rooms.dto';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
@@ -113,7 +115,10 @@ export class NurseController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get nurse list with pagination, search and isActive filter' })
+  @ApiOperation({
+    summary:
+      'Medical staff list (Nurse, Head Nurse, Doctor) with pagination, search and isActive filter',
+  })
   @ApiResponse({ status: 200, type: PaginatedNursesDto })
   getNurses(@Query() query: QueryNurseDto): Promise<PaginatedNursesDto> {
     return this.nurseService.getNurses(query);
@@ -128,14 +133,18 @@ export class NurseController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a new nurse account' })
+  // Creating / editing / deactivating medical staff accounts.
+  @Roles(UserRoleName.ADMIN, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Create a medical staff account (Nurse or Doctor)' })
   @ApiResponse({ status: 201, type: NurseResponseDto })
   createNurse(@Body() dto: CreateNurseDto): Promise<NurseResponseDto> {
     return this.nurseService.createNurse(dto);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update nurse info' })
+  // Creating / editing / deactivating medical staff accounts.
+  @Roles(UserRoleName.ADMIN, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Update medical staff info' })
   @ApiResponse({ status: 200, type: NurseResponseDto })
   @ApiNotFoundResponse({ description: 'Nurse not found' })
   updateNurse(
@@ -146,7 +155,9 @@ export class NurseController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Soft delete nurse (deactivate)' })
+  // Creating / editing / deactivating medical staff accounts.
+  @Roles(UserRoleName.ADMIN, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
+  @ApiOperation({ summary: 'Soft delete medical staff (deactivate)' })
   @ApiResponse({ status: 200, type: NurseResponseDto })
   @ApiNotFoundResponse({ description: 'Nurse not found' })
   deleteNurse(@Param('id', ParseIntPipe) id: number): Promise<NurseResponseDto> {

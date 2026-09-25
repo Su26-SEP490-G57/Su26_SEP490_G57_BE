@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { User } from '../../user/entities/user.entity';
-import { UserRoleName } from '../../user/enums/user-role.enum';
 import { UsersService } from '../../user/services/users.service';
 import { CreateNurseDto } from '../dtos/create-nurse.dto';
 import { NurseResponseDto, PaginatedNursesDto } from '../dtos/nurse-response.dto';
@@ -8,6 +7,7 @@ import { QueryNurseDto } from '../dtos/query-nurse.dto';
 import { UpdateNurseDto } from '../dtos/update-nurse.dto';
 import { NurseGateway } from '../gateways/nurse.gateway';
 import { NurseRepository, NurseStats } from '../repositories/nurse.repository';
+import { MEDICAL_STAFF_ROLES } from '../constants/staff-roles.constant';
 
 @Injectable()
 export class NurseService {
@@ -56,12 +56,11 @@ export class NurseService {
     const user = await this.repository.findById(id);
     if (!user) throw new NotFoundException(`Nurse #${id} not found`);
 
-    const isNurse = (user.roles ?? []).some(
-      (r) =>
-        r.roleName === UserRoleName.NURSE.toString() ||
-        r.roleName === UserRoleName.HEAD_NURSE.toString(),
+    // Medical staff: nurses, head nurses and doctors.
+    const isStaff = (user.roles ?? []).some((r) =>
+      (MEDICAL_STAFF_ROLES as readonly string[]).includes(r.roleName),
     );
-    if (!isNurse) throw new NotFoundException(`Nurse #${id} not found`);
+    if (!isStaff) throw new NotFoundException(`Nurse #${id} not found`);
 
     const assignedRooms = await this.repository.findAssignedRoomsByNurse(id);
     return this.toResponse(user, assignedRooms);

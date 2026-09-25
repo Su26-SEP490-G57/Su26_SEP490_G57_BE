@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { UserRoleName } from '../../user/enums/user-role.enum';
+import { MEDICAL_STAFF_ROLES } from '../constants/staff-roles.constant';
 import { QueryNurseDto } from '../dtos/query-nurse.dto';
 
 export interface NurseStats {
@@ -28,7 +28,7 @@ export class NurseRepository {
 
   async findAll(query: QueryNurseDto): Promise<[User[], number]> {
     const { page = 1, limit = 10, userId, search, isActive } = query;
-    const nurseRoles = [UserRoleName.NURSE, UserRoleName.HEAD_NURSE];
+    const nurseRoles = [...MEDICAL_STAFF_ROLES];
 
     const applyFilters = (qb: ReturnType<typeof this.userRepo.createQueryBuilder>) => {
       if (userId) qb.andWhere('u.id = :userId', { userId });
@@ -63,9 +63,7 @@ export class NurseRepository {
     const qb = this.userRepo
       .createQueryBuilder('u')
       .leftJoin('u.roles', 'role')
-      .where('role.roleName IN (:...roles)', {
-        roles: [UserRoleName.NURSE, UserRoleName.HEAD_NURSE],
-      });
+      .where('role.roleName IN (:...roles)', { roles: [...MEDICAL_STAFF_ROLES] });
 
     const total = await qb.getCount();
     const active = await qb.clone().andWhere('u.isActive = :active', { active: true }).getCount();
