@@ -63,6 +63,21 @@ class CurrentPodResponseDto implements CurrentPodResponse {
 
   @ApiProperty({ example: 'Bệnh nhân nôn nhiều', nullable: true })
   holdReason!: string | null;
+
+  @ApiProperty({ example: 'GREEN', nullable: true })
+  triageColor?: string | null;
+
+  @ApiProperty({ example: false, nullable: true })
+  isAssessmentLocked?: boolean;
+
+  @ApiProperty({ example: false, nullable: true })
+  erasCompleted?: boolean;
+
+  @ApiProperty({ example: true, nullable: true })
+  canSubmitAssessment?: boolean;
+
+  @ApiProperty({ example: null, nullable: true })
+  assessmentDisabledReason?: string | null;
 }
 
 class OperationTypeDto implements PatientOperationType {
