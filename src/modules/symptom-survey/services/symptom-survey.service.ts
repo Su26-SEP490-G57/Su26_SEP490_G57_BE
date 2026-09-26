@@ -289,22 +289,35 @@ export class SymptomSurveyService {
       now,
     );
 
-    if (await this.alertService.isAssessmentLocked(dto.caseId, now)) {
-      throw new ForbiddenException(
-        'Bệnh nhân đang chờ điều dưỡng xử trí cảnh báo ĐỎ hoặc chưa đủ thời gian đánh giá lại.',
-      );
-    }
-
     const patientInfo = await this.repository.findPatientByCaseId(dto.caseId);
     const currentTriage = triageColorFromLevelId(patientInfo?.levelId);
-    if ((currentTriage === 'YELLOW' || currentTriage === 'RED') && !openScheduledTask) {
-      const currentHour = now.getHours();
-      const inFixedSlot =
-        (currentHour >= 6 && currentHour < 8) || (currentHour >= 16 && currentHour < 18);
-      if (!inFixedSlot) {
-        throw new ForbiddenException(
-          'Bệnh nhân thuộc nhóm theo dõi (Vàng/Đỏ) chỉ được thực hiện bài đánh giá trong khung giờ cố định (06:00-08:00 & 16:00-18:00).',
-        );
+
+    // Đỏ luôn chờ bác sĩ ra chỉ định tiếp theo — bất kể alert đã HANDLED hay
+    // chưa, bất kể đã hết 60 phút cooldown, và bất kể có task đã lên lịch đang
+    // mở hay không. Chỉ nhân viên y tế đánh giá lại (createReassessment) mới
+    // đổi được trạng thái, không tự nộp bài để thoát Đỏ được nữa.
+    if (currentTriage === 'RED' || (await this.alertService.isAssessmentLocked(dto.caseId, now))) {
+      throw new ForbiddenException('Chờ chỉ định tiếp theo của bác sĩ.');
+    }
+
+    // Vàng: cần đủ 2 điều kiện để làm bài đánh giá TỰ DO (không phải định kỳ) —
+    // (1) alert Vàng gần nhất đã HANDLED, và (2) đã qua đúng 60 phút kể từ
+    // triggeredAt (mốc tuyệt đối, không dùng giờ đồng hồ nên không phụ thuộc
+    // timezone). Chưa handled thì dù có qua 60 phút vẫn chỉ được làm bài định
+    // kỳ (openScheduledTask) — nhánh if bên dưới không chạy khi có task định kỳ
+    // đang mở, nên luôn được phép nộp bài định kỳ bất kể trạng thái khóa.
+    if (currentTriage === 'YELLOW' && !openScheduledTask) {
+      const { isLocked, remainingMinutes } = await this.alertService.getAssessmentLockStatus(
+        dto.caseId,
+        'YELLOW',
+        now,
+      );
+      if (isLocked) {
+        const message =
+          remainingMinutes !== null
+            ? `Bệnh nhân thuộc nhóm theo dõi (Vàng), vui lòng chờ ${remainingMinutes} phút để thực hiện đánh giá lại.`
+            : 'Bệnh nhân thuộc nhóm theo dõi (Vàng) chưa được điều dưỡng xử trí — chỉ có thể thực hiện đánh giá định kỳ.';
+        throw new ForbiddenException(message);
       }
     }
 
@@ -482,13 +495,26 @@ export class SymptomSurveyService {
     if (!isNoteOnly && dto.triageColor) {
       await this.repository.syncPatientLevel(saved.caseId, dto.triageColor);
 
-      // Cập nhật loại cảnh báo (Alert) của bệnh nhân theo triage color vừa đánh giá lại
+      // Đóng các alert cũ đang chờ xử trí (đánh giá lại coi như đã xử trí xong đợt cũ).
       await this.alertService.updateAlertsOnReassessment(
         saved.caseId,
         dto.triageColor,
         saved.assessmentId,
         caller.id,
       );
+
+      // Nếu kết quả đánh giá lại là Đỏ/Vàng, phải tạo alert MỚI (giống hệt
+      // submitSurvey của patient tự nộp) — nếu không thì không có alert nào ở
+      // trạng thái PENDING_REVIEW để nurse/doctor "Xác nhận xử trí", và bệnh
+      // nhân Đỏ sẽ bị khoá vĩnh viễn vì không có mốc triggeredAt nào để đếm
+      // ngược 60 phút mở khoá sau khi xử trí.
+      if (dto.triageColor === 'YELLOW' || dto.triageColor === 'RED') {
+        await this.alertService.createAlert({
+          caseId: saved.caseId,
+          assessmentId: saved.assessmentId,
+          alertType: dto.triageColor,
+        });
+      }
 
       this.statisticsGateway.emitAssessmentSubmitted({
         caseId: saved.caseId,

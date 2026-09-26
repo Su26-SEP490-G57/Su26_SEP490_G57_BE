@@ -26,6 +26,16 @@ export class AlertRepository {
     });
   }
 
+  findLatestAlertByCaseIdAndType(
+    caseId: string,
+    alertType: 'RED' | 'YELLOW',
+  ): Promise<Alert | null> {
+    return this.repo.findOne({
+      where: { caseId, alertType },
+      order: { triggeredAt: 'DESC', alertId: 'DESC' },
+    });
+  }
+
   findPendingRedByCaseId(caseId: string): Promise<Alert | null> {
     return this.repo.findOne({
       where: {

@@ -21,6 +21,7 @@ import { VitalSign } from '../../vital-signs/entities/vital-sign.entity';
 import { PodProtocolTrackingLog } from '../entities/pod-protocol-tracking-log.entity';
 import { User } from '../../user/entities/user.entity';
 import { Alert } from '../../alert/entities/alert.entity';
+import { AlertService } from '../../alert/services/alert.service';
 import { AssessmentTask } from '../../symptom-survey/entities/assessment-task.entity';
 import {
   PatientAccountInput,
@@ -121,6 +122,7 @@ export class PatientService {
     @InjectRepository(PodProtocol)
     private readonly podRepo: Repository<PodProtocol>,
     private readonly autoCompleteService: AutoCompleteService,
+    private readonly alertService: AlertService,
   ) {}
 
   calculateDynamicPod(patient: Patient, maxPod?: number | null): number {
@@ -240,18 +242,21 @@ export class PatientService {
     });
 
     let isAssessmentLocked = false;
-    let lockReasonText: string | null = null;
+    // Đếm ngược chỉ có ý nghĩa khi ĐÃ được xử trí và còn trong 60 phút cooldown
+    // — biết chính xác còn bao lâu. Chưa xử trí (indefinite) hoặc đã hết cooldown
+    // mà vẫn còn Đỏ (chờ nhân viên y tế đánh giá lại) thì fallback về thông báo
+    // chung "Chờ chỉ định tiếp theo của bác sĩ" phía dưới.
+    let redLockCountdownText: string | null = null;
     if (latestRedAlert) {
       if (latestRedAlert.status !== 'HANDLED' || !latestRedAlert.triggeredAt) {
         isAssessmentLocked = true;
-        lockReasonText = 'Đang chờ điều dưỡng xử trí cảnh báo';
       } else {
         const unlockAt = new Date(latestRedAlert.triggeredAt.getTime() + 60 * 60 * 1000);
         if (now < unlockAt) {
           isAssessmentLocked = true;
           const diffMs = unlockAt.getTime() - now.getTime();
           const remainingMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)));
-          lockReasonText = `Đã xử trí • Vui lòng chờ ${remainingMinutes} phút`;
+          redLockCountdownText = `Đã xử trí • Vui lòng chờ ${remainingMinutes} phút`;
         }
       }
     }
@@ -264,10 +269,14 @@ export class PatientService {
     if (erasCompleted) {
       canSubmitAssessment = false;
       assessmentDisabledReason = 'Đã hoàn thành tiến trình ERAS';
-    } else if (isAssessmentLocked) {
+    } else if (triageColor === 'RED' || isAssessmentLocked) {
+      // Đỏ luôn bị khóa — không áp dụng khung giờ cố định như Vàng, chỉ nhân
+      // viên y tế đánh giá lại mới đổi được trạng thái. Message cụ thể tùy giai
+      // đoạn: chưa xử trí / đã hết cooldown mà vẫn Đỏ → chờ chỉ định tiếp theo
+      // (không biết khi nào); đã xử trí, còn trong 60 phút → đếm ngược chính xác.
       canSubmitAssessment = false;
-      assessmentDisabledReason = lockReasonText ?? 'Đang chờ điều dưỡng xử trí cảnh báo';
-    } else if (triageColor === 'YELLOW' || triageColor === 'RED') {
+      assessmentDisabledReason = redLockCountdownText ?? 'Chờ chỉ định tiếp theo của bác sĩ';
+    } else if (triageColor === 'YELLOW') {
       const taskRepo = this.dataSource.getRepository(AssessmentTask);
       const openTask = await taskRepo.findOne({
         where: {
@@ -280,14 +289,21 @@ export class PatientService {
       });
 
       if (!openTask) {
-        // Check fixed time slots: 06:00-08:00 (Morning) or 16:00-18:00 (Afternoon)
-        const currentHour = now.getHours();
-        const inFixedSlot =
-          (currentHour >= 6 && currentHour < 8) || (currentHour >= 16 && currentHour < 18);
-        if (!inFixedSlot) {
+        // Cần đủ 2 điều kiện để mở khóa bài TỰ DO: alert Vàng gần nhất đã
+        // HANDLED và đã qua đúng 60 phút kể từ triggeredAt (mốc tuyệt đối,
+        // không phụ thuộc timezone). Chưa handled → khóa vô thời hạn, chỉ còn
+        // đường làm bài định kỳ (nhánh openTask ở trên, không đi vào đây).
+        const { isLocked, remainingMinutes } = await this.alertService.getAssessmentLockStatus(
+          caseId,
+          'YELLOW',
+          now,
+        );
+        if (isLocked) {
           canSubmitAssessment = false;
           assessmentDisabledReason =
-            'Vui lòng thực hiện trong khung giờ cố định (06:00-08:00 & 16:00-18:00)';
+            remainingMinutes !== null
+              ? `Đang theo dõi (Vàng) • Vui lòng chờ ${remainingMinutes} phút`
+              : 'Đang theo dõi (Vàng) • Chưa được điều dưỡng xử trí, chỉ có thể làm bài định kỳ';
         }
       }
     }

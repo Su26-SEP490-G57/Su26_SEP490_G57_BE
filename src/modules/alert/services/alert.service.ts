@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PatientRepository } from 'src/modules/patient/repositories/patient.repository';
 import { UserResponseDto } from '../../user/dtos/user-response.dto';
+import { UserRoleName } from '../../user/enums/user-role.enum';
 import { AlertResponseDto, PaginatedAlertsDto } from '../dtos/alert-response.dto';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { QueryAlertDto } from '../dtos/query-alert.dto';
@@ -118,15 +119,18 @@ export class AlertService {
             nurseCount: assignedNurseIds.length,
           });
         } else {
-          // Fallback: broadcast to all nurses if room has no assignment
-          await this.notificationService.sendToNurses(pushTitle, pushBody, {
+          // Phòng chưa có nurse thường nào được gán — chỉ báo cho Head_Nurse
+          // (người luôn xử trí được mọi phòng). Không broadcast cho toàn bộ
+          // nurse thường nữa vì họ sẽ nhận thông báo nhưng bấm xử trí lại bị
+          // 403 "You are not assigned to this patient room", gây nhầm lẫn.
+          await this.notificationService.sendToHeadNurses(pushTitle, pushBody, {
             caseId: saved.caseId,
             assessmentId: String(saved.assessmentId),
             patientName,
             roomBed: room,
             alertType: saved.alertType,
           });
-          this.logger.warn('RED alert broadcast (no room assignment)', {
+          this.logger.warn('RED alert sent to head nurses only (no room assignment)', {
             alertId: saved.alertId,
             roomCode,
           });
@@ -193,10 +197,20 @@ export class AlertService {
     const patient = await this.patientRepository.findByIdWithRelations(alert.caseId);
     if (!patient) throw new NotFoundException(`Patient ${alert.caseId} not found`);
 
-    const roomCode = this.normalizeRoomCode(patient.roomBed);
-    const isAssigned = await this.roomNurseRepository.isNurseAssignedToRoom(caller.id, roomCode);
-    if (!isAssigned) {
-      throw new ForbiddenException('You are not assigned to this patient room');
+    // Room assignment is a Nurse-specific concept (see room_nurse_assignments /
+    // "Nurse-patient room assignments" in the nurse module) — Doctor and Head
+    // Nurse have ward-wide authority and are never assigned to specific rooms,
+    // so the check would incorrectly reject them for every alert. Only a plain
+    // Nurse must be assigned to the patient's room to confirm handling.
+    const isPlainNurse =
+      !caller.roles.includes(UserRoleName.DOCTOR) &&
+      !caller.roles.includes(UserRoleName.HEAD_NURSE);
+    if (isPlainNurse) {
+      const roomCode = this.normalizeRoomCode(patient.roomBed);
+      const isAssigned = await this.roomNurseRepository.isNurseAssignedToRoom(caller.id, roomCode);
+      if (!isAssigned) {
+        throw new ForbiddenException('You are not assigned to this patient room');
+      }
     }
 
     alert.status = 'HANDLED';
@@ -235,6 +249,37 @@ export class AlertService {
     }
 
     return response;
+  }
+
+  /**
+   * Trạng thái khóa bài đánh giá (ngoài luồng định kỳ) cho một loại alert
+   * (RED hoặc YELLOW). Bệnh nhân phải đạt ĐỦ 2 điều kiện mới được mở khóa:
+   * (1) alert gần nhất đã HANDLED, và (2) đã qua đúng 60 phút kể từ
+   * triggeredAt (mốc epoch ms tuyệt đối — không bao giờ dùng giờ đồng hồ địa
+   * phương nên không phụ thuộc timezone server/client).
+   *
+   * - Chưa từng có alert loại này → không khóa.
+   * - Có alert nhưng CHƯA handled → khóa vô thời hạn (remainingMinutes: null).
+   * - Đã handled nhưng còn trong 60 phút → khóa có đếm ngược (remainingMinutes > 0).
+   * - Đã handled và qua 60 phút → không khóa.
+   */
+  async getAssessmentLockStatus(
+    caseId: string,
+    alertType: 'RED' | 'YELLOW',
+    now = new Date(),
+  ): Promise<{ isLocked: boolean; remainingMinutes: number | null }> {
+    const latestAlert = await this.repository.findLatestAlertByCaseIdAndType(caseId, alertType);
+    if (!latestAlert) return { isLocked: false, remainingMinutes: null };
+
+    if (latestAlert.status !== 'HANDLED' || !latestAlert.triggeredAt) {
+      return { isLocked: true, remainingMinutes: null };
+    }
+
+    const unlockAt = this.getUnlockAt(latestAlert.triggeredAt);
+    if (now >= unlockAt) return { isLocked: false, remainingMinutes: null };
+
+    const diffMs = unlockAt.getTime() - now.getTime();
+    return { isLocked: true, remainingMinutes: Math.max(1, Math.ceil(diffMs / (60 * 1000))) };
   }
 
   async isAssessmentLocked(caseId: string, now = new Date()): Promise<boolean> {

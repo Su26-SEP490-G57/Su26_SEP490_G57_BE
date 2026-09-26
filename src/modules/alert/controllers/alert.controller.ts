@@ -39,6 +39,7 @@ export class AlertController {
   }
 
   @Patch(':id/acknowledge')
+  @Roles(UserRoleName.NURSE, UserRoleName.HEAD_NURSE, UserRoleName.DOCTOR)
   @ApiOperation({
     summary: 'Confirm that the assigned nurse handled a RED alert',
     description:
