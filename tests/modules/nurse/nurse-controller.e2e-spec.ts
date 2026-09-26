@@ -88,12 +88,14 @@ describe('NurseController (integration)', () => {
   });
 
   describe('GET /nurses/stats', () => {
-    describe('GIVEN the two seeded nurse accounts are both active', () => {
-      it('THEN should respond 200 with total 2, active 2, inactive 0', async () => {
+    // Stats cover all medical staff (Nurse, Head Nurse, Doctor): seed.ts creates
+    // head_nurse, nurse01 and doctor01.
+    describe('GIVEN the three seeded medical staff accounts are all active', () => {
+      it('THEN should respond 200 with total 3, active 3, inactive 0', async () => {
         const response = await authed(request(httpServer).get('/nurses/stats'), adminToken);
 
         expect(response.status).toBe(200);
-        expect(response.body as NurseStats).toEqual({ total: 2, active: 2, inactive: 0 });
+        expect(response.body as NurseStats).toEqual({ total: 3, active: 3, inactive: 0 });
       });
     });
 
@@ -102,11 +104,11 @@ describe('NurseController (integration)', () => {
         await dataSource.getRepository(User).update({ username: 'nurse01' }, { isActive: false });
       });
 
-      it('THEN should respond 200 with active 1 and inactive 1', async () => {
+      it('THEN should respond 200 with active 2 and inactive 1', async () => {
         const response = await authed(request(httpServer).get('/nurses/stats'), adminToken);
 
         expect(response.status).toBe(200);
-        expect(response.body as NurseStats).toEqual({ total: 2, active: 1, inactive: 1 });
+        expect(response.body as NurseStats).toEqual({ total: 3, active: 2, inactive: 1 });
       });
     });
 
@@ -121,22 +123,27 @@ describe('NurseController (integration)', () => {
 
   describe('GET /nurses', () => {
     describe('GIVEN no filters', () => {
-      it('THEN should respond 200 with both seeded nurse accounts', async () => {
+      it('THEN should respond 200 with every seeded medical staff account', async () => {
         const response = await authed(request(httpServer).get('/nurses'), adminToken);
 
         expect(response.status).toBe(200);
         const body = response.body as PaginatedNursesDto;
-        expect(body.total).toBe(2);
+        expect(body.total).toBe(3);
         expect(body.page).toBe(1);
         expect(body.limit).toBe(10);
-        expect(body.data.map((n) => n.username).sort()).toEqual(['head_nurse', 'nurse01']);
+        expect(body.data.map((n) => n.username).sort()).toEqual([
+          'doctor01',
+          'head_nurse',
+          'nurse01',
+        ]);
       });
     });
 
     describe('GIVEN a search filter matching only the head nurse full name', () => {
       it('THEN should respond 200 with only that nurse', async () => {
         const response = await authed(
-          request(httpServer).get('/nurses').query({ search: 'trưởng' }),
+          // head_nurse's seeded full name is 'Nguyễn Thị Thanh Hương'.
+          request(httpServer).get('/nurses').query({ search: 'Hương' }),
           adminToken,
         );
 
@@ -177,7 +184,7 @@ describe('NurseController (integration)', () => {
         expect(response.status).toBe(200);
         const body = response.body as PaginatedNursesDto;
         expect(body.data).toHaveLength(1);
-        expect(body.total).toBe(2);
+        expect(body.total).toBe(3);
       });
     });
 
@@ -541,14 +548,14 @@ describe('NurseController (integration)', () => {
       });
     });
 
-    describe('GIVEN the authenticated nurse has been reassigned to a different set of rooms', () => {
+    describe('GIVEN the authenticated nurse has been given an additional room', () => {
       beforeEach(async () => {
         await authed(request(httpServer).post('/nurses/3/assign-rooms'), adminToken).send({
           roomCodes: ['P506'],
         });
       });
 
-      it("THEN should respond 200 with the caller's own new rooms, replacing the seeded default", async () => {
+      it("THEN should respond 200 with the caller's seeded rooms plus the new one", async () => {
         const response = await authed(
           request(httpServer).get('/nurses/me/assigned-rooms'),
           nurseToken,
@@ -557,7 +564,7 @@ describe('NurseController (integration)', () => {
         expect(response.status).toBe(200);
         expect(response.body as NurseRoomAssignmentBody).toEqual({
           nurseUserId: 3,
-          assignedRooms: ['P506'],
+          assignedRooms: ['P502', 'P504', 'P506'],
         });
       });
     });
@@ -586,9 +593,10 @@ describe('NurseController (integration)', () => {
         );
 
         expect(response.status).toBe(200);
+        // P502/P504 are seeded; P506 is added on top.
         expect(response.body as NurseRoomAssignmentBody).toEqual({
           nurseUserId: 3,
-          assignedRooms: ['P502', 'P506'],
+          assignedRooms: ['P502', 'P504', 'P506'],
         });
       });
     });
@@ -680,8 +688,9 @@ describe('NurseController (integration)', () => {
 
     describe('GIVEN room codes with duplicates and surrounding whitespace', () => {
       it('THEN should respond with a deduplicated, trimmed list', async () => {
+        // head_nurse (id 2) has no seeded rooms, so the response is exactly the cleaned input.
         const response = await authed(
-          request(httpServer).post('/nurses/3/assign-rooms'),
+          request(httpServer).post('/nurses/2/assign-rooms'),
           adminToken,
         ).send({ roomCodes: [' P502 ', 'P502', 'P503', ' P503'] });
 
@@ -697,20 +706,25 @@ describe('NurseController (integration)', () => {
         });
       });
 
-      it('THEN a new assignment should replace the previous rooms rather than merge with them', async () => {
+      it('THEN a new assignment should merge with the existing rooms rather than replace them', async () => {
         const response = await authed(
           request(httpServer).post('/nurses/3/assign-rooms'),
           adminToken,
-        ).send({ roomCodes: ['P502'] });
+        ).send({ roomCodes: ['P503'] });
 
         expect(response.status).toBe(201);
-        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual(['P502']);
+        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual([
+          'P502',
+          'P503',
+          'P504',
+          'P506',
+        ]);
 
         const rows = await dataSource.query<{ room_code: string }[]>(
-          'SELECT room_code FROM room_nurse_assignments WHERE nurse_user_id = $1',
+          'SELECT room_code FROM room_nurse_assignments WHERE nurse_user_id = $1 ORDER BY room_code ASC',
           [3],
         );
-        expect(rows.map((r) => r.room_code)).toEqual(['P502']);
+        expect(rows.map((r) => r.room_code)).toEqual(['P502', 'P503', 'P504', 'P506']);
       });
     });
 
@@ -721,14 +735,14 @@ describe('NurseController (integration)', () => {
         });
       });
 
-      it('THEN should clear all room assignments for that nurse', async () => {
+      it('THEN should leave the existing room assignments unchanged', async () => {
         const response = await authed(
           request(httpServer).post('/nurses/3/assign-rooms'),
           adminToken,
         ).send({ roomCodes: [] });
 
         expect(response.status).toBe(201);
-        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual([]);
+        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual(['P502', 'P504']);
       });
     });
 
@@ -747,7 +761,7 @@ describe('NurseController (integration)', () => {
         ).send({ roomCodes: ['P502'] });
 
         expect(response.status).toBe(201);
-        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual(['P502']);
+        expect((response.body as NurseRoomAssignmentBody).assignedRooms).toEqual(['P502', 'P504']);
 
         const headNurseRooms = await authed(
           request(httpServer).get('/nurses/2/assigned-rooms'),
@@ -766,7 +780,7 @@ describe('NurseController (integration)', () => {
         const response = await authed(request(httpServer).get('/nurses/3'), adminToken);
 
         expect(response.status).toBe(200);
-        expect((response.body as NurseResponseDto).assignedRooms).toEqual(['P502', 'P506']);
+        expect((response.body as NurseResponseDto).assignedRooms).toEqual(['P502', 'P504', 'P506']);
       });
     });
 
