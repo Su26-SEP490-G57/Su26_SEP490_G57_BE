@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -48,6 +49,19 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
         retryAttempts: config.get<number>('DB_RETRY_ATTEMPTS', 1),
         retryDelay: config.get<number>('DB_RETRY_DELAY', 1000),
         namingStrategy: new SnakeNamingStrategy(),
+      }),
+      inject: [ConfigService],
+    }),
+    // Shared Redis connection for every Bull queue (yellow-reminder, auto-complete).
+    // Without this, each queue silently falls back to localhost:6379.
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        redis: {
+          host: config.get<string>('REDIS_HOST') || 'localhost',
+          port: parseInt(config.get<string>('REDIS_PORT') || '6379', 10),
+          password: config.get<string>('REDIS_PASSWORD') || undefined,
+        },
       }),
       inject: [ConfigService],
     }),
