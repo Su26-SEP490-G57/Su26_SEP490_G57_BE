@@ -112,11 +112,25 @@ describe('RoomNurseAssignmentController (integration)', () => {
       });
     });
 
-    describe('GIVEN a Nurse caller (not Head Nurse/Admin)', () => {
-      it('THEN should respond 403 Forbidden', async () => {
+    describe('GIVEN a Nurse caller', () => {
+      it('THEN should respond 200', async () => {
         const response = await authed(
           request(httpServer).get('/room-nurse-assignments/P502'),
           nurseToken,
+        );
+
+        expect(response.status).toBe(200);
+      });
+    });
+
+    describe('GIVEN a Patient caller (not staff)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const patientLogin = await login(httpServer, UserRoleName.PATIENT);
+        const patientToken = (patientLogin.body as LoginResponse).accessToken;
+
+        const response = await authed(
+          request(httpServer).get('/room-nurse-assignments/P502'),
+          patientToken,
         );
 
         expect(response.status).toBe(403);

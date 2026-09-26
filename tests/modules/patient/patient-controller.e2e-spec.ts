@@ -380,7 +380,7 @@ describe('PatientController (integration)', () => {
   describe('POST /patients', () => {
     describe('GIVEN a new unique caseId and required fields only', () => {
       it('THEN should respond 201 with the case created and a default-provisioned account', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
         });
@@ -389,9 +389,10 @@ describe('PatientController (integration)', () => {
         const body = response.body as PatientWithAccount;
         expect(body.caseId).toBe('CASE-011');
         expect(body.currentPod).toBe(0);
-        expect(body.level).toBeNull();
+        expect(body.level?.name).toBe('Green');
         expect(body.operationType).toBeNull();
-        expect(body.account?.username).toBe('CASE-011');
+        // Default username is derived from the caseId's number: CASE-011 -> patient11.
+        expect(body.account?.username).toBe('patient11');
         expect(body.account?.fullName).toBe('Người Bệnh Mới');
         expect(body.account?.isActive).toBe(true);
         expect(body.account?.roles).toEqual(['Patient']);
@@ -401,14 +402,14 @@ describe('PatientController (integration)', () => {
       // persistence of the default credentials, a different system than "did the
       // HTTP response look right."
       it('THEN should persist the default password hashed with bcrypt', async () => {
-        await authed(request(httpServer).post('/patients'), nurseToken).send({
+        await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
         });
 
         const stored = await dataSource
           .getRepository(User)
-          .findOne({ where: { username: 'CASE-011' } });
+          .findOne({ where: { username: 'patient11' } });
         expect(stored).not.toBeNull();
         await expect(bcrypt.compare('Patient@123', stored?.passwordHash ?? '')).resolves.toBe(true);
       });
@@ -416,7 +417,7 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN the caseId already belongs to a seeded patient', () => {
       it('THEN should respond 409 Conflict', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-001',
           fullName: 'Trùng Mã Ca',
         });
@@ -427,7 +428,7 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN the username is already taken by a seeded account', () => {
       it('THEN should respond 409 Conflict', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
           username: 'nurse01',
@@ -439,7 +440,7 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN an operationTypeId that does not exist', () => {
       it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
           operationTypeId: 999,
@@ -451,7 +452,7 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN an assignedNurseId that does not exist', () => {
       it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
           assignedNurseId: 999999,
@@ -463,7 +464,7 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN a password that does not meet the complexity policy', () => {
       it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
           fullName: 'Người Bệnh Mới',
           password: 'weak',
@@ -475,11 +476,22 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN the request is missing the required fullName field', () => {
       it('THEN should respond 400 Bad Request', async () => {
-        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+        const response = await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-011',
         });
 
         expect(response.status).toBe(400);
+      });
+    });
+
+    describe('GIVEN a plain Nurse caller (not Head Nurse/Doctor)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(request(httpServer).post('/patients'), nurseToken).send({
+          caseId: 'CASE-011',
+          fullName: 'Người Bệnh Mới',
+        });
+
+        expect(response.status).toBe(403);
       });
     });
 
@@ -504,11 +516,17 @@ describe('PatientController (integration)', () => {
         );
 
         expect(response.status).toBe(200);
+        // CASE-001's seeded level is Yellow with no alerts, so assessment is unlocked.
         expect(response.body as CurrentPodResponse).toEqual({
           caseId: 'CASE-001',
           currentPod: 2,
           isLocked: false,
           holdReason: null,
+          triageColor: 'YELLOW',
+          isAssessmentLocked: false,
+          erasCompleted: false,
+          canSubmitAssessment: true,
+          assessmentDisabledReason: null,
         });
       });
     });
@@ -567,10 +585,23 @@ describe('PatientController (integration)', () => {
       });
     });
 
-    describe('GIVEN a Patient caller (not Nurse/Head Nurse)', () => {
-      it('THEN should respond 403 Forbidden', async () => {
+    describe("GIVEN a Patient caller requesting their own case's history", () => {
+      it('THEN should respond 200 with that history', async () => {
+        // patient01 is the seeded account linked to CASE-001.
         const response = await authed(
           request(httpServer).get('/patients/CASE-001/assessments'),
+          patientToken,
+        );
+
+        expect(response.status).toBe(200);
+        expect((response.body as PaginatedAssessmentHistoryDto).total).toBe(3);
+      });
+    });
+
+    describe("GIVEN a Patient caller requesting another patient's history", () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(
+          request(httpServer).get('/patients/CASE-002/assessments'),
           patientToken,
         );
 
@@ -682,7 +713,7 @@ describe('PatientController (integration)', () => {
   describe('POST /patients/:id/start-eras', () => {
     describe('GIVEN a Head Nurse caller and a patient that has not started ERAS', () => {
       beforeEach(async () => {
-        await authed(request(httpServer).post('/patients'), nurseToken).send({
+        await authed(request(httpServer).post('/patients'), headNurseToken).send({
           caseId: 'CASE-NEW',
           fullName: 'Bệnh Nhân Chưa Bắt Đầu',
         });
@@ -1286,11 +1317,23 @@ describe('PatientController (integration)', () => {
 
     describe('GIVEN the new username is already taken by another seeded account', () => {
       it('THEN should respond 409 Conflict', async () => {
-        const response = await authed(request(httpServer).patch('/patients/4'), nurseToken).send({
-          username: 'nurse01',
-        });
+        const response = await authed(
+          request(httpServer).patch('/patients/4'),
+          headNurseToken,
+        ).send({ username: 'nurse01' });
 
         expect(response.status).toBe(409);
+      });
+    });
+
+    describe('GIVEN a plain Nurse caller changing account-restricted fields', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(request(httpServer).patch('/patients/4'), nurseToken).send({
+          username: 'patient01-renamed',
+          isActive: false,
+        });
+
+        expect(response.status).toBe(403);
       });
     });
 
@@ -1339,7 +1382,7 @@ describe('PatientController (integration)', () => {
   describe('DELETE /patients/:id', () => {
     describe('GIVEN the account user id of a seeded patient', () => {
       it('THEN should respond 200 with the user id, case id, and deleted flag', async () => {
-        const response = await authed(request(httpServer).delete('/patients/4'), nurseToken);
+        const response = await authed(request(httpServer).delete('/patients/4'), headNurseToken);
 
         expect(response.status).toBe(200);
         expect(response.body as DeletePatientResponse).toEqual({
@@ -1352,7 +1395,7 @@ describe('PatientController (integration)', () => {
       // Kept separate from the response-shape assertion above: this is verifying
       // persistence, a different system than "did the HTTP response look right."
       it('THEN should soft-delete both the account and its linked patient case', async () => {
-        await authed(request(httpServer).delete('/patients/4'), nurseToken);
+        await authed(request(httpServer).delete('/patients/4'), headNurseToken);
 
         const storedUser = await dataSource
           .getRepository(User)
@@ -1365,9 +1408,20 @@ describe('PatientController (integration)', () => {
       });
     });
 
+    describe('GIVEN a plain Nurse caller (not Head Nurse/Doctor)', () => {
+      it('THEN should respond 403 Forbidden', async () => {
+        const response = await authed(request(httpServer).delete('/patients/4'), nurseToken);
+
+        expect(response.status).toBe(403);
+      });
+    });
+
     describe('GIVEN a user id that does not exist', () => {
       it('THEN should respond 404 Not Found', async () => {
-        const response = await authed(request(httpServer).delete('/patients/999999'), nurseToken);
+        const response = await authed(
+          request(httpServer).delete('/patients/999999'),
+          headNurseToken,
+        );
 
         expect(response.status).toBe(404);
       });

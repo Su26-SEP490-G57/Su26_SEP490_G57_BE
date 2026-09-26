@@ -77,6 +77,7 @@ describe('AlertService (integration)', () => {
     alertGateway.emitAlertHandled.mockClear();
     notificationService.sendToNursesSpecific.mockClear();
     notificationService.sendToNurses.mockClear();
+    notificationService.sendToHeadNurses.mockClear();
     notificationService.sendToDoctors.mockClear();
     notificationService.sendToDoctors.mockResolvedValue({ attempted: 0, sent: 0 });
 
@@ -212,9 +213,10 @@ describe('AlertService (integration)', () => {
         expect(notificationService.sendToNursesSpecific).not.toHaveBeenCalled();
       });
 
-      // Fallback introduced alongside the room-assignment fan-out: an unassigned
-      // room must not mean the alert silently reaches no one.
-      it('THEN should broadcast the push notification to all nurses instead', async () => {
+      // An unassigned room must not mean the alert silently reaches no one — but
+      // it goes to head nurses only: plain nurses not assigned to the room would
+      // get a 403 when trying to handle it.
+      it('THEN should send the push notification to head nurses only', async () => {
         const unassignedRoomSurvey = await dataSource.getRepository(SymptomSurvey).save({
           caseId: 'CASE-007',
           evaluationDatetime: new Date(),
@@ -227,8 +229,9 @@ describe('AlertService (integration)', () => {
           alertType: 'RED',
         });
 
-        expect(notificationService.sendToNurses).toHaveBeenCalledTimes(1);
-        expect(notificationService.sendToNurses).toHaveBeenCalledWith(
+        expect(notificationService.sendToNurses).not.toHaveBeenCalled();
+        expect(notificationService.sendToHeadNurses).toHaveBeenCalledTimes(1);
+        expect(notificationService.sendToHeadNurses).toHaveBeenCalledWith(
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
@@ -259,7 +262,7 @@ describe('AlertService (integration)', () => {
         expect(stored).toEqual(
           expect.objectContaining({
             status: 'HANDLED',
-            nursingNote: 'Đã cập nhật trạng thái người bệnh về Ổn định (GREEN).',
+            nursingNote: 'Điều dưỡng đã đánh giá lại lâm sàng (phân loại: GREEN).',
           }),
         );
         expect(stored?.handledAt).toBeInstanceOf(Date);
@@ -275,23 +278,25 @@ describe('AlertService (integration)', () => {
 
         await alertService.updateAlertsOnReassessment('CASE-001', 'GREEN');
 
-        expect(alertGateway.emitNewAlert).toHaveBeenCalledTimes(1);
-        expect(alertGateway.emitNewAlert).toHaveBeenCalledWith(
+        expect(alertGateway.emitNewAlert).not.toHaveBeenCalled();
+        expect(alertGateway.emitAlertHandled).toHaveBeenCalledTimes(1);
+        expect(alertGateway.emitAlertHandled).toHaveBeenCalledWith(
           expect.objectContaining({ alertId: created.alertId, status: 'Đã xử trí' }),
         );
       });
     });
 
+    // Reassessment always closes the pending alerts regardless of the new color;
+    // raising a fresh alert for a RED/YELLOW result is SymptomSurveyService's job.
     describe('GIVEN a pending YELLOW alert exists for the case and the new triage color is RED', () => {
-      it('THEN should update the existing alert type in place rather than creating a new alert', async () => {
+      it('THEN should close the existing alert as HANDLED without changing its type', async () => {
         const created = await alertService.createAlert({
           caseId: 'CASE-001',
           assessmentId: surveyId,
           alertType: 'YELLOW',
         });
-        alertGateway.emitNewAlert.mockClear();
 
-        await alertService.updateAlertsOnReassessment('CASE-001', 'RED', surveyId);
+        await alertService.updateAlertsOnReassessment('CASE-001', 'RED', surveyId, 3);
 
         const alerts = await dataSource
           .getRepository(Alert)
@@ -300,57 +305,31 @@ describe('AlertService (integration)', () => {
         expect(alerts[0]).toEqual(
           expect.objectContaining({
             alertId: created.alertId,
-            alertType: 'RED',
-            status: 'PENDING_REVIEW',
+            alertType: 'YELLOW',
+            status: 'HANDLED',
+            handledByUserId: 3,
+            nursingNote: 'Điều dưỡng đã đánh giá lại lâm sàng (phân loại: RED).',
           }),
         );
       });
     });
 
     describe('GIVEN no pending alert exists for the case and the new triage color is RED', () => {
-      it('THEN should create a new PENDING_REVIEW alert that is not auto-progressed', async () => {
-        await alertService.updateAlertsOnReassessment('CASE-001', 'RED', surveyId);
-
-        const alerts = await dataSource
-          .getRepository(Alert)
-          .find({ where: { caseId: 'CASE-001' } });
-        expect(alerts).toHaveLength(1);
-        expect(alerts[0]).toEqual(
-          expect.objectContaining({
-            caseId: 'CASE-001',
-            assessmentId: surveyId,
-            alertType: 'RED',
-            status: 'PENDING_REVIEW',
-            isAutoProgression: false,
-          }),
-        );
-      });
-
-      it('THEN should emit the newly created alert over the alert gateway', async () => {
-        await alertService.updateAlertsOnReassessment('CASE-001', 'RED', surveyId);
-
-        expect(alertGateway.emitNewAlert).toHaveBeenCalledTimes(1);
-        expect(alertGateway.emitNewAlert).toHaveBeenCalledWith(
-          expect.objectContaining({ caseId: 'CASE-001', alertType: 'RED' }),
-        );
-      });
-    });
-
-    describe('GIVEN no pending alert exists for the case and the new triage color is GREEN', () => {
       it('THEN should not create an alert or emit anything', async () => {
-        await alertService.updateAlertsOnReassessment('CASE-001', 'GREEN', surveyId);
+        await alertService.updateAlertsOnReassessment('CASE-001', 'RED', surveyId);
 
         const count = await dataSource
           .getRepository(Alert)
           .count({ where: { caseId: 'CASE-001' } });
         expect(count).toBe(0);
         expect(alertGateway.emitNewAlert).not.toHaveBeenCalled();
+        expect(alertGateway.emitAlertHandled).not.toHaveBeenCalled();
       });
     });
 
-    describe('GIVEN no pending alert exists for the case and no assessmentId is provided', () => {
-      it('THEN should not create an alert even if the triage color is RED', async () => {
-        await alertService.updateAlertsOnReassessment('CASE-001', 'RED');
+    describe('GIVEN no pending alert exists for the case and the new triage color is GREEN', () => {
+      it('THEN should not create an alert or emit anything', async () => {
+        await alertService.updateAlertsOnReassessment('CASE-001', 'GREEN', surveyId);
 
         const count = await dataSource
           .getRepository(Alert)

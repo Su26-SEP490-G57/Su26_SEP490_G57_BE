@@ -75,6 +75,7 @@ describe('SymptomSurveyService (integration)', () => {
   beforeEach(async () => {
     await resetTestDataSource();
     alertService.updateAlertsOnReassessment.mockClear();
+    alertService.createAlert.mockClear();
     statisticsGateway.emitAssessmentSubmitted.mockClear();
 
     // seed.ts creates one assessment per seeded patient case (including CASE-001),
@@ -304,7 +305,26 @@ describe('SymptomSurveyService (integration)', () => {
           'CASE-001',
           'RED',
           result.assessmentId,
+          nurseCaller.id,
         );
+      });
+
+      // Kept separate from the reconcile call above: closing old alerts and
+      // raising a fresh one for the RED result are independent side effects.
+      it('THEN should raise a new RED alert for the reassessment', async () => {
+        const dto: CreateReassessmentDto = {
+          caseId: 'CASE-001',
+          triageColor: 'RED',
+        };
+
+        const result = await symptomSurveyService.submitReassessment(dto, nurseCaller);
+
+        expect(alertService.createAlert).toHaveBeenCalledTimes(1);
+        expect(alertService.createAlert).toHaveBeenCalledWith({
+          caseId: 'CASE-001',
+          assessmentId: result.assessmentId,
+          alertType: 'RED',
+        });
       });
 
       it('THEN should emit an assessment.submitted statistics event', async () => {

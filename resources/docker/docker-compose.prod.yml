@@ -17,6 +17,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       FRONTEND_URL: ${FRONTEND_URL}
+      HIS_SERVICE_URL: http://his-prod:4000
       FIREBASE_SERVICE_ACCOUNT: /app/keys/firebase-admin.json
     volumes:
       - ./keys/firebase-admin.json:/app/keys/firebase-admin.json:ro
