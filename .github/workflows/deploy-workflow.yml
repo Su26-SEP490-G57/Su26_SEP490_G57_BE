@@ -45,14 +45,23 @@ jobs:
             giangdoit123
             lucif3r2003
 
+  build:
+    name: Build Application
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/build-workflow.yml
+
   build_and_deploy:
     name: Build & Deploy to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    needs: build
 
+    # always() so this still runs when `build` is skipped (workflow_call: the caller already built `dist`)
     if: |
-      inputs.environment == 'dev' || 
-      ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main')
+      always() &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (inputs.environment == 'dev' ||
+      ((inputs.environment == 'staging' || inputs.environment == 'prod') && github.ref_name == 'main'))
 
     concurrency:
       group: poms-ssh-deploy-${{ inputs.environment }}
